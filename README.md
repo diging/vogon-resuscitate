@@ -1,7 +1,5 @@
-<<<<<<< HEAD
 # vogon-resuscitate
 Resuscitated Vogon that works without Vue.js
-=======
 
 # vogon-resuscitate
 Resuscitated Vogon that works without Vue.js
@@ -160,7 +158,4 @@ located in ``annotations/elasticsearch_backends.py``.
 
 If you're using ES 1.x, the built-in ES backend for Haystack should work just
 fine.
->>>>>>> 5a008c2 (Initialized)
->>>>>>> 9e3bf4c (Initial commit)
->>>>>>> cc953b9 (Initialized)
->>>>>>> 8e77a3b (Initalized)
+
