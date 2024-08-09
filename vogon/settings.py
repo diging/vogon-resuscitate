@@ -15,7 +15,7 @@ import os, sys, requests
 from urllib.parse  import urlparse
 import socket
 import dj_database_url
-import djcelery
+# import djcelery
 from datetime import timedelta
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -104,8 +104,20 @@ WSGI_APPLICATION = 'vogon.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
 
-DATABASES = {'default': dj_database_url.config()}
-DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql_psycopg2'
+# DATABASES = {'default': dj_database_url.config()}
+# DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql_psycopg2'
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': os.environ.get('POSTGRES_NAME'),
+        'USER': os.environ.get('POSTGRES_USER'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
+        'HOST': 'db',
+        'PORT': '5432',
+    }
+}
+
 
 # print DATABASES
 
@@ -226,13 +238,13 @@ BASE_URI_NAMESPACE = u'http://www.vogonweb.net'
 
 # Celery config.
 
-djcelery.setup_loader()
-CELERYBEAT_SCHEDULE = {
-    'accession_ready_relationsets': {
-        'task': 'annotations.tasks.accession_ready_relationsets',
-        'schedule': timedelta(minutes=10, seconds=0),
-    },
-}
+# djcelery.setup_loader()
+# CELERYBEAT_SCHEDULE = {
+#     'accession_ready_relationsets': {
+#         'task': 'annotations.tasks.accession_ready_relationsets',
+#         'schedule': timedelta(minutes=10, seconds=0),
+#     },
+# }
 
 CELERY_TIMEZONE = 'UTC'
 

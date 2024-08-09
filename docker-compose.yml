@@ -17,7 +17,7 @@ services:
     platform: linux/amd64
     command: tail -f /dev/null
     volumes:
-      - ./vogon
+      - .:/vogon
       - ./data/files:/data/files
     ports:
       - "8000:8000"
