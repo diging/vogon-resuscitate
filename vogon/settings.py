@@ -41,11 +41,13 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'django.contrib.sites',
     'allauth',
     'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.github',
+
+    'bootstrap4',
+   
     'concepts',
     'giles',
     'annotations',
@@ -53,7 +55,6 @@ INSTALLED_APPS = (
     'corsheaders',
     'djcelery',
     'repository',
-    # 'social.apps.django_app.default',
 )
 
 MIDDLEWARE = (
@@ -123,27 +124,19 @@ DATABASES = {
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend', # default
-    # 'social.backends.github.GithubOAuth2',
-    'allauth.account.auth_backends.AuthenticationBackend',
+    'allauth.account.auth_backends.AuthenticationBackend', #Allauth
 )
 
 ACCOUNT_AUTHENTICATED_LOGIN_REDIRECTS =True
 ANONYMOUS_USER_ID = -1
 BASE_URL = os.environ.get('BASE_URL', '/')
-SOCIAL_AUTH_GITHUB_KEY = os.environ.get('SOCIAL_AUTH_GITHUB_KEY', None)
-SOCIAL_AUTH_GITHUB_SECRET = os.environ.get('SOCIAL_AUTH_GITHUB_SECRET', None)
-SOCIAL_AUTH_LOGIN_REDIRECT_URL = BASE_URL
-SOCIAL_AUTH_GITHUB_SCOPE = ['user']
 
-SOCIALACCOUNT_PROVIDERS = {
-    'github': {
-        'SCOPE': [
-            'user',
-        ],
-    }
-}
+LOGIN_URL = '/login/'
+LOGOUT_URL = '/logout/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
 
-SOCIALACCOUNT_ADAPTER = 'annotations.adapter.SocialAccountAdapter'
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
@@ -216,8 +209,7 @@ PREDICATES = {
 
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
-        'LOCATION': 'default_cache_table',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
     }
 }
 

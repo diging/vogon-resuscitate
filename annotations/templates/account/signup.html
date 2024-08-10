@@ -4,6 +4,7 @@
 
 {% block head_title %}{% trans "Signup" %}{% endblock %}
 {% block head_links %} 
+{% load bootstrap4 %}
 
 <title>Signup</title>
 
@@ -37,7 +38,7 @@
 <form class="container-fluid text-center" id="signup_form" method="post" action="{% url 'account_signup' %}">
   {% csrf_token %}
 
-  {{ form.as_p }}
+  {% bootstrap_form form %}
 
   {% if redirect_field_value %}
 
