@@ -131,13 +131,21 @@ ACCOUNT_AUTHENTICATED_LOGIN_REDIRECTS =True
 ANONYMOUS_USER_ID = -1
 BASE_URL = os.environ.get('BASE_URL', '/')
 
+# Allauth Settings
 LOGIN_URL = '/login/'
 LOGOUT_URL = '/logout/'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = 'home'
+LOGOUT_REDIRECT_URL = 'home'
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-
+# Allauth Email Settings
+if DEBUG:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    EMAIL_HOST = os.environ.get('EMAIL_HOST')
+    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+    EMAIL_PORT = os.environ.get('EMAIL_PORT')
+    EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS')
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
 
@@ -255,10 +263,6 @@ MAX_GILES_UPLOADS = 20
 
 GOAT = os.environ.get('GOAT', 'http://127.0.0.1:8000')
 GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN')
-
-LOGIN_URL = BASE_URL + 'login/github/'
-# LOGIN_REDIRECT_URL = 'home'
-# LOGOUT_REDIRECT_URL = 'home'
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
 
