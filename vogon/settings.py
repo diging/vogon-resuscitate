@@ -49,10 +49,12 @@ INSTALLED_APPS = (
     'concepts',
     'giles',
     'annotations',
+    'external_accounts',
     'rest_framework',
     'corsheaders',
     'djcelery',
     'repository',
+    'oauth2_provider',
     # 'social.apps.django_app.default',
 )
 
@@ -287,3 +289,14 @@ CONCEPT_TYPES = {
 }
 
 SUBMIT_WAIT_TIME = {'days': 3, 'hours': 0, 'minutes': 0}
+
+# Citesphere Credentials
+CITESPHERE_ENDPOINT = os.environ.get('CITESPHERE_ENDPOINT')
+
+CITESPHERE_CLIENT_ID = os.environ.get('CITESPHERE_CLIENT_ID')
+CITESPHERE_CLIENT_SECRET = os.environ.get('CITESPHERE_CLIENT_SECRET')
+CITESPHERE_REDIRECT_URI = os.environ.get('CITESPHERE_REDIRECT_URI')
+
+# OAuth specific endpoints
+CITESPHERE_AUTH_URL = f"{CITESPHERE_ENDPOINT}/api/oauth/authorize"
+CITESPHERE_TOKEN_URL = f"{CITESPHERE_ENDPOINT}/api/oauth/token"
