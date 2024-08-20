@@ -264,7 +264,7 @@ def user_details(request, userid, *args, **kwargs):
         Renders an user details view based on user's authentication status.
     """
     user = get_object_or_404(VogonUser, pk=userid)
-    if request.user.is_authenticated() and request.user.id == int(userid) and request.GET.get('mode', '') == 'edit':
+    if request.user.is_authenticated and request.user.id == int(userid) and request.GET.get('mode', '') == 'edit':
         return HttpResponseRedirect(reverse('settings'))
     else:
         textCount = Text.objects.filter(addedBy=user).count()
