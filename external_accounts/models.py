@@ -1,10 +1,11 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.conf import settings
+from django.db import models
 from django.utils import timezone
 import json
 
 class CitesphereAccount(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='citesphere_account')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='citesphere_account')
     citesphere_user_id = models.CharField(max_length=255, help_text="Unique identifier for the Citesphere user")
     access_token = models.CharField(max_length=255, help_text="OAuth access token")
     refresh_token = models.CharField(max_length=255, help_text="OAuth refresh token")
