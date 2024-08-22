@@ -8,6 +8,20 @@ from datetime import timedelta
 import requests
 import secrets
 
+@login_required
+def citesphere_login(request):
+    state = secrets.token_urlsafe()
+    request.session['oauth_state'] = state  # Store state in user's session for later validation
+
+    params = {
+        'client_id': settings.CITESPHERE_CLIENT_ID,
+        'scope': 'read',
+        'response_type': 'code',
+        'state': state
+    }
+    url = f"{settings.CITESPHERE_AUTH_URL}?{urlencode(params)}"
+    return redirect(url)
+
 def citesphere_callback(request):
     code = request.GET.get('code')
     state = request.GET.get('state')
@@ -17,19 +31,22 @@ def citesphere_callback(request):
         return render(request, 'error.html', {'message': 'Authorization failed with Citesphere.'})
 
     token_response = requests.post(settings.CITESPHERE_TOKEN_URL, data={
-        'grant_type': 'authorization_code',
-        'code': code,
-        'redirect_uri': settings.CITESPHERE_REDIRECT_URI,
         'client_id': settings.CITESPHERE_CLIENT_ID,
         'client_secret': settings.CITESPHERE_CLIENT_SECRET,
+        'code': code,
+        'redirect_uri': settings.CITESPHERE_REDIRECT_URI,
+        'state': state,
+        'grant_type': 'authorization_code',
     }).json()
+
+    print("tojen: ", token_response)
 
     access_token = token_response.get('access_token')
     refresh_token = token_response.get('refresh_token')
     expires_in = token_response.get('expires_in')
 
     # Calculate the expiration time
-    expires_at = timezone.now() + timedelta(seconds=expires_in)
+    expires_at = expires_at = timezone.now() + timedelta(seconds=int(expires_in))
 
     # Update or create the account instance
     citesphere_account, created = CitesphereAccount.objects.update_or_create(
@@ -43,21 +60,6 @@ def citesphere_callback(request):
     )
 
     return redirect('home')
-
-@login_required
-def citesphere_login(request):
-    state = secrets.token_urlsafe()
-    request.session['oauth_state'] = state  # Store state in user's session for later validation
-
-    params = {
-        'client_id': settings.CITESPHERE_CLIENT_ID,
-        'response_type': 'code',
-        'redirect_uri': settings.CITESPHERE_REDIRECT_URI,
-        'scope': 'read write',
-        'state': state
-    }
-    url = f"{settings.CITESPHERE_AUTH_URL}?{urlencode(params)}"
-    return redirect(url)
 
 @login_required
 def refresh_access_token(request):

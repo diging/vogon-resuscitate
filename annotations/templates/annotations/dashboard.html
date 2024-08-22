@@ -22,11 +22,12 @@
                             <div class="card">
                                 <div class="card-body">
                                     <h4 class="card-title">Citesphere</h4>
+                                    <h1></h1>
                                     {% if user.citesphere_account %}
                                         <p>Connected as {{ user.citesphere_account.citesphere_user_id }}.</p>
-                                        <a href="" class="btn btn-success">Connected</a>
+                                        <button class="btn btn-success">Connected</button>
                                     {% else %}
-                                        <a href="" class="btn btn-primary">Connect</a>
+                                        <a href="{% url 'citesphere_login' %}" class="btn btn-primary">Connect</a>
                                     {% endif %}
                                 </div>
                             </div>
