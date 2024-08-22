@@ -55,7 +55,7 @@ def citesphere_callback(request):
             'access_token': access_token,
             'refresh_token': refresh_token,
             'token_expires_at': expires_at,
-            'extra_data': token_response  # or a subset of the response
+            'extra_data': token_response
         }
     )
 

@@ -1,0 +1,15 @@
+
+.flex-container {
+    display: flex;
+    align-items: center; /* Align items vertically in the center */
+    justify-content: start; /* Align content to the start of the flex container */
+}
+
+.logo-container {
+    flex: 0 0 auto; /* Do not grow, do not shrink, and base width on the content */
+    margin-right: 20px; /* Add some space between the logo and the info */
+}
+
+.info-container {
+    flex: 1; /* Take up the remaining space */
+}
