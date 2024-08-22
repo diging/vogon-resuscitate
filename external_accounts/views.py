@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.http import HttpResponse
 from django.conf import settings
 from urllib.parse import urlencode
 from django.contrib.auth.decorators import login_required
@@ -83,3 +84,35 @@ def refresh_access_token(request):
     citesphere_account.save()
 
     return new_access_token
+
+def list_resources(request, group_id=None, collection_id=None):
+    try:
+        # Retrieve the access token from user's associated CitesphereAccount or session
+        if group_id is None:
+            account = CitesphereAccount.objects.get(user=request.user)
+            access_token = account.access_token
+        else:
+            access_token = request.session.get('access_token')
+
+        # Build the appropriate URL based on what parameters are provided
+        if collection_id:
+            url = f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{group_id}/collections/{collection_id}/texts'
+        elif group_id:
+            url = f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{group_id}/collections'
+        else:
+            url = f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups'
+
+        # Make the request to the Citesphere API
+        response = requests.get(url, headers={'Authorization': f'Bearer {access_token}'})
+        if response.status_code == 200:
+            data = response.json()
+            return render(request, 'list_resources.html', {'data': data, 'type': 'texts' if collection_id else 'collections' if group_id else 'groups', 'group_id': group_id, 'collection_id': collection_id})
+        else:
+            return HttpResponse(f"Failed to retrieve data. Status code: {response.status_code}", status=502)
+
+    except CitesphereAccount.DoesNotExist:
+        return HttpResponse("No Citesphere account associated with this user.", status=404)
+    except KeyError:
+        return HttpResponse("Access token not found in session.", status=404)
+    except requests.RequestException as e:
+        return HttpResponse(f"An error occurred while retrieving data: {str(e)}", status=500)
