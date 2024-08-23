@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.conf import settings
 from urllib.parse import urlencode
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from .models import CitesphereAccount
 from django.utils import timezone
@@ -60,26 +61,3 @@ def citesphere_callback(request):
     )
 
     return redirect('home')
-
-@login_required
-def refresh_access_token(request):
-    citesphere_account = CitesphereAccount.objects.get(user=request.user)
-    response = requests.post(settings.CITESPHERE_TOKEN_URL, data={
-        'grant_type': 'refresh_token',
-        'refresh_token': citesphere_account.refresh_token,
-        'client_id': settings.CITESPHERE_CLIENT_ID,
-        'client_secret': settings.CITESPHERE_CLIENT_SECRET,
-    }).json()
-
-    new_access_token = response.get('access_token')
-    new_refresh_token = response.get('refresh_token')
-    expires_in = response.get('expires_in')
-    expires_at = timezone.now() + timedelta(seconds=expires_in)
-
-    # Update tokens and expiration
-    citesphere_account.access_token = new_access_token
-    citesphere_account.refresh_token = new_refresh_token
-    citesphere_account.token_expires_at = expires_at
-    citesphere_account.save()
-
-    return new_access_token

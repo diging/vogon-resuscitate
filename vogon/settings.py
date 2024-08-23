@@ -70,6 +70,7 @@ MIDDLEWARE = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'external_accounts.middleware.TokenRefreshMiddleware',
 )
 
 ROOT_URLCONF = 'vogon.urls'
