@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from urllib.parse import urlencode
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from .models import CitesphereAccount
 from django.utils import timezone
@@ -62,35 +63,6 @@ def citesphere_callback(request):
 
     return redirect('home')
 
-@login_required
-def refresh_access_token(request):
-    citesphere_account = CitesphereAccount.objects.get(user=request.user)
-    response = requests.post(settings.CITESPHERE_TOKEN_URL, data={
-        'grant_type': 'refresh_token',
-        'refresh_token': citesphere_account.refresh_token,
-        'client_id': settings.CITESPHERE_CLIENT_ID,
-        'client_secret': settings.CITESPHERE_CLIENT_SECRET,
-    }).json()
-
-    new_access_token = response.get('access_token')
-    new_refresh_token = response.get('refresh_token')
-    expires_in = response.get('expires_in')
-    expires_at = timezone.now() + timedelta(seconds=int(expires_in))
-
-    # Update tokens and expiration
-    citesphere_account.access_token = new_access_token
-    citesphere_account.refresh_token = new_refresh_token
-    citesphere_account.token_expires_at = expires_at
-    citesphere_account.save()
-
-    # Return a JSON response with the new access token
-    return JsonResponse({
-        'access_token': new_access_token,
-        'token_type': 'bearer',
-        'expires_in': expires_in,
-        'refresh_token': new_refresh_token
-    })
-
 # def list_resources(request, group_id=None, collection_id=None):
 #     try:
 #         # Retrieve the access token from user's associated CitesphereAccount or session
@@ -129,7 +101,7 @@ from django.http import JsonResponse
 def list_groups(request):
     try:
         account = CitesphereAccount.objects.get(user=request.user)
-        response = requests.get(f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups', 
+        response = requests.get(f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups/', 
                                 headers={'Authorization': f'Bearer {account.access_token}'})
         if response.status_code == 200:
             groups = response.json()
@@ -140,4 +112,3 @@ def list_groups(request):
         return JsonResponse({'error': "No Citesphere account associated with this user."}, status=404)
     except requests.RequestException as e:
         return JsonResponse({'error': f"An error occurred while retrieving groups: {str(e)}"}, status=500)
-
