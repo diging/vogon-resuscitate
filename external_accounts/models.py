@@ -25,3 +25,36 @@ class CitesphereAccount(models.Model):
 
     def is_token_expired(self):
         return timezone.now() >= self.token_expires_at
+
+class CitesphereGroup(models.Model):
+    citesphere_accounts = models.ManyToManyField(CitesphereAccount, related_name='groups')
+    group_id = models.IntegerField(unique=True)
+    name = models.CharField(max_length=255)
+    version = models.IntegerField()
+    num_items = models.IntegerField()
+    date_created = models.DateTimeField()
+    date_modified = models.DateTimeField()
+    type = models.CharField(max_length=50)
+    description = models.TextField(blank=True, null=True)
+    url = models.URLField(max_length=200, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.name} (ID: {self.group_id})"
+
+
+class CitesphereCollection(models.Model):
+    group = models.ForeignKey('CitesphereGroup', related_name='collections', on_delete=models.CASCADE)
+    collection_id = models.CharField(max_length=255, unique=True)
+    key = models.CharField(max_length=100)
+    version = models.IntegerField()
+    content_version = models.IntegerField(default=0)
+    number_of_collections = models.IntegerField(default=0)
+    number_of_items = models.IntegerField(default=0)
+    name = models.CharField(max_length=255)
+    parent_collection_key = models.CharField(max_length=100, blank=True, null=True)
+    last_modified = models.DateTimeField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
