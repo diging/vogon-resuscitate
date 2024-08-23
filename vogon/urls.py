@@ -143,6 +143,5 @@ urlpatterns = [
 
     path('login/citesphere/', externalAccountViews.citesphere_login, name='citesphere_login'),
     path('oauth/callback/citesphere/', externalAccountViews.citesphere_callback, name='citesphere_callback'),
-    path('refresh_token/citesphere/', externalAccountViews.refresh_access_token, name='refresh_access_token'),
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
