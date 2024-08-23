@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from urllib.parse import urlencode
 from django.contrib.auth.decorators import login_required
@@ -75,7 +75,7 @@ def refresh_access_token(request):
     new_access_token = response.get('access_token')
     new_refresh_token = response.get('refresh_token')
     expires_in = response.get('expires_in')
-    expires_at = timezone.now() + timedelta(seconds=expires_in)
+    expires_at = timezone.now() + timedelta(seconds=int(expires_in))
 
     # Update tokens and expiration
     citesphere_account.access_token = new_access_token
@@ -83,36 +83,61 @@ def refresh_access_token(request):
     citesphere_account.token_expires_at = expires_at
     citesphere_account.save()
 
-    return new_access_token
+    # Return a JSON response with the new access token
+    return JsonResponse({
+        'access_token': new_access_token,
+        'token_type': 'bearer',
+        'expires_in': expires_in,
+        'refresh_token': new_refresh_token
+    })
 
-def list_resources(request, group_id=None, collection_id=None):
+# def list_resources(request, group_id=None, collection_id=None):
+#     try:
+#         # Retrieve the access token from user's associated CitesphereAccount or session
+#         if group_id is None:
+#             account = CitesphereAccount.objects.get(user=request.user)
+#             access_token = account.access_token
+#         else:
+#             access_token = request.session.get('access_token')
+
+#         # Build the appropriate URL based on what parameters are provided
+#         if collection_id:
+#             url = f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{group_id}/collections/{collection_id}/texts'
+#         elif group_id:
+#             url = f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{group_id}/collections'
+#         else:
+#             url = f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups'
+
+#         # Make the request to the Citesphere API
+#         response = requests.get(url, headers={'Authorization': f'Bearer {access_token}'})
+#         if response.status_code == 200:
+#             data = response.json()
+#             return render(request, 'list_resources.html', {'data': data, 'type': 'texts' if collection_id else 'collections' if group_id else 'groups', 'group_id': group_id, 'collection_id': collection_id})
+#         else:
+#             return HttpResponse(f"Failed to retrieve data. Status code: {response.status_code}", status=502)
+
+#     except CitesphereAccount.DoesNotExist:
+#         return HttpResponse("No Citesphere account associated with this user.", status=404)
+#     except KeyError:
+#         return HttpResponse("Access token not found in session.", status=404)
+#     except requests.RequestException as e:
+#         return HttpResponse(f"An error occurred while retrieving data: {str(e)}", status=500)
+
+
+from django.http import JsonResponse
+
+def list_groups(request):
     try:
-        # Retrieve the access token from user's associated CitesphereAccount or session
-        if group_id is None:
-            account = CitesphereAccount.objects.get(user=request.user)
-            access_token = account.access_token
-        else:
-            access_token = request.session.get('access_token')
-
-        # Build the appropriate URL based on what parameters are provided
-        if collection_id:
-            url = f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{group_id}/collections/{collection_id}/texts'
-        elif group_id:
-            url = f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{group_id}/collections'
-        else:
-            url = f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups'
-
-        # Make the request to the Citesphere API
-        response = requests.get(url, headers={'Authorization': f'Bearer {access_token}'})
+        account = CitesphereAccount.objects.get(user=request.user)
+        response = requests.get(f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups', 
+                                headers={'Authorization': f'Bearer {account.access_token}'})
         if response.status_code == 200:
-            data = response.json()
-            return render(request, 'list_resources.html', {'data': data, 'type': 'texts' if collection_id else 'collections' if group_id else 'groups', 'group_id': group_id, 'collection_id': collection_id})
+            groups = response.json()
+            return JsonResponse(groups, safe=False)  # Use safe=False if the top-level object is a list
         else:
-            return HttpResponse(f"Failed to retrieve data. Status code: {response.status_code}", status=502)
-
+            return JsonResponse({'error': f"Failed to retrieve groups. Status code: {response.status_code}"}, status=502)
     except CitesphereAccount.DoesNotExist:
-        return HttpResponse("No Citesphere account associated with this user.", status=404)
-    except KeyError:
-        return HttpResponse("Access token not found in session.", status=404)
+        return JsonResponse({'error': "No Citesphere account associated with this user."}, status=404)
     except requests.RequestException as e:
-        return HttpResponse(f"An error occurred while retrieving data: {str(e)}", status=500)
+        return JsonResponse({'error': f"An error occurred while retrieving groups: {str(e)}"}, status=500)
+
