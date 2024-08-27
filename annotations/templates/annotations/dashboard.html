@@ -30,7 +30,8 @@
                                         <div class="info-container">
                                             <h2 class="card-title">Citesphere</h2>
                                             {% if has_citesphere_account %}
-                                                <button class="btn btn-success">Connected</button>
+                                                <button class="btn btn-success btn-margin-bottom " disabled>Connected</button><br>
+                                                <a href="{% url 'list_citesphere_groups' %}">View Groups and Collections</a>
                                             {% else %}
                                                 <a href="{% url 'citesphere_login' %}" class="btn btn-primary">Connect</a>
                                             {% endif %}

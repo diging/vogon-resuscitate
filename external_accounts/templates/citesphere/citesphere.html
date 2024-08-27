@@ -31,6 +31,7 @@
                                 <p class="card-text"><strong>Created:</strong> {{ group.date_created|date:"M d, Y" }}</p>
                                 <p class="card-text"><strong>Last Modified:</strong> {{ group.date_modified|date:"M d, Y" }}</p>
                                 <p class="card-text"><small>{{ group.description }}</small></p>
+                                <a href="{% url 'citesphere_group_detail' group.slug %}" class="btn btn-primary">View Group</a>
                                 <a href="{% url 'get_citesphere_collections' group.group_id %}" class="btn btn-primary">Import Collections</a>
                             </div>
                         </div>

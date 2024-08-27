@@ -1,0 +1,68 @@
+{% extends "annotations/base.html" %}
+{% load static %}
+
+{% block breadcrumbs %}
+    <a href="{% url 'home' %}" class="btn btn-xs">Home</a>
+    &raquo;<a href="{% url 'dashboard' %}" class="btn btn-xs">Dashboard</a>
+    &raquo;<a href="{% url 'list_citesphere_groups' %}" class="btn btn-xs">Citesphere Groups</a>
+{% endblock %}
+
+{% block main %}
+    <div class="container mt-4">
+        <h1>{{ group.name }}</h1>
+        <p><strong>ID:</strong> {{ group.group_id }}</p>
+        <p><strong>Type:</strong> {{ group.type }}</p>
+        <p><strong>Number of Items:</strong> {{ group.num_items }}</p>
+        <p><strong>Date Created:</strong> {{ group.date_created }}</p>
+        <p><strong>Last Modified:</strong> {{ group.date_modified }}</p>
+        <p><strong>Description:</strong> {{ group.description }}</p>
+        <a href="{% url 'get_citesphere_collections' group.group_id %}" class="btn btn-info">Import Collections</a>
+        
+        <div class="container mt-4">
+            <div class="row">
+                <div class="col-md-6">
+                    <h2>Collections</h2>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Collection Name</th>
+                                <th>Number of Items</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for collection in collections %}
+                            <tr onclick="showItems('{{ collection.key }}')">
+                                <td>{{ collection.name }}</td>
+                                <td>{{ collection.number_of_items }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="2">No collections found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h2>Items</h2>
+                    <table class="table table-bordered" id="itemsTable">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Authors</th>
+                                <th>Title</th>
+                                <th>Date</th>
+                                <th>URL</th>
+                                <th>Files</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Items will be dynamically loaded here based on the collection selected -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endblock %}
+        

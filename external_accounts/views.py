@@ -43,8 +43,6 @@ def citesphere_callback(request):
         'grant_type': 'authorization_code',
     }).json()
 
-    print("tojen: ", token_response)
-
     access_token = token_response.get('access_token')
     refresh_token = token_response.get('refresh_token')
     expires_in = token_response.get('expires_in')
@@ -73,6 +71,7 @@ def get_citesphere_groups(request):
                                 headers={'Authorization': f'Bearer {account.access_token}'})
         if response.status_code == 200:
             groups_data = response.json()
+            print(groups_data) # DEBUG
             for group_data in groups_data:
                 date_created = parse_datetime(group_data['created'])
                 date_modified = parse_datetime(group_data['lastModified'])
@@ -109,10 +108,13 @@ def get_citesphere_collections(request, group_id):
             headers={'Authorization': f'Bearer {account.access_token}'}
         )
         if response.status_code == 200:
-            collections_data = response.json()
-            print(collections_data)
+            response_data = response.json()
+            collections_data = response_data.get('collections', [])
+            print(collections_data) #DEBUG
             for collection_data in collections_data:
                 if collection_data:  # Check if there is data to process
+                    last_modified_ts = collection_data.get('lastModified')
+                    last_modified_dt = make_aware(datetime.fromtimestamp(last_modified_ts/1000)) if last_modified_ts else None
                     CitesphereCollection.objects.update_or_create(
                         group=group,
                         key=collection_data['key'],
@@ -124,15 +126,17 @@ def get_citesphere_collections(request, group_id):
                             'content_version': collection_data['contentVersion'],
                             'number_of_collections': collection_data['numberOfCollections'],
                             'number_of_items': collection_data['numberOfItems'],
-                            'parent_collection_key': collection_data.get('parentCollectionKey', ''),
-                            'last_modified': None if collection_data['lastModified'] is None else make_aware(datetime.fromtimestamp(collection_data['lastModified']/1000)),
+                            'parent_collection_key': collection_data.get('parentCollectionKey'),
+                            'last_modified': last_modified_dt,
                         }
                     )
-            return redirect(list_citesphere_groups)
+            return redirect('list_citesphere_groups')
         else:
             return JsonResponse({'error': f"Failed to retrieve collections. Status code: {response.status_code}"}, status=response.status_code)
     except requests.RequestException as e:
         return JsonResponse({'error': f"An error occurred while retrieving collections: {str(e)}"}, status=500)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 def list_citesphere_groups(request):
     template = 'citesphere/citesphere.html'
@@ -140,5 +144,16 @@ def list_citesphere_groups(request):
     groups = CitesphereGroup.objects.filter(citesphere_accounts=account)
     context = {
         'groups':groups,
+    }
+    return render(request, template, context)
+
+
+def group_detail(request, slug):
+    group = get_object_or_404(CitesphereGroup, slug=slug)
+    collections = group.collections.all()
+    template = 'citesphere/citesphere_group_detail.html'
+    context = {
+        'group': group,
+        'collections': collections
     }
     return render(request, template, context)

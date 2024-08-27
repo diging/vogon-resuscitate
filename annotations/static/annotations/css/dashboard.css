@@ -29,3 +29,7 @@
 .float-r {
     float: right;
 }
+
+.btn-margin-bottom {
+    margin-bottom: 5px;
+}

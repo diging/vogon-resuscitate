@@ -1,7 +1,8 @@
 from django.db import models
 from django.conf import settings
-from django.db import models
 from django.utils import timezone
+from django.utils.text import slugify
+from django.urls import reverse
 import json
 
 class CitesphereAccount(models.Model):
@@ -27,9 +28,10 @@ class CitesphereAccount(models.Model):
         return timezone.now() >= self.token_expires_at
 
 class CitesphereGroup(models.Model):
-    citesphere_accounts = models.ManyToManyField(CitesphereAccount, related_name='groups')
+    citesphere_accounts = models.ManyToManyField('CitesphereAccount', related_name='groups')
     group_id = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
     version = models.IntegerField()
     num_items = models.IntegerField()
     date_created = models.DateTimeField()
@@ -37,6 +39,15 @@ class CitesphereGroup(models.Model):
     type = models.CharField(max_length=50)
     description = models.TextField(blank=True, null=True)
     url = models.URLField(max_length=200, blank=True, null=True)
+    sync_status = models.CharField(max_length=100, default='PENDING')
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super(CitesphereGroup, self).save(*args, **kwargs)
+
+    def get_absolute_url(self):
+        return reverse('group_detail', kwargs={'slug': self.slug})
 
     def __str__(self):
         return f"{self.name} (ID: {self.group_id})"
@@ -44,7 +55,7 @@ class CitesphereGroup(models.Model):
 
 class CitesphereCollection(models.Model):
     group = models.ForeignKey('CitesphereGroup', related_name='collections', on_delete=models.CASCADE)
-    collection_id = models.CharField(max_length=255, unique=True)
+    collection_id = models.CharField(max_length=255)
     key = models.CharField(max_length=100)
     version = models.IntegerField()
     content_version = models.IntegerField(default=0)
