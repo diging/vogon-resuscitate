@@ -58,7 +58,19 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <!-- Items will be dynamically loaded here based on the collection selected -->
+                            {% for item in items %}
+                            <tr>
+                                <td>{{ item.itemType }}</td>
+                                <td>{{ item.authors }}</td>
+                                <td>{{ item.title }}</td>
+                                <td>{{ item.date|date:"Y-m-d" }}</td>
+                                <td><a href="{{ item.url }}" target="_blank">Link</a></td>
+                                <td>{{ item.files }}</td>
+                                <td><a href="#">Details</a></td>  <!-- Assuming you have a detail view for items -->
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="7">No items found.</td></tr>
+                            {% endfor %}
                         </tbody>
                     </table>
                 </div>

@@ -5,3 +5,4 @@ from external_accounts.models import *
 admin.site.register(CitesphereAccount)
 admin.site.register(CitesphereGroup)
 admin.site.register(CitesphereCollection)
+admin.site.register(CitesphereItem)

@@ -4,7 +4,7 @@ from django.conf import settings
 from urllib.parse import urlencode
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from .models import CitesphereAccount, CitesphereGroup, CitesphereCollection
+from .models import CitesphereAccount, CitesphereGroup, CitesphereCollection, CitesphereItem
 from django.utils import timezone
 from django.utils.timezone import make_aware
 from datetime import timedelta, datetime
@@ -103,40 +103,71 @@ def get_citesphere_collections(request, group_id):
     account = CitesphereAccount.objects.get(user=request.user)
 
     try:
-        response = requests.get(
+        # Retrieve collections
+        collections_response = requests.get(
             f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{group_id}/collections/',
             headers={'Authorization': f'Bearer {account.access_token}'}
         )
-        if response.status_code == 200:
-            response_data = response.json()
-            collections_data = response_data.get('collections', [])
-            print(collections_data) #DEBUG
+        if collections_response.status_code == 200:
+            collections_data = collections_response.json().get('collections', [])
+            # Fetch items for the group once
+            items_response = requests.get(
+                f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{group_id}/items',
+                headers={'Authorization': f'Bearer {account.access_token}'}
+            )
+            items_data = items_response.json().get('items', []) if items_response.status_code == 200 else []
+
+            # Process each collection
             for collection_data in collections_data:
-                if collection_data:  # Check if there is data to process
-                    last_modified_ts = collection_data.get('lastModified')
-                    last_modified_dt = make_aware(datetime.fromtimestamp(last_modified_ts/1000)) if last_modified_ts else None
-                    CitesphereCollection.objects.update_or_create(
-                        group=group,
-                        key=collection_data['key'],
-                        defaults={
-                            'collection_id': collection_data['id']['timestamp'],
-                            'name': collection_data['name'],
-                            'description': collection_data.get('description', ''),
-                            'version': collection_data['version'],
-                            'content_version': collection_data['contentVersion'],
-                            'number_of_collections': collection_data['numberOfCollections'],
-                            'number_of_items': collection_data['numberOfItems'],
-                            'parent_collection_key': collection_data.get('parentCollectionKey'),
-                            'last_modified': last_modified_dt,
-                        }
-                    )
+                last_modified_ts = collection_data.get('lastModified')
+                last_modified_dt = make_aware(datetime.fromtimestamp(last_modified_ts / 1000)) if last_modified_ts else None
+                collection, _ = CitesphereCollection.objects.update_or_create(
+                    group=group,
+                    key=collection_data['key'],
+                    defaults={
+                        'collection_id': collection_data['id']['timestamp'],
+                        'name': collection_data['name'],
+                        'description': collection_data.get('description', ''),
+                        'version': collection_data['version'],
+                        'content_version': collection_data['contentVersion'],
+                        'number_of_collections': collection_data['numberOfCollections'],
+                        'number_of_items': collection_data['numberOfItems'],
+                        'parent_collection_key': collection_data.get('parentCollectionKey'),
+                        'last_modified': last_modified_dt,
+                    }
+                )
+
+            # Process items after collections are updated
+            for item_data in items_data:
+                date = make_aware(datetime.strptime(item_data['date'], "%Y-%m-%dT%H:%M:%SZ")) if item_data['date'] else None
+                date_added = make_aware(datetime.strptime(item_data['dateAdded'], "%Y-%m-%dT%H:%M:%SZ")) if item_data['dateAdded'] else None
+                date_modified = make_aware(datetime.strptime(item_data['dateModified'], "%Y-%m-%dT%H:%M:%SZ")) if item_data['dateModified'] else None
+                
+                # Update or create items related to this group
+                CitesphereItem.objects.update_or_create(
+                    key=item_data['key'],
+                    group=group,
+                    defaults={
+                        'title': item_data['title'],
+                        'authors': str(item_data['authors'][0]['name']),
+                        'itemType': item_data['itemType'],
+                        'publicationTitle': item_data.get('publicationTitle', ''),
+                        'volume': item_data.get('volume', ''),
+                        'date': date,
+                        'url': item_data.get('url', ''),
+                        'dateAdded': date_added,
+                        'dateModified': date_modified,
+                    }
+                )
+
             return redirect('list_citesphere_groups')
         else:
-            return JsonResponse({'error': f"Failed to retrieve collections. Status code: {response.status_code}"}, status=response.status_code)
+            return JsonResponse({'error': f"Failed to retrieve collections. Status code: {collections_response.status_code}"}, status=collections_response.status_code)
     except requests.RequestException as e:
         return JsonResponse({'error': f"An error occurred while retrieving collections: {str(e)}"}, status=500)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
 
 def list_citesphere_groups(request):
     template = 'citesphere/citesphere.html'
@@ -151,9 +182,11 @@ def list_citesphere_groups(request):
 def group_detail(request, slug):
     group = get_object_or_404(CitesphereGroup, slug=slug)
     collections = group.collections.all()
+    items = group.items.all()
     template = 'citesphere/citesphere_group_detail.html'
     context = {
         'group': group,
-        'collections': collections
+        'collections': collections,
+        'items':items,
     }
     return render(request, template, context)

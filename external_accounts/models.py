@@ -69,3 +69,27 @@ class CitesphereCollection(models.Model):
     def __str__(self):
         return self.name
 
+class CitesphereItem(models.Model):
+    key = models.CharField(max_length=100, unique=True)
+    group = models.ForeignKey('CitesphereGroup', on_delete=models.CASCADE, related_name='items')
+    collection = models.ForeignKey('CitesphereCollection', on_delete=models.CASCADE, related_name='items', null=True, blank=True)
+    title = models.CharField(max_length=255)
+    authors = models.TextField(help_text="JSON format of authors list")
+    editors = models.TextField(blank=True, null=True, help_text="JSON format of editors list")
+    itemType = models.CharField(max_length=100)
+    publicationTitle = models.CharField(max_length=255, blank=True, null=True)
+    volume = models.CharField(max_length=50, blank=True, null=True)
+    issue = models.CharField(max_length=50, blank=True, null=True)
+    pages = models.CharField(max_length=50, blank=True, null=True)
+    date = models.DateTimeField(null=True, blank=True)
+    url = models.URLField(max_length=200, blank=True, null=True)
+    abstractNote = models.TextField(blank=True, null=True)
+    journalAbbreviation = models.CharField(max_length=100, blank=True, null=True)
+    doi = models.CharField(max_length=100, blank=True, null=True)
+    issn = models.CharField(max_length=100, blank=True, null=True)
+    extra = models.TextField(blank=True, null=True)
+    dateAdded = models.DateTimeField(null=True, blank=True)
+    dateModified = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return self.title
