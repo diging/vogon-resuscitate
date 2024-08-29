@@ -3,7 +3,6 @@
 {% load i18n %}
 
 {% block head_links %} 
-{% load bootstrap4 %}
 
 <title>{% trans "Sign In" %}</title>
 
@@ -39,7 +38,7 @@
                 <div class="card-body">
                     <form class="login" method="POST" action="{% url 'account_login' %}">
                         {% csrf_token %}
-                        {% bootstrap_form form %}
+                        {{ form.as_p }}
                         {% if redirect_field_value %}
                         <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
                         {% endif %}

@@ -48,7 +48,6 @@ INSTALLED_APPS = (
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
-    'bootstrap4',
     'django_inlinecss',
     'concepts',
     'giles',
