@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.conf import settings
 from urllib.parse import urlencode
 from django.http import JsonResponse
@@ -71,7 +71,6 @@ def get_citesphere_groups(request):
                                 headers={'Authorization': f'Bearer {account.access_token}'})
         if response.status_code == 200:
             groups_data = response.json()
-            print(groups_data) # DEBUG
             for group_data in groups_data:
                 date_created = parse_datetime(group_data['created'])
                 date_modified = parse_datetime(group_data['lastModified'])
@@ -103,19 +102,19 @@ def get_citesphere_collections(request, group_id):
     account = CitesphereAccount.objects.get(user=request.user)
 
     try:
-        # Retrieve collections
         collections_response = requests.get(
             f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{group_id}/collections/',
             headers={'Authorization': f'Bearer {account.access_token}'}
         )
         if collections_response.status_code == 200:
             collections_data = collections_response.json().get('collections', [])
-            # Fetch items for the group once
+            # Fetch item keys for the group once
             items_response = requests.get(
                 f'{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{group_id}/items',
                 headers={'Authorization': f'Bearer {account.access_token}'}
             )
             items_data = items_response.json().get('items', []) if items_response.status_code == 200 else []
+            print(items_data)
 
             # Process each collection
             for collection_data in collections_data:
@@ -137,7 +136,7 @@ def get_citesphere_collections(request, group_id):
                     }
                 )
 
-            # Process items after collections are updated
+            # Process item keys after collections are updated
             for item_data in items_data:
                 date = make_aware(datetime.strptime(item_data['date'], "%Y-%m-%dT%H:%M:%SZ")) if item_data['date'] else None
                 date_added = make_aware(datetime.strptime(item_data['dateAdded'], "%Y-%m-%dT%H:%M:%SZ")) if item_data['dateAdded'] else None
@@ -149,7 +148,7 @@ def get_citesphere_collections(request, group_id):
                     group=group,
                     defaults={
                         'title': item_data['title'],
-                        'authors': str(item_data['authors'][0]['name']),
+                        'authors': item_data['authors'][0]['name'] if item_data['authors'] and 'name' in item_data['authors'][0] and item_data['authors'][0]['name'] else "",
                         'itemType': item_data['itemType'],
                         'publicationTitle': item_data.get('publicationTitle', ''),
                         'volume': item_data.get('volume', ''),
@@ -160,7 +159,7 @@ def get_citesphere_collections(request, group_id):
                     }
                 )
 
-            return redirect('list_citesphere_groups')
+            return redirect('citesphere_group_detail', slug=group.slug)
         else:
             return JsonResponse({'error': f"Failed to retrieve collections. Status code: {collections_response.status_code}"}, status=collections_response.status_code)
     except requests.RequestException as e:
