@@ -13,3 +13,23 @@
 .info-container {
     flex: 1; /* Take up the remaining space */
 }
+
+/* For Citesphere Group List */
+.card-custom {
+    border: 1px solid #ccc; /* Light gray border */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 10px;
+}
+
+.row-padding {
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+.float-r {
+    float: right;
+}
+
+.btn-margin-bottom {
+    margin-bottom: 5px;
+}
