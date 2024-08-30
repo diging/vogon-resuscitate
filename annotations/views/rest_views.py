@@ -24,9 +24,8 @@ from concepts.lifecycle import *
 
 import uuid
 
-import goat
-goat.GOAT = settings.GOAT
-goat.GOAT_APP_TOKEN = settings.GOAT_APP_TOKEN
+import requests
+from django.conf import settings
 
 import logging
 logging.basicConfig()
@@ -175,8 +174,8 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
             try:
                 concept = Concept.objects.get(uri=interpretation)
             except Concept.DoesNotExist:
-
-                concept_data = goat.Concept.retrieve(identifier=interpretation)
+                url = settings.CONCEPTPOWER_ENDPOINT + 'concept/add'
+                concept_data = requests.post(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD), data=data)
                 type_data = concept_data.data.get('concept_type')
                 type_instance = None
                 if type_data:
@@ -483,7 +482,8 @@ class ConceptViewSet(viewsets.ModelViewSet):
         if not q:
             return Response({'results': []})
         pos = request.GET.get('pos', None)
-        concepts = goat.Concept.search(q=q, pos=pos, limit=50)
+        url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{q}/{pos if pos else ''}"
+        concepts = requests.get(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
 
         def _relabel(datum):
             _fields = {
@@ -539,5 +539,7 @@ class ConceptViewSet(viewsets.ModelViewSet):
 
 def concept_search(request):
     q = request.get('search', None)
+    url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{q}/{pos if pos else ''}"
+    response = requests.get(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
     pos = self.request.query_params.get('pos', None)
     return goat.Concept.search(q=q, pos=pos)
