@@ -114,8 +114,7 @@ def get_citesphere_collections(request, group_id):
                 headers={'Authorization': f'Bearer {account.access_token}'}
             )
             items_data = items_response.json().get('items', []) if items_response.status_code == 200 else []
-            print(items_data)
-
+            
             # Process each collection
             for collection_data in collections_data:
                 last_modified_ts = collection_data.get('lastModified')
