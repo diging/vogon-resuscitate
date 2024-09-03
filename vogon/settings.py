@@ -229,8 +229,7 @@ CACHES = {
 CONCEPTPOWER_USERID = os.environ.get('CONCEPTPOWER_USERID', None)
 CONCEPTPOWER_PASSWORD = os.environ.get('CONCEPTPOWER_PASSWORD', None)
 CONCEPTPOWER_ENDPOINT = os.environ.get('CONCEPTPOWER_ENDPOINT')
-CONCEPTPOWER_NAMESPACE = os.environ.get('CONCEPTPOWER_NAMESPACE',
-                                        '{http://www.digitalhps.org/}')
+CONCEPTPOWER_NAMESPACE = os.environ.get('CONCEPTPOWER_NAMESPACE')
 
 QUADRIGA_USERID = os.environ.get('QUADRIGA_USERID', '')
 QUADRIGA_PASSWORD = os.environ.get('QUADRIGA_PASSWORD', '')
