@@ -168,3 +168,6 @@ data/db/*
 #Mac Files
 **/.DS_Store
 .DS_Store
+
+#Staticfiles
+staticfiles/

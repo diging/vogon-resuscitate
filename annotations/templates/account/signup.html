@@ -4,49 +4,49 @@
 
 {% block head_title %}{% trans "Signup" %}{% endblock %}
 {% block head_links %} 
-
-<title>Signup</title>
-
+<title>{% trans "Signup" %}</title>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-
- {% block messages %}
-    {% if messages %}
-    <div>
-        <ul>
-        {% for message in messages %}
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                <strong>{{message}}</strong>
+<div class="container mt-5">
+    {% block messages %}
+        {% if messages %}
+        <div>
+            <ul>
+            {% for message in messages %}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <strong>{{ message }}</strong>
                 <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
+            </div>
+            {% endfor %}
+            </ul>
         </div>
-        {% endfor %}
-        </ul>
+        {% endif %}
+    {% endblock %}
+  
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card">
+                <div class="card-header text-center bg-primary text-white">
+                    <h3 class="h3" id="head_banner">{% trans "Sign Up" %}</h3>
+                </div>
+                <div class="card-body">
+                    <p class="exist_account_info text-center">{% blocktrans %}Already have an account? Then please <a href="{{ login_url }}">sign in</a>.{% endblocktrans %}</p>
+                    <form id="signup_form" method="post" action="{% url 'account_signup' %}">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        {% if redirect_field_value %}
+                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                        {% endif %}
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary btn-block btn-lg" type="submit">{% trans "Sign Up" %}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
-    {% endif %}
-  {% endblock %}
-  
-
-<h3 class="h3" id="head_banner">{% trans "Sign Up" %}</h3>
-
-<p class="exist_account_info">{% blocktrans %}Already have an account? Then please <a href="{{ login_url }}">sign in</a>.{% endblocktrans %}</p>
-
-<form class="container-fluid text-center" id="signup_form" method="post" action="{% url 'account_signup' %}">
-  {% csrf_token %}
-
-  {{ form.as_p }}
-
-  {% if redirect_field_value %}
-
-  <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
-  
-  {% endif %}
-  
-  <button class="btn btn-outline-primary btn-lg" type="submit">{% trans "Sign Up" %}</button>
-</form>
-
 </div>
 {% endblock %}

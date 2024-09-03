@@ -24,6 +24,8 @@ from annotations.display_helpers import user_recent_texts
 import datetime
 from isoweek import Week
 
+from external_accounts.models import CitesphereAccount
+
 
 class VogonUserAuthenticationForm(AuthenticationForm):
     class Meta:
@@ -231,6 +233,16 @@ def dashboard(request):
     relationset_qs = RelationSet.objects.filter(createdBy__pk=request.user.id)\
                                         .distinct().count()
 
+    try:
+        has_citesphere_account = CitesphereAccount.objects.filter(user=request.user).exists()
+    except ObjectDoesNotExist:
+        has_citesphere_account = False
+    
+    if has_citesphere_account:
+        citesphere_account = CitesphereAccount.objects.get(user=request.user)
+    else:
+        citesphere_account = ""
+
     context = {
         'title': 'Dashboard',
         'user': request.user,
@@ -240,7 +252,9 @@ def dashboard(request):
         'projects_contributed': projects_contributed[:5],
         'appellationCount': appellation_qs,
         'relation_count': relationset_qs,
-        'relations': RelationSet.objects.filter(createdBy=request.user).order_by('-created')[:10]
+        'relations': RelationSet.objects.filter(createdBy=request.user).order_by('-created')[:10],
+        'has_citesphere_account': has_citesphere_account,
+        'citesphere_account':citesphere_account
     }
     return render(request, template, context)
 
@@ -264,7 +278,7 @@ def user_details(request, userid, *args, **kwargs):
         Renders an user details view based on user's authentication status.
     """
     user = get_object_or_404(VogonUser, pk=userid)
-    if request.user.is_authenticated() and request.user.id == int(userid) and request.GET.get('mode', '') == 'edit':
+    if request.user.is_authenticated and request.user.id == int(userid) and request.GET.get('mode', '') == 'edit':
         return HttpResponseRedirect(reverse('settings'))
     else:
         textCount = Text.objects.filter(addedBy=user).count()

@@ -17,6 +17,9 @@ import socket
 import dj_database_url
 # import djcelery
 from datetime import timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -45,15 +48,16 @@ INSTALLED_APPS = (
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
-    'allauth.socialaccount.providers.github',
+    'django_inlinecss',
     'concepts',
     'giles',
     'annotations',
+    'external_accounts',
     'rest_framework',
     'corsheaders',
     'djcelery',
     'repository',
-    # 'social.apps.django_app.default',
+    'oauth2_provider',
 )
 
 MIDDLEWARE = (
@@ -65,6 +69,7 @@ MIDDLEWARE = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'external_accounts.middleware.TokenRefreshMiddleware',
 )
 
 ROOT_URLCONF = 'vogon.urls'
@@ -123,27 +128,28 @@ DATABASES = {
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend', # default
-    # 'social.backends.github.GithubOAuth2',
-    'allauth.account.auth_backends.AuthenticationBackend',
+    'allauth.account.auth_backends.AuthenticationBackend', #Allauth
 )
 
 ACCOUNT_AUTHENTICATED_LOGIN_REDIRECTS =True
 ANONYMOUS_USER_ID = -1
 BASE_URL = os.environ.get('BASE_URL', '/')
-SOCIAL_AUTH_GITHUB_KEY = os.environ.get('SOCIAL_AUTH_GITHUB_KEY', None)
-SOCIAL_AUTH_GITHUB_SECRET = os.environ.get('SOCIAL_AUTH_GITHUB_SECRET', None)
-SOCIAL_AUTH_LOGIN_REDIRECT_URL = BASE_URL
-SOCIAL_AUTH_GITHUB_SCOPE = ['user']
 
-SOCIALACCOUNT_PROVIDERS = {
-    'github': {
-        'SCOPE': [
-            'user',
-        ],
-    }
-}
+# Allauth Settings
+LOGIN_URL = '/login/'
+LOGOUT_URL = '/logout/'
+LOGIN_REDIRECT_URL = 'home'
+LOGOUT_REDIRECT_URL = 'home'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
 
-SOCIALACCOUNT_ADAPTER = 'annotations.adapter.SocialAccountAdapter'
+# Allauth Email Settings
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND')
+EMAIL_HOST = os.environ.get('EMAIL_HOST')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+EMAIL_PORT = os.environ.get('EMAIL_PORT')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS')
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
@@ -216,8 +222,7 @@ PREDICATES = {
 
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
-        'LOCATION': 'default_cache_table',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
     }
 }
 
@@ -264,10 +269,6 @@ MAX_GILES_UPLOADS = 20
 GOAT = os.environ.get('GOAT', 'http://127.0.0.1:8000')
 GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN')
 
-LOGIN_URL = BASE_URL + 'login/github/'
-# LOGIN_REDIRECT_URL = 'home'
-# LOGOUT_REDIRECT_URL = 'home'
-
 LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
 
 SESSION_COOKIE_NAME = 'vogon'
@@ -287,3 +288,14 @@ CONCEPT_TYPES = {
 }
 
 SUBMIT_WAIT_TIME = {'days': 3, 'hours': 0, 'minutes': 0}
+
+# Citesphere Credentials
+CITESPHERE_ENDPOINT = os.environ.get('CITESPHERE_ENDPOINT')
+
+CITESPHERE_CLIENT_ID = os.environ.get('CITESPHERE_CLIENT_ID')
+CITESPHERE_CLIENT_SECRET = os.environ.get('CITESPHERE_CLIENT_SECRET')
+CITESPHERE_REDIRECT_URI = os.environ.get('CITESPHERE_REDIRECT_URI')
+
+# OAuth specific endpoints
+CITESPHERE_AUTH_URL = f"{CITESPHERE_ENDPOINT}/api/oauth/authorize"
+CITESPHERE_TOKEN_URL = f"{CITESPHERE_ENDPOINT}/api/oauth/token"
