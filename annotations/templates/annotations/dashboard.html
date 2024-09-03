@@ -6,74 +6,102 @@
 {% endblock %}
 
 {% block main %}
-
 <div class="container-fluid">
     <div class="h2">Welcome back, {{ user.username }}</div>
-        <div class="row">
-            <div class="col-md-4">
-                <div class="panel">
-                    <div class="panel-heading clearfix">
-                        <span class="h4">Recently Annotated</span>
-                        <!-- <span class="pull-right btn-group">
-                            <a href="" class="btn btn-xs">View all</a>
-                        </span> -->
-                    </div>
-                    <div class="list-group">
-                        {% for text in recent_texts %}
-                        <a class="list-group-item" href="{{ text.get_absolute_url }}">{{ text.top_level_text.title }}</a>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="panel">
-                    <div class="panel-heading clearfix">
-                        <span class="h4">Recently Added</span>
-                        <!-- <span class="pull-right btn-group">
-                            <a href="" class="btn btn-xs">View all</a>
-                        </span> -->
-                    </div>
-                    <div class="list-group">
-                        {% for text in added_texts %}
-                        <a class="list-group-item" href="{{ text.get_absolute_url }}">{{ text.title }}</a>
-                        {% endfor %}
-                    </div>
 
+    <div class="row" style="margin-bottom: 20px;">
+        <div class="col-md-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">External Accounts</h3>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="panel">
-                    <div class="panel-heading clearfix">
-                        <span class="h4">
-                            My Projects
-                        </span>
-                        <div class="pull-right btn-group">
-                            <a href="{% url "user_projects" %}" class="btn btn-xs">View all</a>
-                            <a href="{% url "create_project" %}" class="btn btn-xs">Create</a>
+                <div class="panel-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="flex-container">
+                                        <!-- Logo on the left -->
+                                        <div class="logo-container">
+                                            <img src="{% static 'annotations/img/citesphere-logo.png' %}" alt="Citesphere Logo" style="height: 100px; width: 100px;">
+                                        </div>
+                                
+                                        <!-- Title and button on the right -->
+                                        <div class="info-container">
+                                            <h2 class="card-title">Citesphere</h2>
+                                            {% if has_citesphere_account %}
+                                                <button class="btn btn-success btn-margin-bottom " disabled>Connected</button><br>
+                                                <h5>Connected as: {{ citesphere_account.citesphere_user_id }}</h5>
+                                                <a href="{% url 'list_citesphere_groups' %}">View Groups and Collections</a>
+                                            {% else %}
+                                                <a href="{% url 'citesphere_login' %}" class="btn btn-primary">Connect</a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                            </div>
                         </div>
-
-                    </div>
-                    <div class="list-group">
-                        {% for project in projects_owned %}
-                        <a class="list-group-item" href="{% url "view_project" project.id %}">
-                            <strong>{{ project.name }}</strong>
-                            <p class="text-muted">{{ project.description }}</p>
-                        </a>
-                        {% endfor %}
+                        <!-- Future Account Cards -->
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
-
-        {% if relations %}
-        <div class="h3">My Recent Annotations
-            <a class="btn btn-sm" href="{% url "relations" %}?createdBy={{ user.id }}">See all</a>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="panel">
+                <div class="panel-heading clearfix">
+                    <span class="h4">Recently Annotated</span>
+                </div>
+                <div class="list-group">
+                    {% for text in recent_texts %}
+                    <a class="list-group-item" href="{{ text.get_absolute_url }}">{{ text.top_level_text.title }}</a>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
-        {% include "annotations/relations_list_fragment.html" %}
-        {% endif %}
+        <div class="col-md-4">
+            <div class="panel">
+                <div class="panel-heading clearfix">
+                    <span class="h4">Recently Added</span>
+                </div>
+                <div class="list-group">
+                    {% for text in added_texts %}
+                    <a class="list-group-item" href="{{ text.get_absolute_url }}">{{ text.title }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="panel">
+                <div class="panel-heading clearfix">
+                    <span class="h4">My Projects</span>
+                    <div class="pull-right btn-group">
+                        <a href="{% url "user_projects" %}" class="btn btn-xs">View all</a>
+                        <a href="{% url "create_project" %}" class="btn btn-xs">Create</a>
+                    </div>
+                </div>
+                <div class="list-group">
+                    {% for project in projects_owned %}
+                    <a class="list-group-item" href="{% url "view_project" project.id %}">
+                        <strong>{{ project.name }}</strong>
+                        <p class="text-muted">{{ project.description }}</p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if relations %}
+    <div class="h3">My Recent Annotations
+        <a class="btn btn-sm" href="{% url "relations" %}?createdBy={{ user.id }}">See all</a>
+    </div>
+    {% include "annotations/relations_list_fragment.html" %}
+    {% endif %}
 </div>
 
-
-
+<link rel="stylesheet" href="{% static 'annotations/css/dashboard.css' %}">
 {% endblock %}

@@ -18,13 +18,13 @@ django-autocomplete-light==2.3.1
 django-celery==3.2.1
 django-cors-headers>=3.5.0
 django-crispy-forms==1.4.0
-django-bootstrap4==3.0.1
 django-extensions==1.5.9
 django-filter==2.1.0
 django-guardian==1.3
 django_inlinecss
 djangorestframework==3.10.0
 drf-nested-routers==0.91
+django-oauth-toolkit
 future==0.17.1
 gunicorn==19.3.0
 html5lib==0.9999999

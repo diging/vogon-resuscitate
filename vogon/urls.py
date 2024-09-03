@@ -23,6 +23,7 @@ from rest_framework import routers
 from rest_framework_nested import routers as nrouters
 from annotations import views
 from concepts import views as conceptViews
+from external_accounts import views as externalAccountViews
 
 
 router = routers.DefaultRouter(trailing_slash=False)
@@ -139,5 +140,13 @@ urlpatterns = [
 
 
     re_path(r'^sandbox/(?P<text_id>[0-9]+)/$', conceptViews.sandbox, name='sandbox'),
+
+    path('login/citesphere/', externalAccountViews.citesphere_login, name='citesphere_login'),
+    path('oauth/callback/citesphere/', externalAccountViews.citesphere_callback, name='citesphere_callback'),
+    
+    path('get/citesphere/groups/', externalAccountViews.get_citesphere_groups, name='get_citesphere_groups'),
+    path('get/citesphere/<int:group_id>/collections/', externalAccountViews.get_citesphere_collections, name='get_citesphere_collections'),
+    path('citesphere/group/<slug:slug>/', externalAccountViews.group_detail, name='citesphere_group_detail'),
+    path('citesphere/groups/', externalAccountViews.list_citesphere_groups, name='list_citesphere_groups'),
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
