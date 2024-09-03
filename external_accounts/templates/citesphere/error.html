@@ -1,0 +1,14 @@
+{% extends "annotations/base.html" %}
+{% load static %}
+
+{% block breadcrumbs %}
+    <a href="{% url 'home' %}" class="btn btn-xs">Home</a>
+    &raquo;<a href="{% url 'dashboard' %}" class="btn btn-xs">Dashboard</a>
+{% endblock %}
+
+{% block main %}
+    <div class="container">
+            <h1>{{ message }}</h1>
+            <a href="{% url 'dashboard' %}" class="btn btn-xs">Back to Dashboard</a>
+        </div>
+{% endblock %}

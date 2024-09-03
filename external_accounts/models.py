@@ -3,6 +3,11 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.text import slugify
 from django.urls import reverse
+from django.conf import settings
+from requests.exceptions import RequestException
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+import requests
 import json
 
 class CitesphereAccount(models.Model):
@@ -93,3 +98,24 @@ class CitesphereItem(models.Model):
 
     def __str__(self):
         return self.title
+
+@receiver(post_save, sender=CitesphereAccount)
+def fetch_citesphere_user_id(sender, instance, created, **kwargs):
+    if created:
+        try:
+            response = requests.get(
+                f'{settings.CITESPHERE_ENDPOINT}/api/v1/test/',
+                headers={'Authorization': f'Bearer {instance.access_token}'}
+            )
+            response.raise_for_status()  # Raises an HTTPError for bad responses
+            response_data = response.json()
+            
+            citesphere_user_id = response_data[0]['user']
+            
+            if citesphere_user_id:
+                instance.citesphere_user_id = citesphere_user_id
+                instance.save()
+        except RequestException as e:
+            print(f"Failed to fetch citesphere_user_id due to network error: {str(e)}")
+        except ValueError as e:
+            print(f"Failed to decode JSON: {str(e)}")

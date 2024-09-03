@@ -237,6 +237,11 @@ def dashboard(request):
         has_citesphere_account = CitesphereAccount.objects.filter(user=request.user).exists()
     except ObjectDoesNotExist:
         has_citesphere_account = False
+    
+    if has_citesphere_account:
+        citesphere_account = CitesphereAccount.objects.get(user=request.user)
+    else:
+        citesphere_account = ""
 
     context = {
         'title': 'Dashboard',
@@ -248,7 +253,8 @@ def dashboard(request):
         'appellationCount': appellation_qs,
         'relation_count': relationset_qs,
         'relations': RelationSet.objects.filter(createdBy=request.user).order_by('-created')[:10],
-        'has_citesphere_account': has_citesphere_account
+        'has_citesphere_account': has_citesphere_account,
+        'citesphere_account':citesphere_account
     }
     return render(request, template, context)
 
