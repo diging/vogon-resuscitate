@@ -18,7 +18,7 @@
         <p><strong>Description:</strong> {{ group.description }}</p>
         
         <div class="container">
-            <a href="{% url 'get_citesphere_collections' group.group_id %}" class="btn btn-info" style="float:right;">Import Collections</a>
+            <a href="{% url 'get_citesphere_collections' group.group_id %}" class="btn btn-info" style="float:right;">Import Collections and Texts</a>
         </div>
         
         <div class="container mt-4">
@@ -57,6 +57,7 @@
                                 <th>Date</th>
                                 <th>URL</th>
                                 <th>Files</th>
+                                <th>Import</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -68,6 +69,7 @@
                                 <td>{{ item.date|date:"Y-m-d" }}</td>
                                 <td>{% if item.url %}<a href="{{ item.url }}" target="_blank">Link</a>{% else %}{% endif %}</td>
                                 <td>{{ item.files }}</td>
+                                <td><a href="{% url 'import_citesphere_item' item.id project_id %}">Import</a></td>
                             </tr>
                             {% empty %}
                             <tr><td colspan="7">No items found.</td></tr>

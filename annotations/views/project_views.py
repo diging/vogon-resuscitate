@@ -12,7 +12,7 @@ from django.contrib.auth import login, authenticate
 from django.conf import settings
 from django.db.models import Q, Count
 
-from annotations.models import TextCollection, RelationSet
+from annotations.models import TextCollection, RelationSet, ImportedCitesphereItem
 from annotations.forms import ProjectForm
 
 
@@ -34,9 +34,7 @@ def view_project(request, project_id):
     template = "annotations/project_details.html"
 
     order_by = request.GET.get('order_by', 'title')
-    texts = project.texts.all().order_by(order_by)\
-                         .values('id', 'title', 'added', 'repository_id', 'repository_source_id')
-
+    texts = ImportedCitesphereItem.objects.filter(user=request.user)
     paginator = Paginator(texts, 15)
     page = request.GET.get('page')
     try:

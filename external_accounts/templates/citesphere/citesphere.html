@@ -44,7 +44,7 @@
                                         <td>{{ group.date_created|date:"M d, Y" }}</td>
                                         <td>{{ group.date_modified|date:"M d, Y" }}</td>
                                         <td>
-                                            <a href="{% url 'citesphere_group_detail' group.slug %}" class="btn btn-info">View Group</a>
+                                            <a href="{% url 'citesphere_group_detail' group.slug project_id %}" class="btn btn-info">View Group</a>
                                         </td>
                                     </tr>
                                 {% endfor %}

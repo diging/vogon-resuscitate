@@ -17,7 +17,7 @@
             {% if user.id == project.ownedBy.id %}
             <span class="btn-group pull-right">
                 <a class="btn btn-sm btn-success"
-                    href="{% url "repository_list" %}?project_id={{ project.id }}">
+                    href="{% url "list_citesphere_groups" %}?project_id={{ project.id }}">
                     <span class="gylphicon glyphicon-plus"></span> Add Text
                 </a>
                 <a class="btn btn-sm btn-primary"
@@ -56,8 +56,8 @@
         {% for text in texts %}
         <tbody>
             <tr>
-                <td><a href="{% url "repository_text" text.repository_id text.repository_source_id %}?project_id={{ project.id }}">{{ text.title }}</a></td>
-                <td>{{ text.added }}</td>
+                
+                <td>{{ text.imported_item.title }}</td>
             </tr>
         </tbody>
         {% endfor %}

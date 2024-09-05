@@ -47,6 +47,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
+from django.conf import settings
 
 from concepts.models import Concept
 from django.conf import settings
@@ -64,6 +65,8 @@ from concepts.models import Concept, Type
 
 import ast
 import networkx as nx
+
+from external_accounts.models import CitesphereItem
 
 
 class VogonUserManager(BaseUserManager):
@@ -1147,3 +1150,16 @@ class DocumentPosition(models.Model):
     If :attr:`.position_type` is :attr:`.WHOLE_DOCUMENT`\, then this can be
     blank.
     """
+
+
+class ImportedCitesphereItem(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='imported_citesphere_data')
+    citesphere_item = models.OneToOneField(CitesphereItem, on_delete=models.CASCADE, related_name='imported_item')
+    project = models.ForeignKey('TextCollection', related_name='citesphere_items',
+                                null=True, blank=True, on_delete=models.CASCADE)
+    import_date = models.DateTimeField(auto_now_add=True, help_text="The datetime the item was imported")
+    source = models.CharField(max_length=255, help_text="The source from which the item was imported")
+    processing_notes = models.TextField(blank=True, null=True, help_text="Notes on any processing done on the item")
+
+    def __str__(self):
+        return f"Imported {self.citesphere_item.title} from {self.source} on {self.import_date}"        
