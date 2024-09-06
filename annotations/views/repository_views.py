@@ -66,25 +66,12 @@ def _get_pagination(response, base_url, base_params):
 
 @login_required
 def repository_collections(request, repository_id):
-    template = "annotations/repository_collections.html"
+    """View to fetch and display Citesphere collections."""
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = RepositoryManager(repository.configuration, user=request.user)
-    project_id = request.GET.get('project_id')
-    try:
-        collections = manager.collections()
-    except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+    manager = repository.manager(request.user)
 
-    context = {
-        'user': request.user,
-        'repository': repository,
-        'collections': collections,
-        'title': 'Browse collections in %s' % repository.name,
-        'project_id': project_id,
-        'manager': manager,
-    }
-
-    return render(request, template, context)
+    collections = manager.collections()  # Fetch collections
+    return render(request, "annotations/repository_collections.html", {'collections': collections})
 
 
 @login_required
@@ -210,7 +197,7 @@ def repository_details(request, repository_id):
     user = None if isinstance(request.user, AnonymousUser) else request.user
 
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = RepositoryManager(repository.configuration, user=user)
+    manager = RepositoryManager(user=user)
     project_id = request.GET.get('project_id')
     context = {
         'user': user,

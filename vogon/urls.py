@@ -146,8 +146,8 @@ urlpatterns = [
     
     path('get/citesphere/groups/', externalAccountViews.get_citesphere_groups, name='get_citesphere_groups'),
     path('get/citesphere/<int:group_id>/collections/', externalAccountViews.get_citesphere_collections, name='get_citesphere_collections'),
-    path('citesphere/group/<slug:slug>/<int:project_id>/', externalAccountViews.group_detail, name='citesphere_group_detail'),
-    re_path(r'^citesphere/groups/$', externalAccountViews.list_citesphere_groups, name='list_citesphere_groups'),
+    path('citesphere/group/<slug:slug>/', externalAccountViews.group_detail, name='citesphere_group_detail'),
+    re_path('citesphere/groups/', externalAccountViews.list_citesphere_groups, name='list_citesphere_groups'),
 
-    path('import/citesphere/texts/<int:citesphere_item_id>/<int:project_id>/', views.citesphere_import_views.import_citesphere_items_from_group, name='import_citesphere_item')
+    path('import/citesphere/texts/<int:citesphere_item_id>/', views.citesphere_import_views.import_citesphere_items_from_group, name='import_citesphere_item')
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

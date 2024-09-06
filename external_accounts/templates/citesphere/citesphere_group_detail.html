@@ -69,7 +69,7 @@
                                 <td>{{ item.date|date:"Y-m-d" }}</td>
                                 <td>{% if item.url %}<a href="{{ item.url }}" target="_blank">Link</a>{% else %}{% endif %}</td>
                                 <td>{{ item.files }}</td>
-                                <td><a href="{% url 'import_citesphere_item' item.id project_id %}">Import</a></td>
+                                <td><a href="#"></a></td>
                             </tr>
                             {% empty %}
                             <tr><td colspan="7">No items found.</td></tr>

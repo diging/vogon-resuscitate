@@ -1,21 +1,16 @@
 from django.conf import settings
-from allauth.socialaccount.models import SocialToken, SocialAccount
+from external_accounts.models import CitesphereAccount
 
 
-def jars_github_auth(user):
+def citesphere_auth(user):
     """
-    Build an auth header for Amphora using ``user``'s Github access token.
+    Authenticate from Citesphere
     """
     try:
-        user_account = SocialAccount.objects.filter(user=user, provider='github')[:1].get()
-        token = SocialToken.objects.filter(account=user_account)[:1].get()
-    except SocialAccount.DoesNotExist:
+        account = CitesphereAccount.objects.get(user=user)
+        return {'Authorization': f'Bearer {account.access_token}'}
+    except CitesphereAccount.DoesNotExist:
         return {}
-
-    auth_token = token #':'.join([settings.SOCIAL_AUTH_GITHUB_KEY,
-                        #    settings.SOCIAL_AUTH_GITHUB_SECRET,
-                        #    token])
-    return {'Authorization': 'GithubToken %s' % auth_token}
 
 
 def giles_auth(user):

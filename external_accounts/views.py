@@ -171,17 +171,13 @@ def list_citesphere_groups(request):
     template = 'citesphere/citesphere.html'
     account = CitesphereAccount.objects.get(user=request.user)
     groups = CitesphereGroup.objects.filter(citesphere_accounts=account)
-    
-    project_id = request.GET.get('project_id')
-
     context = {
         'groups':groups,
-        'project_id':project_id,
     }
     return render(request, template, context)
 
 
-def group_detail(request, slug, project_id):
+def group_detail(request, slug):
     group = get_object_or_404(CitesphereGroup, slug=slug)
     collections = group.collections.all()
     items = group.items.all()
@@ -190,6 +186,5 @@ def group_detail(request, slug, project_id):
         'group': group,
         'collections': collections,
         'items':items,
-        'project_id':project_id,
     }
     return render(request, template, context)
