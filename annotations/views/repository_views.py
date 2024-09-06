@@ -70,43 +70,69 @@ def repository_collections(request, repository_id):
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = repository.manager(request.user)
 
-    collections = manager.collections()  # Fetch collections
-    return render(request, "annotations/repository_collections.html", {'collections': collections})
+    collections = manager.groups()  # Fetch collections
+
+    context = {
+        'collections': collections,
+        'repository':repository,
+    }
+
+    return render(request, "annotations/repository_collections.html", context)
 
 
 @login_required
 def repository_collection(request, repository_id, collection_id):
-    params = _get_params(request)
+    params = _get_params(request)  # Get any params from the request
 
+    # Fetch the repository by its ID
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = RepositoryManager(repository.configuration, user=request.user)
+    
+    # Create the repository manager instance with the user
+    manager = repository.manager(user=request.user)
+    
     try:
-        collection = manager.collection(id=collection_id, **params)
+        # Fetch the collections from the Citesphere API
+        collection = manager.collections(groupId=collection_id)
+        print(collection['collections'])
     except IOError:
+        # Handle any IOError by rendering an error page
         return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+
+    # Get the project_id from the query parameters
     project_id = request.GET.get('project_id')
+    
+    # Set the base URL for pagination purposes
     base_url = reverse('repository_collection', args=(repository_id, collection_id))
+    
+    # Prepare any base parameters for pagination
     base_params = {}
     if project_id:
         base_params.update({'project_id': project_id})
+
+    # Extract resources from the collection and filter for resources with URLs
     resources = collection.get('resources', [])
+
+    # Prepare the context to be passed to the template
     context = {
         'user': request.user,
         'repository': repository,
         'collection': collection,
         'collection_id': collection_id,
-        'title': 'Browse collections in %s' % repository.name,
+        'title': f'Browse collections in {repository.name}',
         'project_id': project_id,
-        'resources': [resource for resource in resources if resource['url']],
-        'subcollections': collection.get('subcollections', [])
+        'resources': [resource for resource in resources if resource.get('url')],
     }
+
+    # Handle pagination if needed
     previous_page, next_page = _get_pagination(collection, base_url, base_params)
     if next_page:
         context.update({'next_page': next_page})
     if previous_page:
         context.update({'previous_page': previous_page})
 
+    # Render the repository collection page with the context
     return render(request, 'annotations/repository_collection.html', context)
+
 
 
 @login_required
