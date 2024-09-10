@@ -27,29 +27,27 @@
         <tbody>
             {% for text in texts %}
             <tr>
-                <a href="{% url "" %}">
-                    <td>{{ text.title }}</td>
-                    <td>
-                        {% for author in text.authors %}
-                            {% if author.firstName and author.lastName %}
-                                {{ author.firstName }} {{ author.lastName }}
-                            {% else %}
-                                {{ author.name }}
-                            {% endif %}
-                            {% if not forloop.last %}, {% endif %}
-                        {% empty %}
-                            No authors listed
-                        {% endfor %}
-                    </td>
-                    <td>{{ text.itemType }}</td>
-                    <td>{{ text.volume|default:"N/A" }}</td>
-                    <td>{{ text.pages|default:"N/A" }}</td>
-                    <td><a href="{{ text.url|default:"#" }}" target="_blank">{{ text.url|default:"No URL" }}</a></td>
-                    <td>{{ text.dateAdded }}</td>
-                    <td>
-                        <a href="{% url "repository_text" repository.id text.id %}">Import</a>
-                    </td>
-                </a>
+                <td>{{ text.title }}</td>
+                <td>
+                    {% for author in text.authors %}
+                        {% if author.firstName and author.lastName %}
+                            {{ author.firstName }} {{ author.lastName }}
+                        {% else %}
+                            {{ author.name }}
+                        {% endif %}
+                        {% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                        No authors listed
+                    {% endfor %}
+                </td>
+                <td>{{ text.itemType }}</td>
+                <td>{{ text.volume|default:"N/A" }}</td>
+                <td>{{ text.pages|default:"N/A" }}</td>
+                <td><a href="{{ text.url|default:"#" }}" target="_blank">{{ text.url|default:"No URL" }}</a></td>
+                <td>{{ text.dateAdded }}</td>
+                <td>
+                    <a href="{% url "repository_text" repository.id group_id text.key %}">Import</a>
+                </td>
             </tr>
             {% empty %}
             <tr>

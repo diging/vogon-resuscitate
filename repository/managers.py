@@ -55,11 +55,11 @@ class RepositoryManager(RESTManager):
         else:
             response.raise_for_status()
 
-    def item(self, groupId, collectionId, itemId):
+    def item(self, groupId, itemId):
         """Fetch individual item from Citesphere API"""
 
         headers = auth.citesphere_auth(self.user)
-        url = f"{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{groupId}/item/{itemId}/"
+        url = f"{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{groupId}/items/{itemId}/"
         response = requests.get(url, headers=headers)
         print(response)
         

@@ -83,46 +83,37 @@ def repository_collections(request, repository_id):
 
 @login_required
 def repository_collection(request, repository_id, collection_id):
-    params = _get_params(request)  # Get any params from the request
+    params = _get_params(request)
 
-    # Fetch the repository by its ID
     repository = get_object_or_404(Repository, pk=repository_id)
     
-    # Create the repository manager instance with the user
     manager = repository.manager(user=request.user)
     
     try:
-        # Fetch the collections from the Citesphere API
         response_data = manager.collections(groupId=collection_id)
         group_info = response_data.get('group')
         collections = response_data.get('collections', [])
     except IOError:
-        # Handle any IOError by rendering an error page
         return render(request, 'annotations/repository_ioerror.html', {}, status=500)
 
-    # Get the project_id from the query parameters
     project_id = request.GET.get('project_id')
     
-    # Set the base URL for pagination purposes
     base_url = reverse('repository_collection', args=(repository_id, collection_id))
     
-    # Prepare any base parameters for pagination
     base_params = {}
     if project_id:
         base_params.update({'project_id': project_id})
 
-    # Prepare the context to be passed to the template
     context = {
         'user': request.user,
         'repository': repository,
-        'group': group_info,  # Group details
-        'collections': collections,  # Collections to display
+        'group': group_info,
+        'collections': collections,
         'collection_id': collection_id,
         'title': f'Browse collections in {repository.name}',
         'project_id': project_id
     }
 
-    # Render the repository collection page with the context
     return render(request, 'annotations/repository_collection.html', context)
 
 
@@ -259,6 +250,7 @@ def repository_collection_texts(request, repository_id, collection_id, group_col
         'collection_id':collection_id,
         'texts': texts['items'],
         'title': f'Texts in Collection: {group_collection_id}',
+        'group_id':collection_id,
         'project_id': project_id,
     }
 
@@ -273,7 +265,9 @@ def repository_text(request, repository_id, group_id, text_id):
     manager = repository.manager(user=request.user)
     
     try:
-        result = manager.item(text_id)
+        print(group_id, text_id)
+        result = manager.item(group_id, text_id)
+        print("result", result)
 
     except IOError:
         return render(request, 'annotations/repository_ioerror.html', {}, status=500)
@@ -302,7 +296,7 @@ def repository_text(request, repository_id, group_id, text_id):
         'repository': repository,
         'text': master_text,
         'project': project,
-        'isNew': created 
+        'isNew': created
     }
 
     return render(request, 'annotations/repository_text_details.html', context)
