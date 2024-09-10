@@ -5,7 +5,7 @@ Provides views related to external repositories.
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, render, redirect
 from django.db.models import Q
 
 from annotations.forms import RepositorySearchForm
@@ -15,6 +15,7 @@ from repository.auth import *
 from repository.managers import *
 from annotations.models import Text, TextCollection, RelationSet
 from annotations.annotators import supported_content_types
+from annotations.tasks import tokenize
 
 import requests
 from urllib.parse import urlparse, parse_qs
@@ -92,8 +93,9 @@ def repository_collection(request, repository_id, collection_id):
     
     try:
         # Fetch the collections from the Citesphere API
-        collection = manager.collections(groupId=collection_id)
-        print(collection['collections'])
+        response_data = manager.collections(groupId=collection_id)
+        group_info = response_data.get('group')
+        collections = response_data.get('collections', [])
     except IOError:
         # Handle any IOError by rendering an error page
         return render(request, 'annotations/repository_ioerror.html', {}, status=500)
@@ -109,26 +111,16 @@ def repository_collection(request, repository_id, collection_id):
     if project_id:
         base_params.update({'project_id': project_id})
 
-    # Extract resources from the collection and filter for resources with URLs
-    resources = collection.get('resources', [])
-
     # Prepare the context to be passed to the template
     context = {
         'user': request.user,
         'repository': repository,
-        'collection': collection,
+        'group': group_info,  # Group details
+        'collections': collections,  # Collections to display
         'collection_id': collection_id,
         'title': f'Browse collections in {repository.name}',
-        'project_id': project_id,
-        'resources': [resource for resource in resources if resource.get('url')],
+        'project_id': project_id
     }
-
-    # Handle pagination if needed
-    previous_page, next_page = _get_pagination(collection, base_url, base_params)
-    if next_page:
-        context.update({'next_page': next_page})
-    if previous_page:
-        context.update({'previous_page': previous_page})
 
     # Render the repository collection page with the context
     return render(request, 'annotations/repository_collection.html', context)
@@ -177,7 +169,7 @@ def repository_search(request, repository_id):
     params = _get_params(request)
 
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = RepositoryManager(repository.configuration, user=request.user)
+    manager = RepositoryManager(user=request.user)
     query = request.GET.get('query', None)
     project_id = request.GET.get('project_id')
     if query:
@@ -235,7 +227,6 @@ def repository_details(request, repository_id):
 
     return render(request, template, context)
 
-
 @login_required
 def repository_list(request):
     template = "annotations/repository_list.html"
@@ -250,52 +241,70 @@ def repository_list(request):
 
     return render(request, template, context)
 
+def repository_collection_texts(request, repository_id, collection_id, group_collection_id):
+    user = request.user
+    repository = get_object_or_404(Repository, pk=repository_id)
+    manager = RepositoryManager(user=user)
+
+    try:
+        texts = manager.collection_items(collection_id, group_collection_id)
+        print(texts)
+    except Exception as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+
+    project_id = request.GET.get('project_id', None)
+    context = {
+        'user': user,
+        'repository': repository,
+        'collection_id':collection_id,
+        'texts': texts['items'],
+        'title': f'Texts in Collection: {group_collection_id}',
+        'project_id': project_id,
+    }
+
+    return render(request, 'annotations/repository_collections_text_list.html', context)
 
 @login_required
-def repository_text(request, repository_id, text_id):
-    from collections import defaultdict
-
+def repository_text(request, repository_id, group_id, text_id):
     project_id = request.GET.get('project_id')
-    if project_id:
-        project = TextCollection.objects.get(pk=project_id)
-    else:
-        project = None
+    project = TextCollection.objects.get(pk=project_id) if project_id else None
+
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = RepositoryManager(repository.configuration, user=request.user)
+    manager = repository.manager(user=request.user)
+    
     try:
-        result = manager.resource(id=int(text_id))
+        result = manager.item(text_id)
+
     except IOError:
         return render(request, 'annotations/repository_ioerror.html', {}, status=500)
 
-    try:
-        master_text = Text.objects.get(uri=result.get('uri'))
-    except Text.DoesNotExist:
-        master_text = None
-    aggregate_content = result.get('aggregate_content')
-    serial_content = None
-    context = {
-        'user': request.user,
-        'repository': repository,
-        'content': result['content'],
-        'result': result,
-        'text_id': text_id,
-        'title': 'Text: %s' % result.get('title'),
-        'serial_content': serial_content,
-        'aggregate_content': aggregate_content,
-        'project_id': project_id,
-        'project': project,
-        'master_text': master_text,
-    }
-    if master_text:
-        relations = RelationSet.objects.filter(Q(occursIn=master_text) | Q(occursIn_id__in=master_text.children)).order_by('-created')[:10]
-        context.update({
-            'relations': relations,
-        })
+    # Get or create the master_text in the local database
+    master_text, created = Text.objects.get_or_create(
+        uri=result.get('uri'),
+        defaults={
+            'title': result.get('title'),
+            'content_type': result.get('content_type', 'text/plain'),
+            'tokenizedContent': tokenize(result.get('content')),
+            'repository': repository,
+            'addedBy': request.user,
+            'originalResource': result.get('url')
+        }
+    )
 
     if project:
-        context.update({
-            'in_project': master_text and project.texts.filter(pk=master_text.id).exists()
-        })
+        project.texts.add(master_text)
+
+    action = request.GET.get('action')
+    if action == 'annotate':
+        return HttpResponseRedirect(reverse('annotate_text', args=[master_text.id]))
+
+    context = {
+        'repository': repository,
+        'text': master_text,
+        'project': project,
+        'isNew': created 
+    }
+
     return render(request, 'annotations/repository_text_details.html', context)
 
 

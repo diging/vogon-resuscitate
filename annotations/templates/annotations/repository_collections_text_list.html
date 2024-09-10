@@ -1,0 +1,62 @@
+{% extends "annotations/base.html" %}
+{% load staticfiles %}
+
+{% block breadcrumbs %}
+<a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;
+<a href="{% url "repository_list" %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Repositories</a>&raquo;
+<a href="{% url "repository_details" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ repository.name }}</a>&raquo;
+<a href="{% url "repository_collections" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Collections</a>&raquo;
+<a href="{% url "repository_collection" repository.id collection_id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ collection_id }}</a>
+{% endblock %}
+{% block main %}
+<div class="container">
+    <h1>{{ title }}</h1>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Authors</th>
+                <th>Item Type</th>
+                <th>Volume</th>
+                <th>Pages</th>
+                <th>URL</th>
+                <th>Date Added</th>
+                <th>More</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for text in texts %}
+            <tr>
+                <a href="{% url "" %}">
+                    <td>{{ text.title }}</td>
+                    <td>
+                        {% for author in text.authors %}
+                            {% if author.firstName and author.lastName %}
+                                {{ author.firstName }} {{ author.lastName }}
+                            {% else %}
+                                {{ author.name }}
+                            {% endif %}
+                            {% if not forloop.last %}, {% endif %}
+                        {% empty %}
+                            No authors listed
+                        {% endfor %}
+                    </td>
+                    <td>{{ text.itemType }}</td>
+                    <td>{{ text.volume|default:"N/A" }}</td>
+                    <td>{{ text.pages|default:"N/A" }}</td>
+                    <td><a href="{{ text.url|default:"#" }}" target="_blank">{{ text.url|default:"No URL" }}</a></td>
+                    <td>{{ text.dateAdded }}</td>
+                    <td>
+                        <a href="{% url "repository_text" repository.id text.id %}">Import</a>
+                    </td>
+                </a>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8">No texts available in this collection.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

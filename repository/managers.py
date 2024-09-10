@@ -41,3 +41,29 @@ class RepositoryManager(RESTManager):
             return response.json()  # Return the Collections data
         else:
             response.raise_for_status()
+    
+    def collection_items(self, groupId, collectionId):
+        """Fetch collection items from Citesphere API"""
+
+        headers = auth.citesphere_auth(self.user)
+        url = f"{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{groupId}/collections/{collectionId}/items/"
+        response = requests.get(url, headers=headers)
+        print(response)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            response.raise_for_status()
+
+    def item(self, groupId, collectionId, itemId):
+        """Fetch individual item from Citesphere API"""
+
+        headers = auth.citesphere_auth(self.user)
+        url = f"{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{groupId}/item/{itemId}/"
+        response = requests.get(url, headers=headers)
+        print(response)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            response.raise_for_status()

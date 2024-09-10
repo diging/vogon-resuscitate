@@ -17,21 +17,34 @@
 <div class="container-fluid">
     <div class="h3">Browsing collection {{ collection.name }} in repository <strong>{{ repository.name }}</strong></div>
 
-    <!-- Display subcollections -->
-    <div class="list-group">
-        {% for subcollection in subcollections %}
-        <a href="{% url "repository_collection" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="list-group-item clearfix">
-            <span class="label label-primary pull-right">{{ subcollection.size }}</span>
-            {{ subcollection.name }}
-            <div class="text-warning">
-                {{ subcollection.description }}
-            </div>
-        </a>
-        {% empty %}
-        <p class="list-group-item">No subcollections available.</p>
-        {% endfor %}
-    </div>
-
+    <div class="container-fluid">
+        <div class="h3">Collections in group {{ group.name }} of repository <strong>{{ repository.name }}</strong></div>
+    
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Collection Name</th>
+                    <th>Number of Items</th>
+                    <th>Visit</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for collection in collections %}
+                    <tr>
+                        <td>{{ collection.name }}</td>
+                        <td>{{ collection.numberOfItems }}</td>
+                        <td>{% if collection.lastModified %}{{ collection.lastModified }}{% else %}N/A{% endif %}</td>
+                        <td><a href="{% url "repository_collections_text_list" repository.id collection_id collection.key %}{% if project_id %}?project_id={{ project_id }}{% endif %}">View</a>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3">No collections available.</td>
+                    </tr>
+                </a>
+                {% endfor %}
+            </tbody>
+        </table>
+    
     <!-- Pagination for subcollections -->
     <div class="row">
         <div class="col-xs-12 clearfix">
