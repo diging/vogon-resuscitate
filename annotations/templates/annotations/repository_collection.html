@@ -8,7 +8,7 @@
 <a href="{% url "repository_list" %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Repositories</a>&raquo;
 <a href="{% url "repository_details" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ repository.name }}</a>&raquo;
 <a href="{% url "repository_collections" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Collections</a>&raquo;
-<a href="{% url "repository_collection" repository.id collection_id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ collection.name }}</a>
+<a href="{% url "repository_collection" repository.id group_id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ group.name }}</a>
 {% endblock %}
 
 {% block main %}
@@ -25,7 +25,7 @@
                 <tr>
                     <th>Collection Name</th>
                     <th>Number of Items</th>
-                    <th>Visit</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -33,8 +33,7 @@
                     <tr>
                         <td>{{ collection.name }}</td>
                         <td>{{ collection.numberOfItems }}</td>
-                        <td>{% if collection.lastModified %}{{ collection.lastModified }}{% else %}N/A{% endif %}</td>
-                        <td><a href="{% url "repository_collections_text_list" repository.id collection_id collection.key %}{% if project_id %}?project_id={{ project_id }}{% endif %}">View</a>
+                        <td><a href="{% url "repository_collections_text_list" repository.id group_id collection.key %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-info">View</a>
                     </tr>
                     {% empty %}
                     <tr>

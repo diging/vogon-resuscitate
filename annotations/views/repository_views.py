@@ -67,7 +67,7 @@ def _get_pagination(response, base_url, base_params):
 
 @login_required
 def repository_collections(request, repository_id):
-    """View to fetch and display Citesphere collections."""
+    """View to fetch and display Citesphere Groups"""
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = repository.manager(request.user)
 
@@ -82,7 +82,8 @@ def repository_collections(request, repository_id):
 
 
 @login_required
-def repository_collection(request, repository_id, collection_id):
+def repository_collection(request, repository_id, group_id):
+    """View to fetch and display collections within Citesphere Groups"""
     params = _get_params(request)
 
     repository = get_object_or_404(Repository, pk=repository_id)
@@ -90,7 +91,7 @@ def repository_collection(request, repository_id, collection_id):
     manager = repository.manager(user=request.user)
     
     try:
-        response_data = manager.collections(groupId=collection_id)
+        response_data = manager.collections(groupId=group_id)
         group_info = response_data.get('group')
         collections = response_data.get('collections', [])
     except IOError:
@@ -98,7 +99,7 @@ def repository_collection(request, repository_id, collection_id):
 
     project_id = request.GET.get('project_id')
     
-    base_url = reverse('repository_collection', args=(repository_id, collection_id))
+    base_url = reverse('repository_collection', args=(repository_id, group_id))
     
     base_params = {}
     if project_id:
@@ -108,9 +109,9 @@ def repository_collection(request, repository_id, collection_id):
         'user': request.user,
         'repository': repository,
         'group': group_info,
+        'group_id': group_id,
         'collections': collections,
-        'collection_id': collection_id,
-        'title': f'Browse collections in {repository.name}',
+        'title': f'Browse collections in {group_id}',
         'project_id': project_id
     }
 
@@ -206,6 +207,7 @@ def repository_details(request, repository_id):
     user = None if isinstance(request.user, AnonymousUser) else request.user
 
     repository = get_object_or_404(Repository, pk=repository_id)
+    texts = repository.texts.all()
     manager = RepositoryManager(user=user)
     project_id = request.GET.get('project_id')
     context = {
@@ -213,6 +215,7 @@ def repository_details(request, repository_id):
         'repository': repository,
         'manager': manager,
         'title': 'Repository details: %s' % repository.name,
+        'texts':texts,
         'project_id': project_id,
     }
 
@@ -232,13 +235,13 @@ def repository_list(request):
 
     return render(request, template, context)
 
-def repository_collection_texts(request, repository_id, collection_id, group_collection_id):
+def repository_collection_texts(request, repository_id, group_id, group_collection_id):
     user = request.user
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=user)
 
     try:
-        texts = manager.collection_items(collection_id, group_collection_id)
+        texts = manager.collection_items(group_id, group_collection_id)
         print(texts)
     except Exception as e:
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
@@ -247,10 +250,10 @@ def repository_collection_texts(request, repository_id, collection_id, group_col
     context = {
         'user': user,
         'repository': repository,
-        'collection_id':collection_id,
         'texts': texts['items'],
-        'title': f'Texts in Collection: {group_collection_id}',
-        'group_id':collection_id,
+        'title': f'Texts in Collection: ', # Collection name is rendered from frontend
+        'group_info':texts['group'],
+        'group_id':group_id,
         'project_id': project_id,
     }
 
@@ -386,7 +389,7 @@ def repository_text_add_to_project(request, repository_id, text_id, project_id):
     repository = get_object_or_404(Repository, pk=repository_id)
     project = get_object_or_404(TextCollection, pk=project_id)
 
-    manager = RepositoryManager(repository.configuration, user=request.user)
+    manager = RepositoryManager(user=request.user)
 
     try:
         resource = manager.resource(id=int(text_id))

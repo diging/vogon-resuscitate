@@ -124,10 +124,10 @@ urlpatterns = [
     re_path(r'^quadruples/text/(?P<text_id>[0-9]+)/(?P<user_id>[0-9]+).xml$', views.quadruple_views.text_xml, name='text_xml'),
 
     re_path(r'^repository/(?P<repository_id>[0-9]+)/collections/$', views.repository_views.repository_collections, name='repository_collections'),
-    re_path(r'^repository/(?P<repository_id>[0-9]+)/collection/(?P<collection_id>[0-9]+)/group-collection/(?P<group_collection_id>[a-zA-Z0-9]+)/texts/$', views.repository_views.repository_collection_texts, name='repository_collections_text_list'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/browse/$', views.repository_views.repository_browse, name='repository_browse'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/search/$', views.repository_views.repository_search, name='repository_search'),
-    re_path(r'^repository/(?P<repository_id>[0-9]+)/collections/(?P<collection_id>[0-9]+)/$', views.repository_views.repository_collection, name='repository_collection'),
+    re_path(r'^repository/(?P<repository_id>[0-9]+)/collections/(?P<group_id>[0-9]+)/$', views.repository_views.repository_collection, name='repository_collection'),
+    re_path(r'^repository/(?P<repository_id>[0-9]+)/collection/(?P<group_id>[0-9]+)/group-collection/(?P<group_collection_id>[a-zA-Z0-9]+)/texts/$', views.repository_views.repository_collection_texts, name='repository_collections_text_list'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/group/(?P<group_id>[a-zA-Z0-9]+)/text/(?P<text_id>[a-zA-Z0-9]+)/$', views.repository_views.repository_text, name='repository_text'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/text/(?P<text_id>[0-9]+)/content/(?P<content_id>[0-9]+)/$', views.repository_views.repository_text_content, name='repository_text_content'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/$', views.repository_views.repository_details, name='repository_details'),

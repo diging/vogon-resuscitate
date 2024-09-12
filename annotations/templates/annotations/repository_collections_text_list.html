@@ -6,11 +6,11 @@
 <a href="{% url "repository_list" %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Repositories</a>&raquo;
 <a href="{% url "repository_details" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ repository.name }}</a>&raquo;
 <a href="{% url "repository_collections" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Collections</a>&raquo;
-<a href="{% url "repository_collection" repository.id collection_id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ collection_id }}</a>
+<a href="{% url "repository_collection" repository.id group_id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ group_info.name }}</a>
 {% endblock %}
 {% block main %}
 <div class="container">
-    <h1>{{ title }}</h1>
+    <h1>{{ title }}{{ group_info.name }}</h1><br>
     <table class="table table-striped">
         <thead>
             <tr>
@@ -21,7 +21,7 @@
                 <th>Pages</th>
                 <th>URL</th>
                 <th>Date Added</th>
-                <th>More</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -46,7 +46,7 @@
                 <td><a href="{{ text.url|default:"#" }}" target="_blank">{{ text.url|default:"No URL" }}</a></td>
                 <td>{{ text.dateAdded }}</td>
                 <td>
-                    <a href="{% url "repository_text" repository.id group_id text.key %}">Import</a>
+                    <a href="{% url "repository_text" repository.id group_id text.key %}" class="btn btn-info">Import</a>
                 </td>
             </tr>
             {% empty %}

@@ -4,7 +4,9 @@
 {% load staticfiles %}
 
 {% block breadcrumbs %}
-<a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "repository_list" %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Repositories</a>&raquo;<a href="{% url "repository_details" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ repository.name }}</a>
+<a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;
+<a href="{% url "repository_list" %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Repositories</a>&raquo;
+<a href="{% url "repository_details" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ repository.name }}</a>
 {% endblock %}
 
 {% block main %}
@@ -15,14 +17,34 @@
     <p class="">{{ repository.description }}</p>
     <ul class="nav nav-pills nav-justified">
         <li>
-            <a href="{% url "repository_search" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Search</a>
+            <a href="{% url "repository_search" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Your Texts</a>
         </li>
         <li>
-            <a href="{% url "repository_browse" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Browse</a>
-        </li>
-        <li>
-            <a href="{% url "repository_collections" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Collections</a>
+            <a href="{% url "repository_collections" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Browse</a>
         </li>
     </ul>
+
+    <div class="container mt-5">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Added By</th>
+                    <th>Created On</th>
+                    <th>Added On</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for text in texts %}
+                <tr>
+                    <td>{{ text.title }}</td>
+                    <td>{{ text.addedBy }}</td>
+                    <td>{{ text.created }}</td>
+                    <td>{{ text.added }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}
