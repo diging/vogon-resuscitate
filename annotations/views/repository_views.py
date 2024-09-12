@@ -309,8 +309,6 @@ def repository_text(request, repository_id, text_id):
             'in_project': project.texts.filter(id=text_id).exists()
         })
 
-    print(project.texts.filter(id=text_id).exists())
-
     return render(request, 'annotations/repository_text_details.html', context)
 
 
