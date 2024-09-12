@@ -44,7 +44,7 @@
                     <td>{{ text.addedBy }}</td>
                     <td>{{ text.created }}</td>
                     <td>{{ text.added }}</td>
-                    <td><a href="{% url "repository_text" repository.id text.id %}" class="btn btn-info">View</a></td>
+                    <td><a href="{% url "repository_text" repository.id text.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-info">View</a></td>
                 </tr>
                 {% endfor %}
             </tbody>

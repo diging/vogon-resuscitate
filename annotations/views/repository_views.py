@@ -70,12 +70,14 @@ def repository_collections(request, repository_id):
     """View to fetch and display Citesphere Groups"""
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = repository.manager(request.user)
+    project_id = request.GET.get('project_id')
 
     collections = manager.groups()  # Fetch collections
 
     context = {
         'collections': collections,
         'repository':repository,
+        'project_id':project_id,
     }
 
     return render(request, "annotations/repository_collections.html", context)
@@ -164,7 +166,6 @@ def repository_search(request, repository_id):
     form = RepositorySearchForm(request.GET)
 
     if query:
-        # Search texts related to this repository using the query
         texts = repository.texts.filter(
             Q(title__icontains=query)
         )
@@ -172,7 +173,6 @@ def repository_search(request, repository_id):
         # No query provided, so no texts to display
         texts = Text.objects.none()
 
-    # Base URL for building pagination and other query-modifying links
     base_url = reverse('repository_search', args=(repository_id,))
     base_params = {'project_id': project_id} if project_id else {}
 
@@ -233,7 +233,6 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
     try:
         texts = manager.collection_items(group_id, group_collection_id)
-        print(texts)
     except Exception as e:
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
 
@@ -251,12 +250,12 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     return render(request, 'annotations/repository_collections_text_list.html', context)
 
 @login_required
-def repository_text_import(request, repository_id, group_id, text_id):
+def repository_text_import(request, repository_id, group_id, text_key):
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = repository.manager(user=request.user)
 
     try:
-        result = manager.item(group_id, text_id)
+        result = manager.item(group_id, text_key)
     except IOError:
         return render(request, 'annotations/repository_ioerror.html', {}, status=500)
 
@@ -278,7 +277,7 @@ def repository_text_import(request, repository_id, group_id, text_id):
         project.texts.add(master_text)
         return HttpResponseRedirect(reverse('view_project', project_id))
         
-    return HttpResponseRedirect(reverse('repository_text_details', args=[repository_id, text_id]))
+    return HttpResponseRedirect(reverse('repository_text_details', args=[repository_id, text_key]))
 
 @login_required
 def repository_text(request, repository_id, text_id):
@@ -287,34 +286,30 @@ def repository_text(request, repository_id, text_id):
     project_id = request.GET.get('project_id')
     
     project_id = request.GET.get('project_id')
+
     if project_id:
         project = TextCollection.objects.get(pk=project_id)
     else:
-        project = None
+        project = False
 
     action = request.GET.get('action')
     if action == 'annotate':
         return HttpResponseRedirect(reverse('annotate_text', args=[text.id]))
 
-    try:
-        master_text = Text.objects.get(pk=text_id)
-    except Text.DoesNotExist:
-        master_text = None
-
     context = {
         'repository': repository,
         'text': text,
-        'project': project,
         'isNew': False,  # Since we're viewing details, the text is not new.
         'project_id': project_id,
         'project': project,
-        'master_text': master_text,
     }
 
     if project:
         context.update({
-            'in_project': master_text and project.texts.filter(pk=master_text.id).exists()
+            'in_project': project.texts.filter(id=text_id).exists()
         })
+
+    print(project.texts.filter(id=text_id).exists())
 
     return render(request, 'annotations/repository_text_details.html', context)
 
@@ -405,19 +400,12 @@ def repository_text_add_to_project(request, repository_id, text_id, project_id):
 
     manager = RepositoryManager(user=request.user)
 
-    try:
-        resource = manager.resource(id=int(text_id))
-    except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
     defaults = {
-        'title': resource.get('title'),
-        'created': resource.get('created'),
         'repository': repository,
         'repository_source_id': text_id,
         'addedBy': request.user,
     }
-    text, _ = Text.objects.get_or_create(uri=resource.get('uri'),
-                                         defaults=defaults)
+    text, _ = Text.objects.get_or_create(pk=text_id)
     project.texts.add(text)
     return HttpResponseRedirect(reverse('view_project', args=(project_id,)))
 

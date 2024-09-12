@@ -120,7 +120,7 @@ word {
     color: orange;
     font-style: italic;
 }
-# AngularJS compatability.
+ /* AngularJS compatability. */
 .nav, .pagination, .carousel, .panel-title a { cursor: pointer; }
 
 .angucomplete-dropdown {
