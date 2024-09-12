@@ -17,9 +17,6 @@
         <li>
             <a href="{% url "repository_search" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Search</a>
         </li>
-        <li>
-            <a href="{% url "repository_browse" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Browse</a>
-        </li>
         <li class="active">
             <a href="{% url "repository_collections" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Collections</a>
         </li>

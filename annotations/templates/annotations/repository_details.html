@@ -17,12 +17,14 @@
     <p class="">{{ repository.description }}</p>
     <ul class="nav nav-pills nav-justified">
         <li>
-            <a href="{% url "repository_search" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Your Texts</a>
+            <a href="{% url "repository_search" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Search</a>
         </li>
         <li>
             <a href="{% url "repository_collections" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Browse</a>
         </li>
     </ul>
+
+    <h1 class="mt-5 mb-5 text-center">Repository Texts</h1>
 
     <div class="container mt-5">
         <table class="table table-striped">
@@ -32,6 +34,7 @@
                     <th>Added By</th>
                     <th>Created On</th>
                     <th>Added On</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -41,6 +44,7 @@
                     <td>{{ text.addedBy }}</td>
                     <td>{{ text.created }}</td>
                     <td>{{ text.added }}</td>
+                    <td><a href="{% url "repository_text" repository.id text.id %}" class="btn btn-info">View</a></td>
                 </tr>
                 {% endfor %}
             </tbody>

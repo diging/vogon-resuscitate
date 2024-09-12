@@ -158,46 +158,37 @@ def repository_browse(request, repository_id):
 
 @login_required
 def repository_search(request, repository_id):
-    params = _get_params(request)
-
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = RepositoryManager(user=request.user)
-    query = request.GET.get('query', None)
+    query = request.GET.get('query', '')
     project_id = request.GET.get('project_id')
+    form = RepositorySearchForm(request.GET)
+
     if query:
-        try:
-            results = manager.search(query=query, **params)
-        except IOError:
-            return render(request, 'annotations/repository_ioerror.html', {}, status=500)
-        form = RepositorySearchForm({'query': query})
+        # Search texts related to this repository using the query
+        texts = repository.texts.filter(
+            Q(title__icontains=query)
+        )
     else:
-        results = None
-        form = RepositorySearchForm()
+        # No query provided, so no texts to display
+        texts = Text.objects.none()
 
-    base_url = reverse('repository_search', args=(repository_id))
-    base_params = {}
-    if project_id:
-        base_params.update({'project_id': project_id})
-    if query:
-        base_params.update({'query': query})
+    # Base URL for building pagination and other query-modifying links
+    base_url = reverse('repository_search', args=(repository_id,))
+    base_params = {'project_id': project_id} if project_id else {}
 
+    # Context to pass to the template
     context = {
         'user': request.user,
         'repository': repository,
-        'title': 'Browse repository %s' % repository.name,
+        'title': f'Search in repository {repository.name}',
         'form': form,
-        'results': results,
+        'texts': texts,
         'query': query,
         'project_id': project_id,
-        'manager': manager,
     }
-    previous_page, next_page = _get_pagination(results, base_url, base_params)
-    if next_page:
-        context.update({'next_page': next_page})
-    if previous_page:
-        context.update({'previous_page': previous_page})
 
     return render(request, 'annotations/repository_search.html', context)
+
 
 
 def repository_details(request, repository_id):
@@ -260,22 +251,15 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     return render(request, 'annotations/repository_collections_text_list.html', context)
 
 @login_required
-def repository_text(request, repository_id, group_id, text_id):
-    project_id = request.GET.get('project_id')
-    project = TextCollection.objects.get(pk=project_id) if project_id else None
-
+def repository_text_import(request, repository_id, group_id, text_id):
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = repository.manager(user=request.user)
-    
-    try:
-        print(group_id, text_id)
-        result = manager.item(group_id, text_id)
-        print("result", result)
 
+    try:
+        result = manager.item(group_id, text_id)
     except IOError:
         return render(request, 'annotations/repository_ioerror.html', {}, status=500)
 
-    # Get or create the master_text in the local database
     master_text, created = Text.objects.get_or_create(
         uri=result.get('uri'),
         defaults={
@@ -288,19 +272,49 @@ def repository_text(request, repository_id, group_id, text_id):
         }
     )
 
-    if project:
+    project_id = request.GET.get('project_id')
+    if project_id:
+        project = TextCollection.objects.get(pk=project_id)
         project.texts.add(master_text)
+        return HttpResponseRedirect(reverse('view_project', project_id))
+        
+    return HttpResponseRedirect(reverse('repository_text_details', args=[repository_id, text_id]))
+
+@login_required
+def repository_text(request, repository_id, text_id):
+    repository = get_object_or_404(Repository, pk=repository_id)
+    text = get_object_or_404(Text, pk=text_id)
+    project_id = request.GET.get('project_id')
+    
+    project_id = request.GET.get('project_id')
+    if project_id:
+        project = TextCollection.objects.get(pk=project_id)
+    else:
+        project = None
 
     action = request.GET.get('action')
     if action == 'annotate':
-        return HttpResponseRedirect(reverse('annotate_text', args=[master_text.id]))
+        return HttpResponseRedirect(reverse('annotate_text', args=[text.id]))
+
+    try:
+        master_text = Text.objects.get(pk=text_id)
+    except Text.DoesNotExist:
+        master_text = None
 
     context = {
         'repository': repository,
-        'text': master_text,
+        'text': text,
         'project': project,
-        'isNew': created
+        'isNew': False,  # Since we're viewing details, the text is not new.
+        'project_id': project_id,
+        'project': project,
+        'master_text': master_text,
     }
+
+    if project:
+        context.update({
+            'in_project': master_text and project.texts.filter(pk=master_text.id).exists()
+        })
 
     return render(request, 'annotations/repository_text_details.html', context)
 

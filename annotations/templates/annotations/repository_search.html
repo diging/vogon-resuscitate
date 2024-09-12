@@ -64,7 +64,7 @@
             </div>
         </div>
         <div class="list-group">
-            {% for result in results.resources  %}
+            {% for result in texts  %}
             <a class="list-group-item clearfix"
                 href="{% url "repository_text" repository.id result.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">
                 <strong>{{ result.title }}</strong>

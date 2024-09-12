@@ -46,7 +46,7 @@
                 <td><a href="{{ text.url|default:"#" }}" target="_blank">{{ text.url|default:"No URL" }}</a></td>
                 <td>{{ text.dateAdded }}</td>
                 <td>
-                    <a href="{% url "repository_text" repository.id group_id text.key %}" class="btn btn-info">Import</a>
+                    <a href="{% url "repository_text_import" repository.id group_id text.key %}" class="btn btn-info">Import</a>
                 </td>
             </tr>
             {% empty %}
