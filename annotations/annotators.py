@@ -56,7 +56,7 @@ from django.shortcuts import get_object_or_404, render
 from django.http import Http404
 from annotations.tasks import tokenize
 from annotations.utils import basepath
-from annotations.models import TextCollection, VogonUserDefaultProject
+from annotations.models import TextCollection, VogonUserDefaultProject, Text
 from urllib.parse import urlparse
 import chardet
 
@@ -100,15 +100,25 @@ class Annotator(object):
 
     def get_resource(self):
         """
-        Retrieve the resource represented by our :class:`.Text` instance.
+        Retrieve the resource represented by our :class:`.Text` instance, 
+        focusing on the tokenized content for word-based annotation.
         """
         if self.resource is not None:
             return self.resource
-        if not self.text.repository:
-            return
-        manager = self.text.repository.manager(self.context['user'])
-        self.resource = manager.content(id=int(self.text.repository_source_id))
-        return self.resource
+
+        if not self.text:
+            return None
+
+        # Directly retrieve the tokenized content from the Text model.
+        try:
+            # Retrieve the tokenized content of the text
+            resource = self.text.tokenizedContent
+            self.resource = resource
+            return self.resource
+        except Text.DoesNotExist:
+            return None  # If the resource is not found
+
+
 
     def render(self, context={}):
         """
@@ -152,21 +162,41 @@ class Annotator(object):
         return render(self.context.get('request'), self.display_template, context)
 
     def get_context(self):
-        resource = self.get_resource()
+        """
+        Override to provide context for a specific word to annotate.
+        """
+        resource = self.get_resource()  # Get the tokenized content, which is a string
         request = self.context.get('request')
-        content = self.get_content(resource)
-        detect  = chardet.detect(content)
+        
+        # Extract the word_id from the request
+        word_id = request.GET.get('word_id')
+        
+        # Find the word with the specified ID in the tokenized content
+        if word_id:
+            # Using regex to find the specific word with the given word_id
+            import re
+            word_pattern = re.compile(r'<word id="' + re.escape(word_id) + r'">(.*?)<\/word>')
+            match = word_pattern.search(resource)
+            if match:
+                specific_word = match.group(1)  # Extract the word text
+            else:
+                specific_word = None
+        else:
+            specific_word = None
+
         return {
             'text': self.text,
             'textid': self.text.id,
             'title': 'Annotate Text',
-            'content': content.decode(detect['encoding']).encode('utf-8'), # We are using chardet to guess the encoding becuase giles is returning everyting with a utf-8 header even if it is not utf-8
-            'baselocation' : basepath(request),
+            'content': resource,  # The entire tokenized content
+            'specific_word': specific_word,  # The specific word to annotate
+            'word_id': word_id,  # word_id from tokenized in the context
             'userid': request.user.id,
-            'title': self.text.title,
             'repository_id': self.text.repository.id,
-            'project': self.project
+            'project': self.project,
         }
+
+
 
 
 class PlainTextAnnotator(Annotator):
@@ -178,25 +208,18 @@ class PlainTextAnnotator(Annotator):
     content_types = ('text/plain',)
 
     def get_content(self, resource):
-        target = resource.get('location')
-        request = self.context['request']
-        manager = self.text.repository.manager(request.user)
-        endpoint = manager.configuration['endpoint']
-        if urlparse(target).netloc == urlparse(endpoint).netloc:
-            return manager.get_raw(target)
-        response = requests.get(target)
-        if response.status_code == requests.codes.OK:
-            return response.content
-        return
+        """
+        Since resource is just the tokenized content string, return it as is.
+        """
+        return resource  # Return the tokenized content string directly
 
     def get_context(self):
+        """
+        Override to provide context for a specific word to annotate.
+        """
         context = super(PlainTextAnnotator, self).get_context()
-        context.update({
-            'next': self.resource.get('next'),
-            'next_content': self.resource.get('next_content'),
-            'previous': self.resource.get('previous'),
-            'previous_content': self.resource.get('previous_content'),
-        })
+
+        # Since self.resource is a string (tokenized content)
         return context
 
 

@@ -21,6 +21,7 @@ import requests
 from urllib.parse import urlparse, parse_qs
 from urllib.parse import urlencode
 
+import re
 
 def _get_params(request):
     # The request may include parameters that should be passed along to the
@@ -270,6 +271,7 @@ def repository_text_import(request, repository_id, group_id, text_key):
         'content_type': 'text/plain',  # Explicitly set to 'text/plain'
         'tokenizedContent': tokenized_content,
         'repository': repository,
+        'repository_source_id':repository_id,
         'addedBy': request.user,
         'originalResource': item_details.get('url'),
     }
@@ -295,38 +297,44 @@ def repository_text_import(request, repository_id, group_id, text_key):
 
 @login_required
 def repository_text(request, repository_id, text_id):
-    repository = get_object_or_404(Repository, pk=repository_id)
-    text = get_object_or_404(Text, pk=text_id)
-    project_id = request.GET.get('project_id')
+    project_id = request.GET.get('project_id', None)
+    project = TextCollection.objects.get(pk=project_id) if project_id else None
     
-    project_id = request.GET.get('project_id')
+    repository = get_object_or_404(Repository, pk=repository_id)
 
-    if project_id:
-        project = TextCollection.objects.get(pk=project_id)
-    else:
-        project = False
+    try:
+        result = Text.objects.get(id=text_id)
+    except Text.DoesNotExist:
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'Text not found'}, status=500)
 
-    action = request.GET.get('action')
-    if action == 'annotate':
-        return HttpResponseRedirect(reverse('annotate_text', args=[text.id]))
-
-    aggregate_content = text.tokenizedContent
+    tokenized_content = result.tokenizedContent
+    words = re.findall(r'<word id="(\d+)">(.*?)<\/word>', tokenized_content)
 
     context = {
+        'user': request.user,
         'repository': repository,
-        'text': text,
-        'isNew': False,  # Since its a detail view, the text is not new.
+        'words': words,
+        'result': result,
+        'text_id': text_id,
+        'title': 'Text: %s' % result.title,
         'project_id': project_id,
         'project': project,
-        'aggregate_content':aggregate_content
+        'master_text': result,
+        'project_id':project_id,
     }
 
+
+    # Handle project association (whether the text is part of a specific project)
     if project:
-        context.update({
-            'in_project': project.texts.filter(id=text_id).exists()
-        })
+        context.update({'in_project': project.texts.filter(pk=result.id).exists()})
+
+    # Fetch recent annotations/relations related to this text (if available)
+    relations = RelationSet.objects.filter(occursIn=result).order_by('-created')[:10]
+    context.update({'relations': relations})
 
     return render(request, 'annotations/repository_text_details.html', context)
+
+
 
 
 @login_required
@@ -334,7 +342,7 @@ def repository_text_content(request, repository_id, text_id, content_id):
 
     repository = get_object_or_404(Repository, pk=repository_id)
 
-    manager = RepositoryManager(repository.configuration, user=request.user)
+    manager = RepositoryManager(user=request.user)
     # content_resources = {o['id']: o for o in resource['content']}
     # content = content_resources.get(int(content_id))    # Not a dict.
     try:

@@ -71,13 +71,12 @@ class RepositoryManager(RESTManager):
         headers = auth.citesphere_auth(self.user)
         url = f"{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{groupId}/items/{itemId}/"
         response = requests.get(url, headers=headers)
-        
+
         print('items', response)  # Printing response for debugging
-        
+
         if response.status_code == 200:
             item_data = response.json()
-            # print(item_data)
-            
+
             item_details = {
                 'key': item_data.get('item', {}).get('key'),
                 'title': item_data.get('item', {}).get('title'),
@@ -87,40 +86,31 @@ class RepositoryManager(RESTManager):
             }
 
             print(item_data.get('item', {}).get('key'))
-            
+
             # Extract Giles upload details if available
-            giles_uploads = item_data.get('item', {}).get('gilesUploads', {})
-            # print(giles_uploads)
-            giles_details = []
-            # for upload in giles_uploads:
-            #     document_id = upload.get('documentId')
-            #     if document_id:
-            #         details = get_giles_document_details(self.user, document_id)
-            #         # Check if the content-type of the extracted text is 'text/plain'
-            #         if details and details.get('extractedText', {}).get('content-type') == 'text/plain':
-            #             giles_details.append({
-            #                 'documentId': document_id,
-            #                 'extractedText': details['extractedText'],
-            #                 'url': details.get('extractedText', {}).get('url')
-            #             })
-            etxracted_text = giles_uploads[0].get('extractedText', {})
-            print(etxracted_text)
-            if etxracted_text.get('content-type') == 'text/plain':
-                extracted_text_data = get_giles_document_details(self.user, etxracted_text.get('id'))
-                item_data['item']['text'] = extracted_text_data
+            giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
+
+            if giles_uploads:
+                giles_details = []
+                extracted_text = giles_uploads[0].get('extractedText', {})
+
+                if extracted_text and extracted_text.get('content-type') == 'text/plain':
+                    extracted_text_data = get_giles_document_details(self.user, extracted_text.get('id'))
+                    item_data['item']['text'] = extracted_text_data
+                elif giles_uploads[0].get('pages'):
+                    pages = giles_uploads[0].get('pages')
+                    text = ""
+                    for page in pages:
+                        if page.get('text') and page.get('text').get('content-type') == 'text/plain':
+                            data = get_giles_document_details(self.user, page.get('text').get('id'))
+                            text += data
+                    item_data['item']['text'] = text
+                else:
+                    item_data['item']['text'] = "No valid text/plain content found."
             else:
-                pages = giles_uploads[0].get('pages')
-                # print(pages)
-                text = ""
-                for page in pages:
-                    # print(page)
-                    if page.get('text').get('content-type') == 'text/plain':
-                        data = get_giles_document_details(self.user, page.get('text').get('id'))
-                        # print("PAGES", count, data)
-                        text += data
-                
-                item_data['item']['text'] = extracted_text_data
-            
+                print("No Giles uploads available")
+                item_data['item']['text'] = "No Giles uploads available."
+
             item_data['item']['details'] = item_details
 
             return item_data
