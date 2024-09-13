@@ -261,53 +261,34 @@ def repository_text_import(request, repository_id, group_id, text_key):
 
     # Extracting item details and Giles details from the result
     item_details = result.get('item', {}).get('details', {})
-    giles_details = result.get('item', {}).get('gilesDetails', [])
+    giles_text = result.get('item', {}).get('text', [])
 
-    parent_text = None  # This will hold the parent text entry
+    tokenized_content = tokenize(giles_text)
 
-    # Iterate over all Giles details and create Text entries
-    for idx, detail in enumerate(giles_details):
-        if 'extractedText' in detail and detail['extractedText'].get('content-type') == 'text/plain':
-            extracted_text_url = detail['extractedText'].get('url')
-            if extracted_text_url:
-                extracted_text_response = requests.get(extracted_text_url)
-                if extracted_text_response.status_code == 200:
-                    content = extracted_text_response.text
+    defaults = {
+        'title': item_details.get('title', 'Unknown Title'),
+        'content_type': 'text/plain',  # Explicitly set to 'text/plain'
+        'tokenizedContent': tokenized_content,
+        'repository': repository,
+        'addedBy': request.user,
+        'originalResource': item_details.get('url'),
+    }
 
-                    # Tokenizing the content if it exists
-                    tokenized_content = tokenize(content) if content else None
+    master_text, created = Text.objects.get_or_create(
+        uri=item_details.get('key'),
+        defaults=defaults
+    )
 
-                    defaults = {
-                        'title': item_details.get('title', 'Unknown Title'),
-                        'content_type': 'text/plain',  # Explicitly set to 'text/plain'
-                        'tokenizedContent': tokenized_content,
-                        'repository': repository,
-                        'addedBy': request.user,
-                        'originalResource': item_details.get('url'),
-                    }
-
-                    master_text, created = Text.objects.get_or_create(
-                        uri=item_details.get('key') + f"-part-{idx}",  # URI for each part
-                        defaults=defaults
-                    )
-
-                    # If this is the first text, treat it as the parent
-                    if parent_text is None:
-                        parent_text = master_text
-                    else:
-                        # Set the parent-child relationship for the subsequent texts
-                        master_text.part_of = parent_text
-                        master_text.save()
-
+    master_text.save()
 
     project_id = request.GET.get('project_id')
-    if project_id and parent_text:
+    if project_id and master_text:
         project = TextCollection.objects.get(pk=project_id)
-        project.texts.add(parent_text)
+        project.texts.add(master_text)
         return HttpResponseRedirect(reverse('view_project', args=[project_id]))
 
-    if parent_text:
-        return HttpResponseRedirect(reverse('repository_text_details', args=[parent_text.id]))
+    if master_text:
+        return HttpResponseRedirect(reverse('repository_text', args=[repository.id, master_text.id]))
 
     # no valid Giles data, redirect back with an error
     return render(request, 'annotations/repository_ioerror.html', {}, status=500)

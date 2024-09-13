@@ -21,6 +21,7 @@
                 <th>Pages</th>
                 <th>URL</th>
                 <th>Date Added</th>
+                <th>Files</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -45,6 +46,7 @@
                 <td>{{ text.pages|default:"N/A" }}</td>
                 <td><a href="{{ text.url|default:"#" }}" target="_blank">{{ text.url|default:"No URL" }}</a></td>
                 <td>{{ text.dateAdded }}</td>
+                <td>{% if text.gilesUploads and text.gilesUploads|length > 0 %}Yes{% else %}No{% endif %}</td>
                 <td>
                     <a href="{% url "repository_text_import" repository.id group_id text.key %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-info">Import</a>
                 </td>

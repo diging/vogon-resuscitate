@@ -11,6 +11,7 @@ from datetime import timedelta, datetime
 from django.utils.dateparse import parse_datetime
 import requests
 import secrets
+from .utils import parse_iso_datetimes
 
 @login_required
 def citesphere_login(request):
@@ -137,9 +138,16 @@ def get_citesphere_collections(request, group_id):
 
             # Process item keys after collections are updated
             for item_data in items_data:
-                date = make_aware(datetime.strptime(item_data['date'], "%Y-%m-%dT%H:%M:%SZ")) if item_data['date'] else None
-                date_added = make_aware(datetime.strptime(item_data['dateAdded'], "%Y-%m-%dT%H:%M:%SZ")) if item_data['dateAdded'] else None
-                date_modified = make_aware(datetime.strptime(item_data['dateModified'], "%Y-%m-%dT%H:%M:%SZ")) if item_data['dateModified'] else None
+                datetime_strings = [
+                    item_data.get('date'),
+                    item_data.get('dateAdded'),
+                    item_data.get('dateModified')
+                ]
+
+                parsed_dates = parse_iso_datetimes(datetime_strings)
+
+                # Unpack the parsed dates
+                date, date_added, date_modified = parsed_dates
                 
                 # Update or create items related to this group
                 CitesphereItem.objects.update_or_create(
