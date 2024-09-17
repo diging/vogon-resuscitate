@@ -1577,3 +1577,295 @@ Appellator = new Vue({
 
     }
 });
+
+// Initialize the Vuex Store
+const store = new Vuex.Store({
+    state: {
+      show_concepts: false,
+      concept_label: "",
+      template: null,
+      appellations_to_submit: [],
+      text_appellation: [],
+      deselect_all: false,
+      select_all: false,
+      assignment_failed: false,
+      validator: 0
+    },
+    mutations: {
+      triggerConcepts(state, payload) {
+        state.show_concepts = payload === false ? false : !state.show_concepts;
+      },
+      setTextAppellation(state, appellation) {
+        state.text_appellation = appellation;
+      },
+      conceptLabel(state, payload) {
+        state.concept_label = payload;
+      },
+      setTemplate(state, payload) {
+        state.template = payload;
+      },
+      removeAppellation(state, index) {
+        state.appellations_to_submit.splice(index, 1);
+      },
+      addAppellation(state, appellation) {
+        state.appellations_to_submit.push(appellation);
+      },
+      setAppellations(state, payload) {
+        state.appellations_to_submit = payload.slice();
+      },
+      deselect(state) {
+        state.deselect_all = !state.deselect_all;
+        state.select_all = false;
+        state.appellations_to_submit = [];
+      },
+      selectAll(state) {
+        state.select_all = !state.select_all;
+        state.deselect_all = false;
+      },
+      setDeselectFalse(state) {
+        state.deselect_all = false;
+      },
+      setSelectFalse(state) {
+        state.select_all = false;
+      },
+      resetCreateAppellationsToText(state) {
+        state.appellations_to_submit = [];
+        state.text_appellation = [];
+      },
+      massAppellationAssignmentFailed(state) {
+        state.assignment_failed = true;
+      },
+      setValidator(state, validator) {
+        state.validator = validator;
+      }
+    },
+    getters: {
+      showConcepts: state => state.show_concepts,
+      conceptLabel: state => state.concept_label,
+      getTemplate: state => state.template,
+      getAppellationsToSubmit: state => state.appellations_to_submit,
+      getTextAppellation: state => state.text_appellation,
+      getDeselect: state => state.deselect_all,
+      getSelect: state => state.select_all,
+      getAssignmentFailed: state => state.assignment_failed,
+      getValidator: state => state.validator
+    }
+  });
+  
+  var Appellator = new Vue({
+    el: '#appellator',
+    store,
+    components: {
+      'appellation-list': AppellationList,
+      'relation-list': RelationList,
+      'text-display': TextDisplay,
+      'appellation-creator': AppellationCreator,
+      'relation-creator': RelationCreator,
+      'relation-template-selector': RelationTemplateSelector,
+      'date-appellation-creator': DateAppellationCreator
+    },
+    template: `#annotation-template`,
+    data: function () {
+      return {
+        appellations: [],
+        dateappellations: [],
+        relations: [],
+        selected: null,
+        selected_text: null,
+        user: {
+          id: USER_ID,
+          username: USER_NAME
+        },
+        text: {
+          id: TEXT_ID,
+          title: TEXT_TITLE
+        },
+        project: {
+          id: PROJECT_ID,
+          name: PROJECT_NAME
+        },
+        sidebarShown: false,
+        template: null,
+        creating_relation: true,
+        text_listener: null,
+        sidebar: 'relations',
+        create_date_appellation: false,
+        swimmerPosition: 'static',
+        swimmerTop: 0,
+        swimmerRef: 0,
+        swimmerLeft: -2,
+        swimmerWidth: 0,
+        submitAppellationClicked: false,
+        massAssignmentFailed: false
+      };
+    },
+    mounted() {
+      this.updateAppellations();
+      this.updateRelations();
+      store.commit('setAppellations', this.appellations);
+      this.updateDateAppellations();
+      this.updateSwimRef();
+      this.handleScroll();
+      this.watchStoreForConcepts();
+      this.watchStoreForAssignmentFailed();
+  
+      // Event listeners for scroll and resize
+      window.addEventListener('scroll', this.handleScroll);
+      window.addEventListener('resize', this.handleScroll);
+  
+      // For graph updates
+      document.getElementById('graphContainer').onmouseup = () => {
+        this.updateSwimRef();
+        this.handleScroll();
+      };
+    },
+    destroyed() {
+      window.removeEventListener('scroll', this.handleScroll);
+      window.removeEventListener('resize', this.handleScroll);
+    },
+    watch: {
+      sidebar() {
+        if (this.sidebar !== 'submitAllAppellations') {
+          this.submitAppellationClicked = false;
+        }
+      },
+      appellations() {
+        this.filterTextAppellationFromAppellationList();
+      }
+    },
+    methods: {
+      /*************************************************
+       * Start Methods to create relationships to text *
+       *************************************************/
+      watchStoreForConcepts() {
+        store.watch(
+          state => store.getters.showConcepts,
+          val => {
+            if (val) {
+              this.selected_text = this.text.title;
+              this.text_listener = null;
+            } else {
+              this.unselectText();
+            }
+          },
+          { deep: true }
+        );
+      },
+      watchStoreForAssignmentFailed() {
+        store.watch(
+          state => store.getters.getAssignmentFailed,
+          val => {
+            if (val === true) {
+              this.massAssignmentFailed = true;
+            }
+          }
+        );
+      },
+      registerData(field, data) {
+        this.field_data[this.fieldHash(field)] = data;
+        this.ready = this.readyToCreate();
+      },
+      filterTextAppellationFromAppellationList() {
+        let i = this.appellations.length - 1;
+        while (i >= 0) {
+          if (this.appellations[i].stringRep === this.text.title) {
+            store.commit('setTextAppellation', this.appellations[i]);
+            store.commit("conceptLabel", this.appellations[i].interpretation_label);
+            this.appellations.splice(i, 1);
+            store.commit('removeAppellation', i);
+          }
+          i--;
+        }
+      },
+      validateCreateRelationsToTextData() {
+        if (store.getters.getTemplate == null) {
+          return 1;
+        } else if (store.getters.getTextAppellation.length === 0) {
+          return 2;
+        } else if (store.getters.getAppellationsToSubmit.length === 0) {
+          return 3;
+        } else {
+          return 0;
+        }
+      },
+      createRelationsFromText() {
+        const validator = this.validateCreateRelationsToTextData();
+        if (validator > 0) {
+          store.commit('setValidator', validator);
+          return;
+        }
+        this.filterTextAppellationFromAppellationList();
+        RelationTemplateResource.text({
+          id: store.getters.getTemplate.id
+        }, {
+          appellations: store.getters.getAppellationsToSubmit,
+          textAppellation: store.getters.getTextAppellation,
+          start: this.start,
+          end: this.end,
+          occur: this.occur,
+          part_id: store.getters.getTemplate.template_parts[0].id,
+          occursIn: this.text.id,
+          createdBy: this.user.id,
+          project: this.project.id
+        }).then(response => {
+          this.ready = false;
+          this.sidebarShown = false;
+          this.sidebar = 'relations';
+          store.commit('resetCreateAppelltionsToText');
+        }).catch(error => {
+          console.log('RelationTemplateResource:: failed miserably', error);
+          this.error = true;
+          this.ready = false;
+          store.commit('massAppellationAssignmentFailed');
+        });
+      },
+      /*************************************************
+       * End Methods to create relationships to text *
+       *************************************************/
+  
+      getSwimmerWidth() {
+        const shadow_elem = document.getElementById('shadow-swimlane');
+        return shadow_elem ? shadow_elem.clientWidth + 2 : 0;
+      },
+      handleScroll() {
+        const shadow_elem = document.getElementById('shadow-swimlane');
+        const swimmer = document.getElementById('sticky-swimlane');
+        const scrolled = this.swimmerRef - window.scrollY;
+        this.swimmerWidth = shadow_elem.clientWidth + 2;
+        this.swimmerTop = scrolled < 0 ? 0 : this.swimmerRef - window.scrollY;
+      },
+      updateSwimRef() {
+        const shadow_elem = document.getElementById('shadow-swimlane');
+        this.swimmerRef = getOffsetTop(shadow_elem);
+      },
+      toggleDateAppellation() {
+        this.create_date_appellation = !this.create_date_appellation;
+      },
+      fieldIsListeningForText() {
+        this.text_listener = true;
+      },
+      fieldIsDoneListeningForText() {
+        this.text_listener = null;
+      },
+      updateAppellations(callback) {
+        Appellation.query({
+          position_type: "CO",
+          text: this.text.id,
+          limit: 500,
+          project: this.project.id
+        }).then(response => {
+          this.appellations = response.body.results.map(appellation => {
+            const offsets = appellation.position.position_value.split(',');
+            appellation.position.startOffset = offsets[0];
+            appellation.position.endOffset = offsets[1];
+            appellation.visible = true;
+            appellation.selected = false;
+            return appellation;
+          });
+          if (callback) callback(response);
+        }).catch(error => {
+          console.error('Failed to get appellations:', error);
+        });
+      }
+    }
+  });
