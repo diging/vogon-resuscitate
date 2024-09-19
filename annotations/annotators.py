@@ -184,7 +184,7 @@ class Annotator(object):
         else:
             specific_word = None
 
-        return {
+        context = {
             'text': self.text,
             'textid': self.text.id,
             'title': 'Annotate Text',
@@ -195,6 +195,8 @@ class Annotator(object):
             'repository_id': self.text.repository.id,
             'project': self.project,
         }
+
+        return context
 
 
 

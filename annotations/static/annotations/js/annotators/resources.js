@@ -36,6 +36,8 @@ var csrftoken = getCookie('csrftoken');function getCookie(name) {
 
 var csrftoken = getCookie('csrftoken');
 
+var BASE_URL = 'http://localhost:8000';
+
 var Appellation = Vue.resource(BASE_URL + '/rest/appellation{/id}');
 var DateAppellation = Vue.resource(BASE_URL + '/rest/dateappellation{/id}');
 var Relation = Vue.resource(BASE_URL + '/rest/relationset{/id}');
