@@ -142,10 +142,10 @@ class AutocompleteWidget(widgets.TextInput):
             return formats.localize_input(value)
         return value
 
-    def render(self, name, value, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         if value is None:
             value = ''
-        final_attrs = self.build_attrs(attrs, type=self.input_type, name=name)
+        final_attrs = self.build_attrs(attrs, {'type': self.input_type, 'name': name})
         if value != '':
             # Only add the 'value' attribute if a value is non-empty.
             final_attrs['value'] = widgets.force_text(self._format_value(value))
@@ -154,7 +154,7 @@ class AutocompleteWidget(widgets.TextInput):
         if 'class' in final_attrs:
             classes += ' ' + final_attrs['class']
 
-        return widgets.format_html('<input class="' + classes + '"{} />', widgets.flatatt(final_attrs))
+        return widgets.format_html('<input class="' + classes + '"{} />', attrs.get('flatatt', ''))
 
 
 class ConceptField(forms.CharField):
