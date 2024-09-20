@@ -12,7 +12,9 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 
 import autocomplete_light
-
+from django.utils.html import format_html
+from django.forms.utils import flatatt
+from django.utils.encoding import force_str
 import networkx as nx
 
 
