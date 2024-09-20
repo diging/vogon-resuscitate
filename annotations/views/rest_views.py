@@ -166,39 +166,32 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
     # pagination_class = LimitOffsetPagination
 
     def create(self, request, *args, **kwargs):
+        print(request.data)
         data = request.data.copy()
         position = data.pop('position', None)
-        interpretation = data.get('interpretation')
+        interpretation = request.data.get('interpretation', None)
 
-        # A concept URI may have been passed directly, in which case we need to
-        #  get (or create) the local Concept instance.
-        if type(interpretation) in [str, str] and interpretation.startswith('http'):
-            try:
-                concept = Concept.objects.get(uri=interpretation)
-            except Concept.DoesNotExist:
-                url = settings.CONCEPTPOWER_ENDPOINT + 'concept/add/'
-                concept_data = requests.post(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD), data=data)
-                type_data = concept_data.data.get('concept_type')
-                type_instance = None
-                if type_data:
-                    try:
-                        type_instance = Type.objects.get(uri=type_data.get('identifier'))
-                    except Type.DoesNotExist:
-                        print(type_data)
-                        type_instance = Type.objects.create(
-                            uri = type_data.get('identifier'),
-                            label = type_data.get('name'),
-                            description = type_data.get('description'),
-                            authority = concept_data.data.get('authority', {}).get('name'),
-                        )
-
-                concept = ConceptLifecycle.create(
-                    uri = interpretation,
-                    label = concept_data.data.get('name'),
-                    description = concept_data.data.get('description'),
-                    typed = type_instance,
-                    authority = concept_data.data.get('authority', {}).get('name'),
-                ).instance
+        try:
+            concept = Concept.objects.get(uri=interpretation)
+        except Concept.DoesNotExist:
+            # Fetch concept data from external source
+            # Save concept or retrieve existing concept?
+            concept_response = requests.get(interpretation)
+            if concept_response.status_code == 200:
+                concept_data = concept_response.json()
+                type_data = concept_data.get('concept_type')
+                # Now create and save the Concept instance
+                concept = Concept(
+                    uri=concept_data.get('uri'),
+                    label=concept_data.get('label'),
+                    description=concept_data.get('description'),
+                    authority=concept_data.get('authority', {}).get('name'),
+                    concept_type=type_data,
+                )
+                concept.save()
+            else:
+                # Handle the error appropriately
+                return Response({'error': 'Failed to retrieve concept data'}, status=concept_response.status_code)
 
             data['interpretation'] = concept.id
 
