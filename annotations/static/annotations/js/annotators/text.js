@@ -96,6 +96,7 @@ var ConceptSearch = {
                 payload['force'] = 'force';
             }
             Concept.search(payload).then(function (response) {
+                console.log(response);
                 self.concepts = response.body.results;
                 self.searching = false;
             }).catch(function (error) {

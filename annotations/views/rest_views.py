@@ -13,6 +13,7 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import (IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
+from django.http import JsonResponse
 from rest_framework.decorators import action
 from rest_framework.pagination import (LimitOffsetPagination,
                                        PageNumberPagination)
@@ -23,6 +24,7 @@ from concepts.models import Concept, Type
 from concepts.lifecycle import *
 
 import uuid
+import xml.etree.ElementTree as ET
 
 import requests
 from django.conf import settings
@@ -483,17 +485,66 @@ class ConceptViewSet(viewsets.ModelViewSet):
             return Response({'results': []})
         pos = request.GET.get('pos', None)
         url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{q}/{pos if pos else ''}"
-        concepts = requests.get(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
-
-        def _relabel(datum):
-            _fields = {
-                'name': 'label',
-                'id': 'alt_id',
-                'identifier': 'uri'
-            }
-
-            return {_fields.get(k, k): v for k, v in list(datum.items())}
-        return Response({'results': list(map(_relabel, [c.data for c in concepts]))})
+        response = requests.get(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
+        if response.status_code == 200:
+            try:
+                # Parse the XML response
+                root = ET.fromstring(response.content)
+                # Define the namespaces used in the XML
+                ns = {
+                    'madsrdf': 'http://www.loc.gov/mads/rdf/v1#',
+                    'schema': 'http://schema.org/',
+                    'skos': 'http://www.w3.org/2004/02/skos/core#',
+                    'owl': 'http://www.w3.org/2002/07/owl#',
+                    'dcterms': 'http://purl.org/dc/terms/',
+                    'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
+                }
+                concepts = []
+                for concept_entry in root.findall('.//madsrdf:Authority', ns) + root.findall('.//skos:Concept', ns):
+                    concept = {}
+                    # Extract the rdf:about attribute as the 'uri'
+                    concept['identifier'] = concept_entry.get('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about')
+                    # Extract the 'name' (label)
+                    name_elem = concept_entry.find('schema:name', ns)
+                    if name_elem is not None:
+                        concept['name'] = name_elem.text.strip()
+                    else:
+                        # Fallback to 'madsrdf:authoritativeLabel' or 'skos:prefLabel'
+                        label_elem = concept_entry.find('madsrdf:authoritativeLabel', ns) or concept_entry.find('skos:prefLabel', ns)
+                        if label_elem is not None:
+                            concept['name'] = label_elem.text.strip()
+                    # Extract 'description'
+                    desc_elem = concept_entry.find('schema:description', ns)
+                    if desc_elem is not None:
+                        concept['description'] = desc_elem.text.strip()
+                    # Extract 'id' from 'dcterms:identifiers'
+                    id_elem = concept_entry.find('dcterms:identifiers', ns)
+                    if id_elem is not None:
+                        concept['id'] = id_elem.text.strip()
+                    # Extract 'pos' from the id if possible
+                    if 'id' in concept:
+                        parts = concept['id'].split('-')
+                        if len(parts) > 2:
+                            concept['pos'] = parts[2]
+                    # Extract 'authority'
+                    authority_elem = concept_entry.find('madsrdf:isMemberOfMADSCollection', ns)
+                    if authority_elem is not None:
+                        authority_uri = authority_elem.text.strip()
+                        # Map the authority URI to a name
+                        if 'wordnet' in authority_uri.lower():
+                            concept['authority'] = {'name': 'WordNet'}
+                        else:
+                            concept['authority'] = {'name': authority_uri}
+                    else:
+                        concept['authority'] = {'name': 'Unknown'}
+                    # Now relabel the fields
+                    concept = _relabel(concept)
+                    concepts.append(concept)
+                return Response({'results': concepts})
+            except Exception as e:
+                return Response({'error': f'Error parsing ConceptPower response: {str(e)}'}, status=400)
+        else:
+            return Response({'error': 'Error fetching concepts from ConceptPower'}, status=response.status_code)
 
 
     def get_queryset(self, *args, **kwargs):
@@ -537,9 +588,48 @@ class ConceptViewSet(viewsets.ModelViewSet):
         return queryset
 
 
+def _relabel(datum):
+    _fields = {
+        'name': 'label',
+        'id': 'alt_id',
+        'identifier': 'uri'
+    }
+    return {_fields.get(k, k): v for k, v in datum.items()}
+
 def concept_search(request):
-    q = request.get('search', None)
+    q = request.query_params.get('search', None)
+    pos = request.query_params.get('pos', None)
     url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{q}/{pos if pos else ''}"
     response = requests.get(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
-    pos = self.request.query_params.get('pos', None)
-    return goat.Concept.search(q=q, pos=pos)
+
+    if response.status_code == 200:
+        try:
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(response.content)
+            # Define the namespace
+            namespace = {'digitalHPS': 'http://www.digitalhps.org/'}
+            concepts = []
+            for conceptEntry in root.findall('digitalHPS:conceptEntry', namespace):
+                concept = {}
+                id_elem = conceptEntry.find('digitalHPS:id', namespace)
+                if id_elem is not None:
+                    concept['id'] = id_elem.text.strip()
+                    concept['concept_id'] = id_elem.attrib.get('concept_id')
+                    concept['concept_uri'] = id_elem.attrib.get('concept_uri')
+                lemma_elem = conceptEntry.find('digitalHPS:lemma', namespace)
+                if lemma_elem is not None:
+                    concept['name'] = lemma_elem.text.strip()
+                pos_elem = conceptEntry.find('digitalHPS:pos', namespace)
+                if pos_elem is not None:
+                    concept['pos'] = pos_elem.text.strip()
+                description_elem = conceptEntry.find('digitalHPS:description', namespace)
+                if description_elem is not None:
+                    concept['description'] = description_elem.text.strip()
+                # Now relabel the fields
+                concept = _relabel(concept)
+                concepts.append(concept)
+            return Response({'results': concepts})
+        except Exception as e:
+            return Response({'error': f'Error parsing ConceptPower response: {str(e)}'}, status=400)
+    else:
+        return Response({'error': 'Error fetching concepts from ConceptPower'}, status=response.status_code)
