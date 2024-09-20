@@ -174,7 +174,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
             try:
                 concept = Concept.objects.get(uri=interpretation)
             except Concept.DoesNotExist:
-                url = settings.CONCEPTPOWER_ENDPOINT + 'concept/add'
+                url = settings.CONCEPTPOWER_ENDPOINT + 'concept/add/'
                 concept_data = requests.post(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD), data=data)
                 type_data = concept_data.data.get('concept_type')
                 type_instance = None

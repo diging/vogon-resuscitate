@@ -47,6 +47,6 @@ var Concept = Vue.resource(BASE_URL + '/rest/concept{/id}', {}, {
 var RelationTemplateResource = Vue.resource(BASE_URL + '/relationtemplate{/id}/', {}, {
     create: {method: 'POST', url: BASE_URL + '/relationtemplate{/id}/create/'},
     text: {method: 'POST', url: BASE_URL + '/relationtemplate{/id}/create/text/'},
-    get_single_relation: {method: 'GET', url: BASE_URL + '/rest/templates/get_single_relation'},
+    get_single_relation: {method: 'GET', url: BASE_URL + '/rest/templates/get_single_relation/'},
 });
 var ConceptType = Vue.resource(BASE_URL + '/rest/type{/id}');
