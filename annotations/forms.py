@@ -148,13 +148,13 @@ class AutocompleteWidget(widgets.TextInput):
         final_attrs = self.build_attrs(attrs, {'type': self.input_type, 'name': name})
         if value != '':
             # Only add the 'value' attribute if a value is non-empty.
-            final_attrs['value'] = widgets.force_text(self._format_value(value))
+            final_attrs['value'] = force_str(self._format_value(value))
 
         classes = 'autocomplete'
         if 'class' in final_attrs:
             classes += ' ' + final_attrs['class']
 
-        return widgets.format_html('<input class="' + classes + '"{} />', attrs.get('flatatt', ''))
+        return format_html('<input class="' + classes + '"{} />', flatatt(final_attrs))
 
 
 class ConceptField(forms.CharField):

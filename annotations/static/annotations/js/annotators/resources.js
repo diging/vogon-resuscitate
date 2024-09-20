@@ -34,7 +34,7 @@ var csrftoken = getCookie('csrftoken');function getCookie(name) {
   return cookieValue;
 }
 
-var csrftoken = getCookie('csrftoken');
+Vue.http.headers.common['X-CSRFTOKEN'] = csrftoken;
 
 var BASE_URL = 'http://localhost:8000';
 
