@@ -570,6 +570,7 @@ AppellationCreator = {
                 this.submitted = true; // Prevent multiple submissions.
                 this.saving = true;
                 self = this;
+                console.log(JSON.stringify(this.concept, null, 2) + "concept"); // DEBUG
                 Appellation.save({
                     position: {
                         occursIn: this.text.id,
@@ -584,7 +585,9 @@ AppellationCreator = {
                     occursIn: this.text.id,
                     createdBy: this.user.id,
                     project: this.project.id,
-                    interpretation: this.concept.uri || this.concept.interpretation.uri
+                    interpretation: this.concept.uri || this.concept.interpretation.uri,
+                    pos: this.concept.pos || this.concept.interpretation.pos,
+                    label: this.concept.label || this.concept.interpretation.label
                 }).then(function (response) {
                     self.reset();
                     if (store.getters.showConcepts) {

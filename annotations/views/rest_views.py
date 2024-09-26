@@ -103,7 +103,6 @@ class DateAppellationViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
     permission_classes = (IsAuthenticatedOrReadOnly, )
 
     def create(self, request, *args, **kwargs):
-        print((request.data))
         data = request.data.copy()
         position = data.pop('position', None)
         if 'month' in data and data['month'] is None:
@@ -166,36 +165,64 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
     # pagination_class = LimitOffsetPagination
 
     def create(self, request, *args, **kwargs):
-        print(request.data)
         data = request.data.copy()
         position = data.pop('position', None)
-        interpretation = request.data.get('interpretation', None)
+        pos = data.pop('pos', None)
+        label = data.pop('label', None)
+        interpretation = data.get('interpretation')  # The old logic checks for this
 
         try:
-            concept = Concept.objects.get(uri=interpretation)
-        except Concept.DoesNotExist:
-            # Fetch concept data from external source
-            # Save concept or retrieve existing concept?
-            concept_response = requests.get(interpretation)
-            if concept_response.status_code == 200:
-                concept_data = concept_response.json()
-                type_data = concept_data.get('concept_type')
-                # Now create and save the Concept instance
-                concept = Concept(
-                    uri=concept_data.get('uri'),
+            # Check if interpretation (a concept URI) was passed directly
+            if isinstance(interpretation, str) and interpretation.startswith('http'):
+                try:
+                    concept = Concept.objects.get(uri=interpretation)
+                except Concept.DoesNotExist:
+                    concept_data = fetch_concept_data(label, pos)
+                    type_data = concept_data.get('concept_type')
+                    type_instance = None
+                    
+                    # Handle concept type creation if necessary
+                    if type_data:
+                        try:
+                            type_instance = Type.objects.get(uri=type_data.get('identifier'))
+                        except Type.DoesNotExist:
+                            # Create a new Type instance if it doesn't exist
+                            type_instance = Type.objects.create(
+                                uri=type_data.get('identifier'),
+                                label=type_data.get('name'),
+                                description=type_data.get('description'),
+                                authority=concept_data.data.get('authority', {}),
+                            )
+
+                    # Create a new concept instance
+                    concept = ConceptLifecycle.create(
+                        uri=interpretation,
+                        label=concept_data.get('name'),
+                        description=concept_data.get('description'),
+                        typed=type_instance,
+                        authority=concept_data.get('authority', {}),
+                    ).instance
+
+                data['interpretation'] = concept.id
+
+            else:
+                # If interpretation is not a URI, fetch concept based on label and pos
+                concept = ConceptLifecycle.create(
+                    uri=interpretation,
                     label=concept_data.get('label'),
                     description=concept_data.get('description'),
-                    authority=concept_data.get('authority', {}).get('name'),
-                    concept_type=type_data,
-                )
-                concept.save()
-            else:
-                # Handle the error appropriately
-                return Response({'error': 'Failed to retrieve concept data'}, status=concept_response.status_code)
+                    typed=type_instance,
+                    authority=concept_data.get('authority', {}),
+                ).instance
 
-            data['interpretation'] = concept.id
+                # Set the interpretation to the concept ID
+                data['interpretation'] = concept.id
+
+        except ValueError as e:
+            return Response({'error': str(e)}, status=400)
 
         serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=data)
 
         try:
             serializer = serializer_class(data=data)
@@ -209,36 +236,26 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
             print((serializer.errors))
             raise E
 
-        # raise AttributeError('asdf')
         try:
             instance = serializer.save()
         except Exception as E:
             print((":::", E))
             raise E
 
-        # Prior to 0.5, the selected tokens were stored directly in Appellation,
-        #  as ``tokenIds``. Now that we have several different annotation
-        #  modes (e.g. images, HT/XML), we use the more flexible
-        #  DocumentPosition model instead. For now, however, the JS app in the
-        #  text annotation interface still relies on the original tokenId field.
-        #  So until we modify that JS app, we still need to store tokenIds on
-        #  Appellation, in addition to creating and linking a DocumentPosition.
         tokenIDs = serializer.data.get('tokenIds', None)
-
         text_id = serializer.data.get('occursIn')
 
         if tokenIDs:
             position = DocumentPosition.objects.create(
-                        occursIn_id=text_id,
-                        position_type=DocumentPosition.TOKEN_ID,
-                        position_value=tokenIDs)
-
+                occursIn_id=text_id,
+                position_type=DocumentPosition.TOKEN_ID,
+                position_value=tokenIDs
+            )
             instance.position = position
             instance.save()
 
-
         if position:
-            if type(position) is not DocumentPosition:
+            if not isinstance(position, DocumentPosition):
                 position_serializer = DocumentPositionSerializer(data=position)
                 try:
                     position_serializer.is_valid(raise_exception=True)
@@ -254,8 +271,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
         reserializer = AppellationSerializer(instance, context={'request': request})
 
         headers = self.get_success_headers(serializer.data)
-        return Response(reserializer.data, status=status.HTTP_201_CREATED,
-                        headers=headers)
+        return Response(reserializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     # TODO: implement some real filters!
     def get_queryset(self, *args, **kwargs):
@@ -496,8 +512,8 @@ class ConceptViewSet(viewsets.ModelViewSet):
                 for concept_entry in root.findall('.//madsrdf:Authority', ns) + root.findall('.//skos:Concept', ns):
                     concept = {}
                     # Extract the rdf:about attribute as the 'uri'
-                    concept['identifier'] = concept_entry.get('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about')
-                    # Extract the 'name' (label)
+                    concept['uri'] = concept_entry.get('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about')
+                    # Extract the 'name'
                     name_elem = concept_entry.find('schema:name', ns)
                     if name_elem is not None:
                         concept['name'] = name_elem.text.strip()
@@ -581,48 +597,78 @@ class ConceptViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-def _relabel(datum):
-    _fields = {
-        'name': 'label',
-        'id': 'alt_id',
-        'identifier': 'uri'
-    }
-    return {_fields.get(k, k): v for k, v in datum.items()}
+def fetch_concept_data(label, pos=None):
+    """
+    Fetch concept data from ConceptPower based on the given URI (unique identifier) and part of speech (pos).
+    Returns the concept data in a suitable format for the create function.
+    """
 
-def concept_search(request):
-    q = request.query_params.get('search', None)
-    pos = request.query_params.get('pos', None)
-    url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{q}/{pos if pos else ''}"
+    if pos is 'N':
+        pos = 'noun'
+    elif pos is 'V':
+        pos = 'verb'
+    else:
+        pos = None
+
+    url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{label}/{pos}"
     response = requests.get(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
 
     if response.status_code == 200:
         try:
-            import xml.etree.ElementTree as ET
             root = ET.fromstring(response.content)
-            # Define the namespace
-            namespace = {'digitalHPS': 'http://www.digitalhps.org/'}
-            concepts = []
-            for conceptEntry in root.findall('digitalHPS:conceptEntry', namespace):
+            namespace = {
+                'madsrdf': 'http://www.loc.gov/mads/rdf/v1#',
+                'schema': 'http://schema.org/',
+                'skos': 'http://www.w3.org/2004/02/skos/core#',
+                'owl': 'http://www.w3.org/2002/07/owl#',
+                'dcterms': 'http://purl.org/dc/terms/',
+                'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
+            }
+            concept_entry = root.find('.//madsrdf:Authority', namespace) or root.find('.//skos:Concept', namespace)
+
+            if concept_entry is not None:
                 concept = {}
-                id_elem = conceptEntry.find('digitalHPS:id', namespace)
-                if id_elem is not None:
-                    concept['id'] = id_elem.text.strip()
-                    concept['concept_id'] = id_elem.attrib.get('concept_id')
-                    concept['concept_uri'] = id_elem.attrib.get('concept_uri')
-                lemma_elem = conceptEntry.find('digitalHPS:lemma', namespace)
-                if lemma_elem is not None:
-                    concept['name'] = lemma_elem.text.strip()
-                pos_elem = conceptEntry.find('digitalHPS:pos', namespace)
+
+                # Extract fields
+                concept['uri'] = concept_entry.get('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about')
+
+                # Extract name
+                name_elem = concept_entry.find('schema:name', namespace) or \
+                            concept_entry.find('madsrdf:authoritativeLabel', namespace) or \
+                            concept_entry.find('skos:prefLabel', namespace)
+                if name_elem is not None:
+                    concept['label'] = name_elem.text.strip()
+
+                # Extract description
+                desc_elem = concept_entry.find('schema:description', namespace)
+                if desc_elem is not None:
+                    concept['description'] = desc_elem.text.strip()
+
+                # Extract authority
+                authority_elem = concept_entry.find('madsrdf:isMemberOfMADSCollection', namespace)
+                if authority_elem is not None:
+                    concept['authority'] = authority_elem.text.strip()
+
+                # Extract pos (if available)
+                pos_elem = concept_entry.find('skos:note', namespace)  # Assuming 'pos' is noted in skos:note
                 if pos_elem is not None:
-                    concept['pos'] = pos_elem.text.strip()
-                description_elem = conceptEntry.find('digitalHPS:description', namespace)
-                if description_elem is not None:
-                    concept['description'] = description_elem.text.strip()
-                # Now relabel the fields
-                concept = _relabel(concept)
-                concepts.append(concept)
-            return Response({'results': concepts})
+                    concept['concept_type'] = pos_elem.text.strip()
+
+                return concept  # Return the concept data in a suitable format
+
         except Exception as e:
-            return Response({'error': f'Error parsing ConceptPower response: {str(e)}'}, status=400)
+            raise ValueError(f"Error parsing ConceptPower response: {str(e)}")
     else:
-        return Response({'error': 'Error fetching concepts from ConceptPower'}, status=response.status_code)
+        raise ValueError(f"Error fetching concept data: {response.status_code}")
+
+
+def _relabel(datum):
+    """
+    Relabel fields to match a standardized structure.
+    """
+    _fields = {
+        'name': 'label',
+        'id': 'alt_id',
+        'concept_uri': 'uri'
+    }
+    return {_fields.get(k, k): v for k, v in datum.items()}
