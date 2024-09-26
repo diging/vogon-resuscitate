@@ -189,7 +189,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                             # Create a new Type instance if it doesn't exist
                             type_instance = Type.objects.create(
                                 uri=type_data.get('identifier'),
-                                label=type_data.get('name'),
+                                label=type_data.get('label'),
                                 description=type_data.get('description'),
                                 authority=concept_data.data.get('authority', {}),
                             )
@@ -197,7 +197,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                     # Create a new concept instance
                     concept = ConceptLifecycle.create(
                         uri=interpretation,
-                        label=concept_data.get('name'),
+                        label=concept_data.get('label'),
                         description=concept_data.get('description'),
                         typed=type_instance,
                         authority=concept_data.get('authority', {}),

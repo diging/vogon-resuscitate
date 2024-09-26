@@ -587,7 +587,7 @@ AppellationCreator = {
                     project: this.project.id,
                     interpretation: this.concept.uri || this.concept.interpretation.uri,
                     pos: this.concept.pos || this.concept.interpretation.pos,
-                    label: this.concept.label || this.concept.interpretation.label
+                    label: this.concept.label
                 }).then(function (response) {
                     self.reset();
                     if (store.getters.showConcepts) {
@@ -1278,6 +1278,7 @@ Appellator = new Vue({
                 return
             }
             this.filterTextAppellationFromAppellationList();
+            console.log(store.getters); //DEBUG
             RelationTemplateResource.text({
                 id: store.getters.getTemplate.id
             }, {
