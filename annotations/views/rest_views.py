@@ -650,11 +650,11 @@ def fetch_concept_data(label, pos=None):
                     concept['authority'] = authority_elem.text.strip()
 
                 # Extract pos (if available)
-                pos_elem = concept_entry.find('skos:note', namespace)  # Assuming 'pos' is noted in skos:note
+                pos_elem = concept_entry.find('skos:note', namespace)
                 if pos_elem is not None:
                     concept['concept_type'] = pos_elem.text.strip()
 
-                return concept  # Return the concept data in a suitable format
+                return concept
 
         except Exception as e:
             raise ValueError(f"Error parsing ConceptPower response: {str(e)}")
