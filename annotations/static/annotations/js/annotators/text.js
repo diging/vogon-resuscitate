@@ -955,8 +955,14 @@ RelationCreator = {
                             <a v-on:click="cancel" class="btn btn-xs btn-danger">Cancel</a>
                         </div>
                     </div>
-
-
+                    <div class="selected-concepts">
+                        <h4>Selected Concepts:</h4>
+                        <ul>
+                            <li v-for="(data, key) in field_data" :key="key">
+                                <strong>{{ getFieldLabel(key) }}:</strong> {{ getConceptLabel(data) }}
+                            </li>
+                        </ul>
+                    </div>
                </div>`,
     methods: {
         fieldIsListeningForText: function () {
@@ -983,9 +989,20 @@ RelationCreator = {
             })
             return ready;
         },
-        // Relation fields don't have unique identifiers, so we create them.
         fieldHash: function (field) {
             return [field.part_id, field.part_field].join('.');
+        },
+        getFieldLabel: function(key) {
+            const [part_id, part_field] = key.split('.');
+            const field = this.fields.find(f => f.part_id == part_id && f.part_field == part_field);
+            return field ? field.label : 'Unknown Field';
+        },
+        getConceptLabel: function(data) {
+            if (data) {
+                console.log(data);
+                return data.stringRep;
+            }
+            return 'Not selected';
         },
         prepareSubmission: function () {
             self = this;
