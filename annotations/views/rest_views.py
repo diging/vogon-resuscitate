@@ -166,9 +166,10 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
-        position = data.pop('position', None)
-        pos = data.pop('pos', None)
-        label = data.pop('label', None)
+        position = data.get('position')
+        pos = data.get('pos')
+        label = data.get('label')
+        print(label)
         interpretation = data.get('interpretation')  # The old logic checks for this
 
         try:
@@ -189,7 +190,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                             # Create a new Type instance if it doesn't exist
                             type_instance = Type.objects.create(
                                 uri=type_data.get('identifier'),
-                                label=type_data.get('label'),
+                                label=label,
                                 description=type_data.get('description'),
                                 authority=concept_data.data.get('authority', {}),
                             )
@@ -197,7 +198,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                     # Create a new concept instance
                     concept = ConceptLifecycle.create(
                         uri=interpretation,
-                        label=concept_data.get('label'),
+                        label=label,
                         description=concept_data.get('description'),
                         typed=type_instance,
                         authority=concept_data.get('authority', {}),
@@ -209,7 +210,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                 # If interpretation is not a URI, fetch concept based on label and pos
                 concept = ConceptLifecycle.create(
                     uri=interpretation,
-                    label=concept_data.get('label'),
+                    label=label,
                     description=concept_data.get('description'),
                     typed=type_instance,
                     authority=concept_data.get('authority', {}),
@@ -460,7 +461,6 @@ class ConceptViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticatedOrReadOnly, )
 
     def create(self, request, *args, **kwargs):
-        print(("ConceptViewSet:: create::", request.data))
         data = request.data
         if data['uri'] == 'generate':
             data['uri'] = 'http://vogonweb.net/{0}'.format(uuid.uuid4())
@@ -516,12 +516,12 @@ class ConceptViewSet(viewsets.ModelViewSet):
                     # Extract the 'name'
                     name_elem = concept_entry.find('schema:name', ns)
                     if name_elem is not None:
-                        concept['name'] = name_elem.text.strip()
+                        concept['label'] = name_elem.text.strip()
                     else:
                         # Fallback to 'madsrdf:authoritativeLabel' or 'skos:prefLabel'
                         label_elem = concept_entry.find('madsrdf:authoritativeLabel', ns) or concept_entry.find('skos:prefLabel', ns)
                         if label_elem is not None:
-                            concept['name'] = label_elem.text.strip()
+                            concept['label'] = label_elem.text.strip()
                     # Extract 'description'
                     desc_elem = concept_entry.find('schema:description', ns)
                     if desc_elem is not None:

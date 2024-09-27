@@ -26,7 +26,7 @@ RelationListItem = {
                 return relation.representation;
             } else {
                 return relation.appellations.map(function (appellation) {
-                    return appellation.label;
+                    return appellation.interpretation.label;
                 }).join('; ');
             }
         },

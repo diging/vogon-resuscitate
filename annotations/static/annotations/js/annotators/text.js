@@ -226,7 +226,7 @@ ConceptCreator = {
                 self = this;
                 Concept.save({
                     uri: 'generate',
-                    label: this.label,
+                    label: "this.label",
                     description: this.description,
                     pos: this.pos,
                     typed: this.concept_type
@@ -346,12 +346,14 @@ ConceptPickerItem = {
     components: {},
     template: `<div class="list-group-item concept-item clearfix" :id="'concept-' + concept.interpretation.uri">
                 <div>
-                    <a v-on:click="select" style="cursor: pointer;">{{ concept.interpretation_label }} ({{ concept.interpretation.authority }})</a>
+                    <a v-on:click="select" style="cursor: pointer;">{{ concept.interpretation.label }}</a>
+                    <p>{{ concept.interpretation.uri }}</p>
                 </div>
                 <div class="text text-muted">{{ concept.interpretation.description }}</div>
             </div>`,
     methods: {
         select: function () {
+            console.log(this.concept)
             this.$emit('selectconcept', this.concept);
         },
 
@@ -451,7 +453,6 @@ AppellationCreator = {
             saving: false,
             search: false,
             display: true
-
         }
     },
     template: `<div class="appellation-creator" style="max-height: 80vh; overflow-y: scroll;">
@@ -474,7 +475,8 @@ AppellationCreator = {
                         <span class="appellation-creator-offsets">{{ position.startOffset }}&ndash;{{ position.endOffset }}</span>:
                         <span class="appellation-creator-representation">{{ position.representation }}</span>
                     </div>
-                    <div v-if="concept != null" class="text-warning">{{ concept.label }}
+                    <div v-if="concept != null" class="text-warning">
+                        {{ getConceptLabel() }}
                         <span v-if="concept.authority != null">({{ concept.authority.name }})</span>
                     </div>
 
@@ -512,7 +514,6 @@ AppellationCreator = {
                        <a v-on:click="cancel" class="btn btn-xs btn-danger">Cancel</a>
                    </div>
                </div>`,
-
     watch: {
         search: function () {
             if (this.search == true) {
@@ -553,11 +554,14 @@ AppellationCreator = {
             this.concept = concept;
             this.create = false;
         },
+        getConceptLabel: function() {
+            if (this.concept) {
+                return this.concept.label || (this.concept.interpretation && this.concept.interpretation.label);
+            }
+            return '';
+        },
         createAppellation: function () {
             let stringRep
-            /* 
-             * may want to change this at somepoint. If this is a concept for a text we set the position values to null
-             */
             if (store.getters.showConcepts) {
                 this.position.startOffset = null
                 this.position.endOffset = null
@@ -566,7 +570,7 @@ AppellationCreator = {
                 stringRep = this.position.representation
             }
             if (!(this.submitted || this.saving)) {
-                this.submitted = true; // Prevent multiple submissions.
+                this.submitted = true;
                 this.saving = true;
                 self = this;
                 Appellation.save({
@@ -957,7 +961,7 @@ RelationCreator = {
                         <h4>Selected Concepts:</h4>
                         <ul>
                             <li v-for="(data, key) in field_data" :key="key">
-                                <strong>{{ getFieldLabel(key) }}:</strong> {{ getConceptLabel(data) }}
+                                <strong>{{ getFieldLabel(key) }}:</strong> {{ data.interpretation.label }}
                             </li>
                         </ul>
                     </div>
