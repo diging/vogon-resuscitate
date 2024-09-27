@@ -638,7 +638,7 @@ def fetch_concept_data(label, pos=None):
                 if name_elem is not None:
                     concept['label'] = name_elem.text.strip()
                 else:
-                    concept['label'] = " " #DEBUG
+                    concept['label'] = " "
 
                 # Extract description
                 desc_elem = concept_entry.find('schema:description', namespace)
