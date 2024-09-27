@@ -169,7 +169,6 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
         position = data.get('position')
         pos = data.get('pos')
         label = data.get('label')
-        print(label)
         interpretation = data.get('interpretation')  # The old logic checks for this
 
         try:
@@ -638,6 +637,8 @@ def fetch_concept_data(label, pos=None):
                             concept_entry.find('skos:prefLabel', namespace)
                 if name_elem is not None:
                     concept['label'] = name_elem.text.strip()
+                else:
+                    concept['label'] = " " #DEBUG
 
                 # Extract description
                 desc_elem = concept_entry.find('schema:description', namespace)

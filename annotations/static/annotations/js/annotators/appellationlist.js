@@ -19,7 +19,6 @@ var AppellationListItem = {
 				{{ label() }}
 				<div class="text-warning">
 					<input v-if="sidebar == 'submitAllAppellations'" type="checkbox" v-model="checked" aria-label="...">
-                    <h5 class="mb-2">{{ appellation.stringRep.substring(0, 70) }}</h5>
 					Created by <strong>{{ getCreatorName(appellation.createdBy) }}</strong> on {{ getFormattedDate(appellation.created) }}
 				</div>
 				</li>`,
