@@ -96,7 +96,6 @@ var ConceptSearch = {
                 payload['force'] = 'force';
             }
             Concept.search(payload).then(function (response) {
-                console.log(response);
                 self.concepts = response.body.results;
                 self.searching = false;
             }).catch(function (error) {
@@ -227,7 +226,7 @@ ConceptCreator = {
                 self = this;
                 Concept.save({
                     uri: 'generate',
-                    label: this.name,
+                    label: this.label,
                     description: this.description,
                     pos: this.pos,
                     typed: this.concept_type
@@ -570,7 +569,6 @@ AppellationCreator = {
                 this.submitted = true; // Prevent multiple submissions.
                 this.saving = true;
                 self = this;
-                console.log(JSON.stringify(this.concept, null, 2) + "concept"); // DEBUG
                 Appellation.save({
                     position: {
                         occursIn: this.text.id,
@@ -587,7 +585,7 @@ AppellationCreator = {
                     project: this.project.id,
                     interpretation: this.concept.uri || this.concept.interpretation.uri,
                     pos: this.concept.pos || this.concept.interpretation.pos,
-                    label: this.concept.label
+                    label: this.concept.label || this.concept.interpretation.label
                 }).then(function (response) {
                     self.reset();
                     if (store.getters.showConcepts) {
@@ -999,7 +997,6 @@ RelationCreator = {
         },
         getConceptLabel: function(data) {
             if (data) {
-                console.log(data);
                 return data.stringRep;
             }
             return 'Not selected';
@@ -1295,7 +1292,6 @@ Appellator = new Vue({
                 return
             }
             this.filterTextAppellationFromAppellationList();
-            console.log(store.getters); //DEBUG
             RelationTemplateResource.text({
                 id: store.getters.getTemplate.id
             }, {
