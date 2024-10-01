@@ -226,11 +226,13 @@ CACHES = {
     }
 }
 
+# Conceptpower Credentials
 CONCEPTPOWER_USERID = os.environ.get('CONCEPTPOWER_USERID', None)
 CONCEPTPOWER_PASSWORD = os.environ.get('CONCEPTPOWER_PASSWORD', None)
 CONCEPTPOWER_ENDPOINT = os.environ.get('CONCEPTPOWER_ENDPOINT')
 CONCEPTPOWER_NAMESPACE = os.environ.get('CONCEPTPOWER_NAMESPACE')
 
+# Quadriga Credentials
 QUADRIGA_USERID = os.environ.get('QUADRIGA_USERID', '')
 QUADRIGA_PASSWORD = os.environ.get('QUADRIGA_PASSWORD', '')
 QUADRIGA_ENDPOINT = os.environ.get('QUADRIGA_ENDPOINT', '')

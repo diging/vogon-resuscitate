@@ -9,6 +9,12 @@ from annotations import quadriga
 from annotations.models import (RelationSet, Appellation, Relation, VogonUser,
                                 Text)
 
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.conf import settings
+from requests.auth import HTTPBasicAuth
+import requests
+import datetime
 
 def appellation_xml(request, appellation_id):
     """
@@ -86,3 +92,63 @@ def text_xml(request, text_id, user_id):
     relationsets = RelationSet.objects.filter(occursIn_id=text_id, createdBy_id=user_id)
     text_xml, _ = quadriga.to_quadruples(relationsets, text, user, toString=True)
     return HttpResponse(text_xml, content_type='application/xml')
+
+
+def submit_quadruples(request, text_id, user_id):
+    """
+    Submit quadruples to Quadriga for a given text and user.
+
+    Parameters
+    ----------
+    request : `django.http.requests.HttpRequest`
+    text_id : int
+    user_id : int
+
+    Returns
+    ----------
+    :class:`django.http.response.HttpResponseRedirect`
+    """
+    text = Text.objects.get(pk=text_id)
+    user = request.user
+    relationsets = RelationSet.objects.filter(occursIn_id=text_id, createdBy_id=user_id)
+
+    # Check if all concepts are ready
+    if not all(rs.ready() for rs in relationsets):
+        messages.error(request, 'Not all concepts are resolved or merged.')
+        return redirect('annotate', text_id=text_id)
+
+    # Prepare data for Quadriga submission
+    project_id = settings.QUADRIGA_PROJECT
+    workspace_id = f'ws-{user.username}+{settings.QUADRIGA_CLIENTID}'
+    workspace_label = f'VogonWeb workspace for {user.username}'
+    network_label = f'Graph for text {text.title}, submitted by {user.username} on {datetime.datetime.now().isoformat()} from VogonWeb'
+
+    # Generate XML payload
+    payload, params = quadriga.to_quadruples(relationsets, text, user, 
+                                             project_id=project_id,
+                                             workspace_id=workspace_id,
+                                             workspace_label=workspace_label,
+                                             network_label=network_label,
+                                             toString=True)
+
+    # Prepare request
+    headers = {'Accept': 'application/xml'}
+    auth = HTTPBasicAuth(settings.QUADRIGA_USERID, settings.QUADRIGA_PASSWORD)
+
+    # Submit to Quadriga
+    try:
+        response = requests.post(settings.QUADRIGA_ENDPOINT, 
+                                 data=payload, 
+                                 auth=auth, 
+                                 headers=headers)
+        response.raise_for_status()
+        
+        # Parse response
+        response_data = quadriga.parse_response(response.text)
+        
+        messages.success(request, f'Quadruples submitted successfully. Network ID: {response_data.get("networkId")}')
+        return redirect('text_public', text_id=text_id)
+    except requests.RequestException as e:
+        messages.error(request, f'Failed to submit quadruples. Error: {str(e)}')
+        return redirect('annotate', text_id=text_id)
+

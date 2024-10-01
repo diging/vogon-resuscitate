@@ -759,7 +759,7 @@ class Appellation(Annotation, Interpreted):
        relevant.
     """
 
-
+# DEBUG has flag that allows us check for submission of relations to Quadriga
 class RelationSet(models.Model):
     """
     A :class:`.RelationSet` organizes :class:`.Relation`\s into complete
