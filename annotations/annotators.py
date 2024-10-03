@@ -100,23 +100,18 @@ class Annotator(object):
 
     def get_resource(self):
         """
-        Retrieve the resource represented by our :class:`.Text` instance, 
-        focusing on the tokenized content for word-based annotation.
+        Retrieve the resource represented by our :class:`.Text` instance,
+        focusing on the tokenized content for annotation.
         """
-        if self.resource is not None:
+        if self.resource:
             return self.resource
 
         if not self.text:
             return None
 
-        # Directly retrieve the tokenized content from the Text model.
-        try:
-            # Retrieve the tokenized content of the text
-            resource = self.text.tokenizedContent
-            self.resource = resource
-            return self.resource
-        except Text.DoesNotExist:
-            return None  # If the resource is not found
+        # Retrieve the tokenized content of the text directly
+        self.resource = getattr(self.text, 'tokenizedContent', None)
+        return self.resource
 
 
 
@@ -167,38 +162,18 @@ class Annotator(object):
         """
         resource = self.get_resource()  # Get the tokenized content, which is a string
         request = self.context.get('request')
-        
-        # Extract the word_id from the request
-        word_id = request.GET.get('word_id')
-        
-        # Find the word with the specified ID in the tokenized content
-        if word_id:
-            # Using regex to find the specific word with the given word_id
-            import re
-            word_pattern = re.compile(r'<word id="' + re.escape(word_id) + r'">(.*?)<\/word>')
-            match = word_pattern.search(resource)
-            if match:
-                specific_word = match.group(1)  # Extract the word text
-            else:
-                specific_word = None
-        else:
-            specific_word = None
 
         context = {
             'text': self.text,
             'textid': self.text.id,
             'title': 'Annotate Text',
             'content': resource,  # The entire tokenized content
-            'specific_word': specific_word,  # The specific word to annotate
-            'word_id': word_id,  # word_id from tokenized in the context
             'userid': request.user.id,
             'repository_id': self.text.repository.id,
             'project': self.project,
         }
 
         return context
-
-
 
 
 class PlainTextAnnotator(Annotator):
