@@ -287,54 +287,11 @@ def repository_text_import(request, repository_id, group_id, text_key):
     if project_id and master_text:
         project = TextCollection.objects.get(pk=project_id)
         project.texts.add(master_text)
-        return HttpResponseRedirect(reverse('view_project', args=[project_id]))
+        # Directly redirect to annotation page, skip repository_text view
+        return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + f'?project_id={project_id}')
 
-    if master_text:
-        return HttpResponseRedirect(reverse('repository_text', args=[repository.id, master_text.id]))
-
-    # no valid Giles data, redirect back with an error
-    return render(request, 'annotations/repository_ioerror.html', {}, status=500)
-
-@login_required
-def repository_text(request, repository_id, text_id):
-    project_id = request.GET.get('project_id', None)
-    project = TextCollection.objects.get(pk=project_id) if project_id else None
-    
-    repository = get_object_or_404(Repository, pk=repository_id)
-
-    try:
-        result = Text.objects.get(id=text_id)
-    except Text.DoesNotExist:
-        return render(request, 'annotations/repository_ioerror.html', {'error': 'Text not found'}, status=500)
-
-    tokenized_content = result.tokenizedContent
-    words = re.findall(r'<word id="(\d+)">(.*?)<\/word>', tokenized_content)
-
-    context = {
-        'user': request.user,
-        'repository': repository,
-        'words': words,
-        'result': result,
-        'text_id': text_id,
-        'title': 'Text: %s' % result.title,
-        'project_id': project_id,
-        'project': project,
-        'master_text': result,
-        'project_id':project_id,
-    }
-
-
-    # Handle project association (whether the text is part of a specific project)
-    if project:
-        context.update({'in_project': project.texts.filter(pk=result.id).exists()})
-
-    # Fetch recent annotations/relations related to this text (if available)
-    relations = RelationSet.objects.filter(occursIn=result).order_by('-created')[:10]
-    context.update({'relations': relations})
-
-    return render(request, 'annotations/repository_text_details.html', context)
-
-
+    # Directly redirect to annotation page, no need to redirect to repository_text
+    return HttpResponseRedirect(reverse('annotate', args=[master_text.id]))
 
 
 @login_required
