@@ -76,6 +76,7 @@ class RepositoryManager(RESTManager):
                 'title': item_data.get('item', {}).get('title'),
                 'authors': item_data.get('item', {}).get('authors', []),
                 'itemType': item_data.get('item', {}).get('itemType'),
+                'addedOn': item_data.get('item', {}).get('dateAdded', 'Unknown date'),
                 'url': item_data.get('item', {}).get('url')
             }
 

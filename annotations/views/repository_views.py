@@ -4,24 +4,23 @@ Provides views related to external repositories.
 
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
-from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
-from django.shortcuts import get_object_or_404, render, redirect
+from django.http import HttpResponseRedirect
+from django.shortcuts import get_object_or_404, render
 from django.db.models import Q
+from django.contrib.auth.models import AnonymousUser
 
 from annotations.forms import RepositorySearchForm
 from annotations.tasks import tokenize
 from repository.models import Repository
 from repository.auth import *
 from repository.managers import *
-from annotations.models import Text, TextCollection, RelationSet
+from annotations.models import Text, TextCollection
 from annotations.annotators import supported_content_types
 from annotations.tasks import tokenize
 
-import requests
 from urllib.parse import urlparse, parse_qs
 from urllib.parse import urlencode
-
-import re
+from external_accounts.utils import parse_iso_datetimes
 
 def _get_params(request):
     # The request may include parameters that should be passed along to the
@@ -193,13 +192,12 @@ def repository_search(request, repository_id):
 
 
 def repository_details(request, repository_id):
-    from django.contrib.auth.models import AnonymousUser
     template = "annotations/repository_details.html"
 
     user = None if isinstance(request.user, AnonymousUser) else request.user
 
     repository = get_object_or_404(Repository, pk=repository_id)
-    texts = repository.texts.all()
+    texts = repository.texts.all().order_by('-added')
     manager = RepositoryManager(user=user, repository=repository)
     project_id = request.GET.get('project_id')
     context = {
@@ -273,6 +271,8 @@ def repository_text_import(request, repository_id, group_id, text_key):
         'repository': repository,
         'repository_source_id':repository_id,
         'addedBy': request.user,
+        #Parse date provides a list however we only provide one date, hence will provide only one date
+        'created': parse_iso_datetimes([item_details.get('addedOn')])[0],
         'originalResource': item_details.get('url'),
     }
 
