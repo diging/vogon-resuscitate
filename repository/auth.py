@@ -1,6 +1,9 @@
 from django.conf import settings
 from external_accounts.models import CitesphereAccount
 
+from django.shortcuts import redirect
+from django.urls import reverse
+
 
 def citesphere_auth(user):
     """
@@ -8,9 +11,11 @@ def citesphere_auth(user):
     """
     try:
         account = CitesphereAccount.objects.get(user=user)
+        print("WORK", account.access_token)
         return {'Authorization': f'Bearer {account.access_token}'}
+    
     except CitesphereAccount.DoesNotExist:
-        return {}
+        return redirect(reverse('dashboard'))  # Redirect user to dashboard to connect Citesphere account
 
 
 def giles_auth(user):

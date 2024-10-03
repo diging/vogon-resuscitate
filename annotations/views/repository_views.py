@@ -70,7 +70,7 @@ def _get_pagination(response, base_url, base_params):
 def repository_collections(request, repository_id):
     """View to fetch and display Citesphere Groups"""
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = repository.manager(request.user)
+    manager = RepositoryManager(user=request.user, repository=repository)
     project_id = request.GET.get('project_id')
 
     collections = manager.groups()  # Fetch collections
@@ -91,7 +91,7 @@ def repository_collection(request, repository_id, group_id):
 
     repository = get_object_or_404(Repository, pk=repository_id)
     
-    manager = repository.manager(user=request.user)
+    manager = RepositoryManager(user=request.user, repository=repository)
     
     try:
         response_data = manager.collections(groupId=group_id)
@@ -127,7 +127,7 @@ def repository_browse(request, repository_id):
     params = _get_params(request)
 
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = RepositoryManager(repository.configuration, user=request.user)
+    manager = RepositoryManager(user=request.user, repository=repository)
     project_id = request.GET.get('project_id')
     try:
         resources = manager.list(**params)
@@ -200,7 +200,7 @@ def repository_details(request, repository_id):
 
     repository = get_object_or_404(Repository, pk=repository_id)
     texts = repository.texts.all()
-    manager = RepositoryManager(user=user)
+    manager = RepositoryManager(user=user, repository=repository)
     project_id = request.GET.get('project_id')
     context = {
         'user': user,
@@ -230,7 +230,7 @@ def repository_list(request):
 def repository_collection_texts(request, repository_id, group_id, group_collection_id):
     user = request.user
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = RepositoryManager(user=user)
+    manager = RepositoryManager(user=user, repository=repository)
 
     try:
         texts = manager.collection_items(group_id, group_collection_id)
@@ -253,7 +253,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 @login_required
 def repository_text_import(request, repository_id, group_id, text_key):
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = repository.manager(user=request.user)
+    manager = RepositoryManager(user=request.user, repository=repository)
 
     try:
         result = manager.item(group_id, text_key)
@@ -342,7 +342,7 @@ def repository_text_content(request, repository_id, text_id, content_id):
 
     repository = get_object_or_404(Repository, pk=repository_id)
 
-    manager = RepositoryManager(user=request.user)
+    manager = RepositoryManager(user=request.user, repository=repository)
     # content_resources = {o['id']: o for o in resource['content']}
     # content = content_resources.get(int(content_id))    # Not a dict.
     try:
@@ -421,7 +421,7 @@ def repository_text_add_to_project(request, repository_id, text_id, project_id):
     repository = get_object_or_404(Repository, pk=repository_id)
     project = get_object_or_404(TextCollection, pk=project_id)
 
-    manager = RepositoryManager(user=request.user)
+    manager = RepositoryManager(user=request.user, repository=repository)
 
     defaults = {
         'repository': repository,

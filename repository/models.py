@@ -12,10 +12,11 @@ from repository import auth
 class Repository(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField()
+    endpoint = models.CharField(_("Endpoint"), max_length=255)
 
-    def manager(self, user):
+    def manager(self, user, repository):
         from repository.managers import RepositoryManager
-        return RepositoryManager(user=user)
+        return RepositoryManager(user=user, repository=repository)
 
     def __str__(self):
         return self.name
