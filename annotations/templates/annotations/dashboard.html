@@ -13,7 +13,7 @@
         <div class="col-md-12">
             <div class="panel panel-default">
                 <div class="panel-heading">
-                    <h3 class="panel-title">External Accounts</h3>
+                    <h3 class="panel-title">Third-party accounts</h3>
                 </div>
                 <div class="panel-body">
                     <div class="row">
@@ -32,7 +32,7 @@
                                             {% if has_citesphere_account %}
                                                 <button class="btn btn-success btn-margin-bottom " disabled>Connected</button><br>
                                                 <h5>Connected as: {{ citesphere_account.citesphere_user_id }}</h5>
-                                                <a href="{% url 'list_citesphere_groups' %}">View Groups and Collections</a>
+                                                <a href="{% url 'list_citesphere_groups' %}">Browse Groups and Collections</a>
                                             {% else %}
                                                 <a href="{% url 'citesphere_login' %}" class="btn btn-primary">Connect</a>
                                             {% endif %}

@@ -353,7 +353,6 @@ ConceptPickerItem = {
             </div>`,
     methods: {
         select: function () {
-            console.log(this.concept)
             this.$emit('selectconcept', this.concept);
         },
 
