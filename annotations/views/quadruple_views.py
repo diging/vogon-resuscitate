@@ -117,29 +117,20 @@ def submit_quadruples(request, text_id, user_id):
         messages.error(request, 'Not all concepts are resolved or merged.')
         return redirect('annotate', text_id=text_id)
 
-    # Prepare data for Quadriga submission
-    project_id = settings.QUADRIGA_PROJECT
-    workspace_id = f'ws-{user.username}+{settings.QUADRIGA_CLIENTID}'
-    workspace_label = f'VogonWeb workspace for {user.username}'
-    network_label = f'Graph for text {text.title}, submitted by {user.username} on {datetime.datetime.now().isoformat()} from VogonWeb'
-
     # Generate XML payload
-    payload, params = quadriga.to_quadruples(relationsets, text, user, 
-                                             project_id=project_id,
-                                             workspace_id=workspace_id,
-                                             workspace_label=workspace_label,
-                                             network_label=network_label,
-                                             toString=True)
+    payload, _ = quadriga.to_quadruples(relationsets, text, user, toString=True)
 
     # Prepare request
     headers = {'Accept': 'application/xml'}
-    auth = HTTPBasicAuth(settings.QUADRIGA_USERID, settings.QUADRIGA_PASSWORD)
+
+    # Get collection ID from settings and construct the endpoint URL
+    collection_id = settings.QUADRIGA_CollectionID
+    endpoint = f"{settings.QUADRIGA_ENDPOINT}api/v1/collection/{collection_id}/network/"
 
     # Submit to Quadriga
     try:
-        response = requests.post(settings.QUADRIGA_ENDPOINT, 
+        response = requests.post(endpoint, 
                                  data=payload, 
-                                 auth=auth, 
                                  headers=headers)
         response.raise_for_status()
         
