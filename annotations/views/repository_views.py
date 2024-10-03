@@ -4,24 +4,23 @@ Provides views related to external repositories.
 
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
-from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
-from django.shortcuts import get_object_or_404, render, redirect
+from django.http import HttpResponseRedirect
+from django.shortcuts import get_object_or_404, render
 from django.db.models import Q
+from django.contrib.auth.models import AnonymousUser
 
 from annotations.forms import RepositorySearchForm
 from annotations.tasks import tokenize
 from repository.models import Repository
 from repository.auth import *
 from repository.managers import *
-from annotations.models import Text, TextCollection, RelationSet
+from annotations.models import Text, TextCollection
 from annotations.annotators import supported_content_types
 from annotations.tasks import tokenize
 
-import requests
 from urllib.parse import urlparse, parse_qs
 from urllib.parse import urlencode
-
-import re
+from external_accounts.utils import parse_iso_datetimes
 
 def _get_params(request):
     # The request may include parameters that should be passed along to the
@@ -70,7 +69,7 @@ def _get_pagination(response, base_url, base_params):
 def repository_collections(request, repository_id):
     """View to fetch and display Citesphere Groups"""
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = repository.manager(request.user)
+    manager = RepositoryManager(user=request.user, repository=repository)
     project_id = request.GET.get('project_id')
 
     collections = manager.groups()  # Fetch collections
@@ -91,7 +90,7 @@ def repository_collection(request, repository_id, group_id):
 
     repository = get_object_or_404(Repository, pk=repository_id)
     
-    manager = repository.manager(user=request.user)
+    manager = RepositoryManager(user=request.user, repository=repository)
     
     try:
         response_data = manager.collections(groupId=group_id)
@@ -127,7 +126,7 @@ def repository_browse(request, repository_id):
     params = _get_params(request)
 
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = RepositoryManager(repository.configuration, user=request.user)
+    manager = RepositoryManager(user=request.user, repository=repository)
     project_id = request.GET.get('project_id')
     try:
         resources = manager.list(**params)
@@ -193,14 +192,13 @@ def repository_search(request, repository_id):
 
 
 def repository_details(request, repository_id):
-    from django.contrib.auth.models import AnonymousUser
     template = "annotations/repository_details.html"
 
     user = None if isinstance(request.user, AnonymousUser) else request.user
 
     repository = get_object_or_404(Repository, pk=repository_id)
-    texts = repository.texts.all()
-    manager = RepositoryManager(user=user)
+    texts = repository.texts.all().order_by('-added')
+    manager = RepositoryManager(user=user, repository=repository)
     project_id = request.GET.get('project_id')
     context = {
         'user': user,
@@ -230,7 +228,7 @@ def repository_list(request):
 def repository_collection_texts(request, repository_id, group_id, group_collection_id):
     user = request.user
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = RepositoryManager(user=user)
+    manager = RepositoryManager(user=user, repository=repository)
 
     try:
         texts = manager.collection_items(group_id, group_collection_id)
@@ -253,7 +251,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 @login_required
 def repository_text_import(request, repository_id, group_id, text_key):
     repository = get_object_or_404(Repository, pk=repository_id)
-    manager = repository.manager(user=request.user)
+    manager = RepositoryManager(user=request.user, repository=repository)
 
     try:
         result = manager.item(group_id, text_key)
@@ -273,6 +271,8 @@ def repository_text_import(request, repository_id, group_id, text_key):
         'repository': repository,
         'repository_source_id':repository_id,
         'addedBy': request.user,
+        #Parse date provides a list however we only provide one date, hence will provide only one date
+        'created': parse_iso_datetimes([item_details.get('addedOn')])[0],
         'originalResource': item_details.get('url'),
     }
 
@@ -287,54 +287,11 @@ def repository_text_import(request, repository_id, group_id, text_key):
     if project_id and master_text:
         project = TextCollection.objects.get(pk=project_id)
         project.texts.add(master_text)
-        return HttpResponseRedirect(reverse('view_project', args=[project_id]))
+        # Directly redirect to annotation page, skip repository_text view
+        return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + f'?project_id={project_id}')
 
-    if master_text:
-        return HttpResponseRedirect(reverse('repository_text', args=[repository.id, master_text.id]))
-
-    # no valid Giles data, redirect back with an error
-    return render(request, 'annotations/repository_ioerror.html', {}, status=500)
-
-@login_required
-def repository_text(request, repository_id, text_id):
-    project_id = request.GET.get('project_id', None)
-    project = TextCollection.objects.get(pk=project_id) if project_id else None
-    
-    repository = get_object_or_404(Repository, pk=repository_id)
-
-    try:
-        result = Text.objects.get(id=text_id)
-    except Text.DoesNotExist:
-        return render(request, 'annotations/repository_ioerror.html', {'error': 'Text not found'}, status=500)
-
-    tokenized_content = result.tokenizedContent
-    words = re.findall(r'<word id="(\d+)">(.*?)<\/word>', tokenized_content)
-
-    context = {
-        'user': request.user,
-        'repository': repository,
-        'words': words,
-        'result': result,
-        'text_id': text_id,
-        'title': 'Text: %s' % result.title,
-        'project_id': project_id,
-        'project': project,
-        'master_text': result,
-        'project_id':project_id,
-    }
-
-
-    # Handle project association (whether the text is part of a specific project)
-    if project:
-        context.update({'in_project': project.texts.filter(pk=result.id).exists()})
-
-    # Fetch recent annotations/relations related to this text (if available)
-    relations = RelationSet.objects.filter(occursIn=result).order_by('-created')[:10]
-    context.update({'relations': relations})
-
-    return render(request, 'annotations/repository_text_details.html', context)
-
-
+    # Directly redirect to annotation page, no need to redirect to repository_text
+    return HttpResponseRedirect(reverse('annotate', args=[master_text.id]))
 
 
 @login_required
@@ -342,7 +299,7 @@ def repository_text_content(request, repository_id, text_id, content_id):
 
     repository = get_object_or_404(Repository, pk=repository_id)
 
-    manager = RepositoryManager(user=request.user)
+    manager = RepositoryManager(user=request.user, repository=repository)
     # content_resources = {o['id']: o for o in resource['content']}
     # content = content_resources.get(int(content_id))    # Not a dict.
     try:
@@ -421,7 +378,7 @@ def repository_text_add_to_project(request, repository_id, text_id, project_id):
     repository = get_object_or_404(Repository, pk=repository_id)
     project = get_object_or_404(TextCollection, pk=project_id)
 
-    manager = RepositoryManager(user=request.user)
+    manager = RepositoryManager(user=request.user, repository=repository)
 
     defaults = {
         'repository': repository,

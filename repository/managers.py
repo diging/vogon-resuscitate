@@ -1,6 +1,5 @@
 from repository.restable import RESTManager
 from repository import auth
-from django.conf import settings
 
 from external_accounts.utils import get_giles_document_details
 
@@ -9,23 +8,22 @@ import requests
 class RepositoryManager(RESTManager):
     def __init__(self, **kwargs):
         self.user = kwargs.get('user')
+        self.repository = kwargs.pop('repository')
         if self.user:
             kwargs.update({'headers': auth.citesphere_auth(self.user)})
         super(RepositoryManager, self).__init__(**kwargs)
 
     def get_raw(self, target, **params):
-        import requests
         headers = {}
         if self.user:
             headers = auth.citesphere_auth(self.user)
         return requests.get(target, headers=headers, params=params).content
 
     def groups(self):
-        """Fetch Groups from the Citesphere API"""
+        """Fetch Groups from the repository's endpoint"""
         headers = auth.citesphere_auth(self.user)
-        url = f"{settings.CITESPHERE_ENDPOINT}/api/v1/groups/"
+        url = f"{self.repository.endpoint}/api/v1/groups/"  # Use repository's endpoint
         response = requests.get(url, headers=headers)
-        print(response.text)
         
         if response.status_code == 200:
             return response.json()  # Return the groups data
@@ -33,11 +31,10 @@ class RepositoryManager(RESTManager):
             response.raise_for_status()
 
     def collections(self, groupId):
-        """Fetch collections from the Citesphere API"""
+        """Fetch collections from the repository's endpoint"""
         headers = auth.citesphere_auth(self.user)
-        url = f"{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{groupId}/collections/"
+        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/"  # Use repository's endpoint
         response = requests.get(url, headers=headers)
-        print(response.text)
         
         if response.status_code == 200:
             return response.json()  # Return the Collections data
@@ -45,12 +42,11 @@ class RepositoryManager(RESTManager):
             response.raise_for_status()
     
     def collection_items(self, groupId, collectionId):
-        """Fetch collection items from Citesphere API"""
+        """Fetch collection items from the repository's endpoint"""
 
         headers = auth.citesphere_auth(self.user)
-        url = f"{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{groupId}/collections/{collectionId}/items/"
+        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/{collectionId}/items/"  # Use repository's endpoint
         response = requests.get(url, headers=headers)
-        print(response)
         
         if response.status_code == 200:
             return response.json()
@@ -59,20 +55,18 @@ class RepositoryManager(RESTManager):
 
     def item(self, groupId, itemId):
         """
-        Fetch individual item from Citesphere API and get Giles document details for documents of type 'text/plain'
+        Fetch individual item from repository's endpoint and get Giles document details for documents of type 'text/plain'
 
         Args:
-            groupId: The group ID in Citesphere
-            itemId: The item ID in Citesphere
+            groupId: The group ID in the repository
+            itemId: The item ID in the repository
 
         Returns:
-            A dictionary containing item details from Citesphere, and Giles document details with extracted text
+            A dictionary containing item details from repository, and Giles document details with extracted text
         """
         headers = auth.citesphere_auth(self.user)
-        url = f"{settings.CITESPHERE_ENDPOINT}/api/v1/groups/{groupId}/items/{itemId}/"
+        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"  # Use repository's endpoint
         response = requests.get(url, headers=headers)
-
-        print('items', response)  # Printing response for debugging
 
         if response.status_code == 200:
             item_data = response.json()
@@ -82,10 +76,9 @@ class RepositoryManager(RESTManager):
                 'title': item_data.get('item', {}).get('title'),
                 'authors': item_data.get('item', {}).get('authors', []),
                 'itemType': item_data.get('item', {}).get('itemType'),
+                'addedOn': item_data.get('item', {}).get('dateAdded', 'Unknown date'),
                 'url': item_data.get('item', {}).get('url')
             }
-
-            print(item_data.get('item', {}).get('key'))
 
             # Extract Giles upload details if available
             giles_uploads = item_data.get('item', {}).get('gilesUploads', [])

@@ -4,23 +4,29 @@ from django.conf import settings
 
 from django.utils.timezone import make_aware
 from datetime import datetime
+from dateutil import parser
 
 def parse_iso_datetimes(datetime_list):
-    parsed_datetimes = []
+    parsed_dates = []
     
     for dt_str in datetime_list:
         if dt_str:
-            if dt_str.endswith('Z'):
-                dt_str = dt_str.replace('Z', '+00:00')
             try:
-                parsed_dt = datetime.fromisoformat(dt_str)
-                parsed_datetimes.append(make_aware(parsed_dt))
-            except ValueError:
-                parsed_datetimes.append(None)
+                parsed_dt = parser.isoparse(dt_str)
+
+                if parsed_dt.tzinfo is None:
+                    parsed_dt = make_aware(parsed_dt)
+
+                # Format the date as 'YYYY-MM-DD'
+                parsed_dates.append(parsed_dt.strftime('%Y-%m-%d'))
+
+            except (ValueError, TypeError):
+                parsed_dates.append(None)  # Append None if parsing fails
         else:
-            parsed_datetimes.append(None)
+            parsed_dates.append(None)
     
-    return parsed_datetimes
+    return parsed_dates
+
 
 def get_giles_document_details(user, file_id):
     """
