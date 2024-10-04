@@ -122,6 +122,7 @@ urlpatterns = [
     re_path(r'^quadruples/relation/(?P<relation_id>[0-9]+).xml$', views.quadruple_views.relation_xml, name='relation_xml'),
     re_path(r'^quadruples/relationset/(?P<relationset_id>[0-9]+).xml$', views.quadruple_views.relationset_xml, name='relationset_xml'),
     re_path(r'^quadruples/text/(?P<text_id>[0-9]+)/(?P<user_id>[0-9]+).xml$', views.quadruple_views.text_xml, name='text_xml'),
+    re_path(r'^quadruples/submit/(?P<text_id>[0-9]+)/$', views.quadruple_views.submit_quadruples, name='submit_quadruples'),
 
     re_path(r'^repository/(?P<repository_id>[0-9]+)/collections/$', views.repository_views.repository_collections, name='repository_collections'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/browse/$', views.repository_views.repository_browse, name='repository_browse'),
@@ -151,6 +152,5 @@ urlpatterns = [
 
     path('import/citesphere/texts/<int:citesphere_item_id>/', views.citesphere_import_views.import_citesphere_items_from_group, name='import_citesphere_item'),
 
-    re_path(r'^quadruples/submit/(?P<text_id>[0-9]+)/(?P<user_id>[0-9]+)/$', views.quadruple_views.submit_quadruples, name='submit_quadruples'),
-    
+
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

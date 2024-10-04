@@ -153,17 +153,18 @@
                                                 <div v-if="sidebarIsShown()" style="padding: 0px;">
                                                     <div class="clearfix sidebar-buttons">
                                                         <div>
-                                                            <!-- <a v-if="submitAppellationClicked == false" v-tooltip="'Submit All Appellations'"
-                                                                    v-bind:class="{btn: true, 'btn-primary':'btn-primary'}"
-                                                                    v-on:click="showSubmitAllAppellationsSidebar">
-                                                                <span class="glyphicon glyphicon-cloud-upload"></span>
-                                                            </a>
-                                                            <a v-if="submitAppellationClicked" v-tooltip="'Submit All Appellations'"
-                                                                    v-bind:class="{btn: true, 'btn-primary':'btn-primary'}"
-                                                                    v-on:click="showSubmitAllAppellationsSidebar(); createRelationsFromText();">
-                                                                    <span>Submit</span>
-                                                                
-                                                            </a> -->
+                                                            <!-- Submit Quadruples Button -->
+                                                            <div class="row">
+                                                                <div class="col-xs-12 text-right">
+                                                                    <button id="submit-quadruples" 
+                                                                            class="btn btn-primary btn-sm" 
+                                                                            v-on:click="submitQuadruples"
+                                                                            style="margin: 10px 0;">
+                                                                        <i class="glyphicon glyphicon-send"></i>
+                                                                        Submit Quadruples
+                                                                    </button>
+                                                                </div>
+                                                            </div>
                                                             <h6  v-if="massAssignmentFailed" style="color: red;">Assignment Failed!</h6>
                                                             <div class="pull-right btn-group">
                                                                 <a  id="appellation-submit"v-tooltip="'Appellations'"
@@ -462,6 +463,29 @@
         <!-- Vue Tooltip -->
         <script>
             Vue.use(VTooltip);
+        </script>
+
+
+        <script>
+            function submitQuadruples() {
+                console.log("Submitting quadruples...");
+                $.ajax({
+                    url: '{% url "submit_quadruples" text.id %}',
+                    type: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    success: function(response) {
+                        console.log('Quadruples submitted successfully!');
+                        window.location.href = '{% url "annotate" text.id %}';
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('quadruple submission failed');
+                    }
+                });
+            }
+
+            $('#submit-quadruples').click(submitQuadruples);
         </script>
     </body>
     {% endblock %}
