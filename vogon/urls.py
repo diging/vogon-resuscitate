@@ -149,5 +149,4 @@ urlpatterns = [
     path('citesphere/group/<slug:slug>/', externalAccountViews.group_detail, name='citesphere_group_detail'),
     re_path('citesphere/groups/', externalAccountViews.list_citesphere_groups, name='list_citesphere_groups'),
 
-    path('import/citesphere/texts/<int:citesphere_item_id>/', views.citesphere_import_views.import_citesphere_items_from_group, name='import_citesphere_item')
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
