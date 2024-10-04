@@ -5,9 +5,24 @@
     <a href="{% url 'home' %}" class="btn btn-xs">Home</a>
     &raquo;<a href="{% url 'dashboard' %}" class="btn btn-xs">Dashboard</a>
     &raquo;<a href="{% url 'list_citesphere_groups' %}" class="btn btn-xs">Citesphere Groups</a>
+    &raquo;<a href="{% url 'citesphere_group_detail' slug %}" class="btn btn-xs">{{ group.name }}</a>
 {% endblock %}
 
 {% block main %}
+
+    {% if messages %}
+    <div class="container mt-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+            </button>
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="container mt-4">
         <h1 style="margin-bottom: 15px;">{{ group.name }}</h1>
         <p><strong>ID:</strong> {{ group.group_id }}</p>
@@ -16,10 +31,6 @@
         <p><strong>Date Created:</strong> {{ group.date_created }}</p>
         <p><strong>Last Modified:</strong> {{ group.date_modified }}</p>
         <p><strong>Description:</strong> {{ group.description }}</p>
-        
-        <div class="container">
-            <a href="{% url 'get_citesphere_collections' group.group_id %}" class="btn btn-info" style="float:right;">View {{ group.name }} Collections and Texts</a>
-        </div>
         
         <div class="container mt-4">
             <div class="row">

@@ -8,13 +8,21 @@
 {% endblock %}
 
 {% block main %}
-    <div class="container">
-        <div class="row" style="margin-bottom: 35px;">
-            <div class="col-12 d-flex justify-content-between align-items-center">
-                <h1>Your Citesphere Groups</h1>
-                <a href="{% url 'get_citesphere_groups' %}" class="btn btn-primary" style="float:right;">View Citesphere Groups</a>
-            </div>
+
+    {% if messages %}
+    <div class="container mt-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+            </button>
+            {{ message }}
         </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="container">
 
         <div class="row">
             <div class="col-12">
