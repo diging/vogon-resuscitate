@@ -14,6 +14,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.utils import timezone
 import requests
+
 from external_accounts.models import CitesphereAccount
 
 def appellation_xml(request, appellation_id):
@@ -225,14 +226,14 @@ def build_concept_node(concept, user):
     Helper function to build a concept node dictionary.
     """
     return {
-        "label": concept.label,  # Pull label from the Concept
+        "label": concept.label,
         "metadata": {
             "type": "concept",
-            "interpretation": concept.uri,  # Use the URI from Concept
+            "interpretation": concept.uri,
             "termParts": [
                 {
-                    "position": 1,  # Adjust based on your model needs
-                    "expression": concept.label  # Use the concept label for expression
+                    "position": 1,
+                    "expression": concept.label 
                 }
             ]
         },
