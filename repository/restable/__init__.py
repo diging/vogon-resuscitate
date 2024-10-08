@@ -27,7 +27,6 @@ class RESTManager(object):
             Additional headers to be sent with the request.
         """
         self.user = user
-        print(repository)
         self.repository = repository
         self.base_url = repository.endpoint
         self.headers = headers or {}

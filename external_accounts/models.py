@@ -19,7 +19,7 @@ class CitesphereAccount(models.Model):
     extra_data = models.TextField(default='{}', help_text="Any extra data returned by Citesphere in JSON format")
 
     def __str__(self):
-        return f"Citesphere account for {self.user.username}"
+        return f"Citesphere account:{self.user.username} Repository: {self.repository.name}"
 
     @property
     def extra_data_json(self):

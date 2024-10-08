@@ -202,7 +202,6 @@ def repository_details(request, repository_id):
         # Redirect to Citesphere login page for the new repository
         return redirect(reverse('citesphere_login') + f"?repository_id={repository_id}")
 
-
     texts = repository.texts.all().order_by('-added')
     manager = RepositoryManager(user=user, repository=repository)
     project_id = request.GET.get('project_id')
