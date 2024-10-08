@@ -196,8 +196,10 @@ def repository_details(request, repository_id):
     user = None if isinstance(request.user, AnonymousUser) else request.user
     repository = get_object_or_404(Repository, pk=repository_id)
 
-    if not request.session.get('citesphere_authenticated'):
-        # Redirect to Citesphere login page
+    # Check if user is authenticated with Citesphere and if it's for the correct repository
+    session_repository_id = request.session.get('repository_id')
+    if not request.session.get('citesphere_authenticated') or session_repository_id != str(repository_id):
+        # Redirect to Citesphere login page for the new repository
         return redirect(reverse('citesphere_login') + f"?repository_id={repository_id}")
 
 

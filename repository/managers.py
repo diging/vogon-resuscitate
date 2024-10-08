@@ -8,7 +8,7 @@ import requests
 class RepositoryManager(RESTManager):
     def __init__(self, **kwargs):
         self.user = kwargs.get('user')
-        self.repository = kwargs.pop('repository')
+        self.repository = kwargs.get('repository')
         if self.user:
             kwargs.update({'headers': auth.citesphere_auth(self.user)})
         super(RepositoryManager, self).__init__(**kwargs)

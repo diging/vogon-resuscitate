@@ -30,15 +30,24 @@
                                         <div class="info-container">
                                             <h2 class="card-title">Citesphere</h2>
                                             {% if has_citesphere_account %}
-                                                <button class="btn btn-success btn-margin-bottom " disabled>Connected</button><br>
-                                                <h5>Connected as: {{ citesphere_account.citesphere_user_id }}</h5>
+                                                <button class="btn btn-success btn-margin-bottom" disabled>Connected</button><br>
+                                                
+                                                <!-- Display connected repositories -->
+                                                <ul class="list-unstyled">
+                                                    {% for repo in connected_repositories %}
+                                                        <li>
+                                                            <h5>Repository: {{ repo.repository_name }}</h5>
+                                                            <p>Connected as: {{ repo.user_id }}</p>
+                                                            <p>{{ repo.repository_description }}</p>
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
                                             {% else %}
                                                 <a href="{% url 'citesphere_login' %}" class="btn btn-primary">Connect</a>
                                             {% endif %}
                                         </div>
                                     </div>
                                 </div>
-                                
                             </div>
                         </div>
                         <!-- Future Account Cards -->
@@ -47,6 +56,7 @@
             </div>
         </div>
     </div>
+</div>
 
     <div class="row">
         <div class="col-md-4">

@@ -1,17 +1,17 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
-from django.utils.text import slugify
-from django.urls import reverse
 from django.conf import settings
 from requests.exceptions import RequestException
 from django.db.models.signals import post_save
+from repository.models import Repository
 from django.dispatch import receiver
 import requests
 import json
 
 class CitesphereAccount(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='citesphere_account')
+    repository = models.ForeignKey(Repository, on_delete=models.CASCADE, related_name='citesphere_accounts')
     citesphere_user_id = models.CharField(max_length=255, help_text="Unique identifier for the Citesphere user")
     access_token = models.CharField(max_length=255, help_text="OAuth access token")
     refresh_token = models.CharField(max_length=255, help_text="OAuth refresh token")
@@ -35,16 +35,18 @@ class CitesphereAccount(models.Model):
 @receiver(post_save, sender=CitesphereAccount)
 def fetch_citesphere_user_id(sender, instance, created, **kwargs):
     if created:
+        repository = instance.repository
+
         try:
             response = requests.get(
-                f'{settings.CITESPHERE_ENDPOINT}/api/v1/test/',
+                f'{repository.endpoint}/api/v1/test/',
                 headers={'Authorization': f'Bearer {instance.access_token}'}
             )
             response.raise_for_status()  # Raises an HTTPError for bad responses
             response_data = response.json()
-            
+
             citesphere_user_id = response_data[0]['user']
-            
+
             if citesphere_user_id:
                 instance.citesphere_user_id = citesphere_user_id
                 instance.save()

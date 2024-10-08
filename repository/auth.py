@@ -1,6 +1,4 @@
-from django.conf import settings
 from external_accounts.models import CitesphereAccount
-
 from django.shortcuts import redirect
 from django.urls import reverse
 

@@ -1,5 +1,3 @@
-from django.conf import settings
-
 from django.utils.timezone import now
 from datetime import timedelta
 
@@ -24,7 +22,11 @@ class TokenRefreshMiddleware:
             repository_id = request.session.get('repository_id')
             if repository_id:
                 try:
-                    citesphere_account = CitesphereAccount.objects.get(user=request.user)
+                    # Get the Citesphere account associated with the user and the current repository
+                    citesphere_account = CitesphereAccount.objects.get(
+                        user=request.user,
+                        repository_id=repository_id  # Ensure it's for the current repository
+                    )
                     repository = Repository.objects.get(pk=repository_id)
 
                     # Refresh the token if it is expired
@@ -50,13 +52,16 @@ class TokenRefreshMiddleware:
             expires_in = token_data.get('expires_in')
             expires_at = now() + timedelta(seconds=int(expires_in))
 
+            # Update the Citesphere account with the new tokens
             citesphere_account.access_token = new_access_token
             citesphere_account.refresh_token = new_refresh_token
             citesphere_account.token_expires_at = expires_at
             citesphere_account.save()
 
+            # Mark the user as authenticated with Citesphere in the session
             request.session['citesphere_authenticated'] = True
             
         else:
+            # If the token refresh fails, clear the authentication and remove the account
             request.session['citesphere_authenticated'] = False
             citesphere_account.delete()

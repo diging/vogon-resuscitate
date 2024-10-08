@@ -1,15 +1,17 @@
 from .util import *
 from ..auth import *
-import requests
-import json
+from django.shortcuts import get_object_or_404
 from django.conf import settings
+import requests
+
+from ..models import Repository
 
 class RESTManager(object):
     """
     Simplified RESTManager for handling Citesphere groups, collections, and items.
     """
 
-    def __init__(self, user=None, base_url=None, headers=None):
+    def __init__(self, user=None, repository=None, headers=None):
         """
         Initialize the RESTManager with user authentication and base URL for Citesphere API.
 
@@ -17,13 +19,17 @@ class RESTManager(object):
         ----------
         user : User object
             The user for which authentication is handled.
+        repository : Repository object
+            The repository for which the RESTManager is handling requests.
         base_url : str
             The base URL for the Citesphere API.
         headers : dict
             Additional headers to be sent with the request.
         """
         self.user = user
-        self.base_url = base_url or settings.CITESPHERE_ENDPOINT
+        print(repository)
+        self.repository = repository
+        self.base_url = repository.endpoint
         self.headers = headers or {}
 
     def _get_headers(self):

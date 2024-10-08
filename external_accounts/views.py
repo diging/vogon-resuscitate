@@ -42,7 +42,7 @@ def citesphere_callback(request):
     state = request.GET.get('state')
     error = request.GET.get('error')
 
-    # Retrieve the repository_id and state from the session
+    # Retrieve the repository ID and state from the session
     repository_id = request.session.get('repository_id')
     stored_state = request.session.get('oauth_state')
 
@@ -54,6 +54,7 @@ def citesphere_callback(request):
     if error:
         return render(request, 'citesphere/error.html', {'message': f'Authorization failed with Citesphere. Error: {error}'})
 
+    # Retrieve the repository for the OAuth process
     repository = get_object_or_404(Repository, pk=repository_id)
     citesphere_redirect_uri = f"{settings.BASE_URL}oauth/callback/citesphere/"
 
@@ -72,11 +73,12 @@ def citesphere_callback(request):
     access_token = token_data.get('access_token')
     refresh_token = token_data.get('refresh_token')
     expires_in = token_data.get('expires_in')
-
     expires_at = timezone.now() + timedelta(seconds=int(expires_in))
 
-    citesphere_account, created = CitesphereAccount.objects.update_or_create(
+    # Store the tokens in the CitesphereAccount model, linked to the user and repository
+    CitesphereAccount.objects.update_or_create(
         user=request.user,
+        repository=repository,
         defaults={
             'access_token': access_token,
             'refresh_token': refresh_token,
@@ -85,5 +87,8 @@ def citesphere_callback(request):
         }
     )
 
+    # Mark the user as authenticated with Citesphere in the session
     request.session['citesphere_authenticated'] = True
+
+    # Redirect back to the repository details page using the repository ID
     return redirect(reverse('repository_details', args=[repository_id]))
