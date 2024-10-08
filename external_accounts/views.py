@@ -6,8 +6,7 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import CitesphereAccount, CitesphereGroup
-from .utils import get_citesphere_groups, get_citesphere_collections
+from .models import CitesphereAccount
 
 import requests
 import secrets
@@ -63,34 +62,3 @@ def citesphere_callback(request):
 
     return redirect('home')
 
-@login_required
-def list_citesphere_groups(request):
-    template = 'citesphere/citesphere.html'
-
-    get_citesphere_groups(request.user, request)
-
-    account = CitesphereAccount.objects.get(user=request.user)
-    groups = CitesphereGroup.objects.filter(citesphere_accounts=account)
-    context = {
-        'groups':groups,
-    }
-    return render(request, template, context)
-
-@login_required
-def group_detail(request, slug):
-    print("GROUP DETAIL", slug)
-    group = get_object_or_404(CitesphereGroup, slug=slug)
-
-    get_citesphere_collections(request.user, group, request)
-
-    collections = group.collections.all()
-    items = group.items.all()
-
-    template = 'citesphere/citesphere_group_detail.html'
-    context = {
-        'group': group,
-        'collections': collections,
-        'items': items,
-        'slug': slug,
-    }
-    return render(request, template, context)

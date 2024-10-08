@@ -32,7 +32,6 @@
                                             {% if has_citesphere_account %}
                                                 <button class="btn btn-success btn-margin-bottom " disabled>Connected</button><br>
                                                 <h5>Connected as: {{ citesphere_account.citesphere_user_id }}</h5>
-                                                <a href="{% url 'list_citesphere_groups' %}">Browse Groups and Collections</a>
                                             {% else %}
                                                 <a href="{% url 'citesphere_login' %}" class="btn btn-primary">Connect</a>
                                             {% endif %}

@@ -1,7 +1,6 @@
 from django.contrib import admin
 from annotations.forms import *
 from annotations.models import *
-from annotations import quadriga
 from annotations.tasks import submit_relationsets_to_quadriga
 
 from itertools import groupby
@@ -144,4 +143,3 @@ admin.site.register(RelationSet, RelationSetAdmin)
 admin.site.register(RelationTemplate)
 admin.site.register(RelationTemplatePart)
 admin.site.register(DateAppellation)
-admin.site.register(ImportedCitesphereItem)

@@ -144,7 +144,5 @@ urlpatterns = [
     path('login/citesphere/', externalAccountViews.citesphere_login, name='citesphere_login'),
     path('oauth/callback/citesphere/', externalAccountViews.citesphere_callback, name='citesphere_callback'),
     
-    path('citesphere/group/<slug:slug>/', externalAccountViews.group_detail, name='citesphere_group_detail'),
-    re_path('citesphere/groups/', externalAccountViews.list_citesphere_groups, name='list_citesphere_groups'),
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
