@@ -193,10 +193,14 @@ def repository_search(request, repository_id):
 
 def repository_details(request, repository_id):
     template = "annotations/repository_details.html"
-
     user = None if isinstance(request.user, AnonymousUser) else request.user
-
     repository = get_object_or_404(Repository, pk=repository_id)
+
+    if not request.session.get('citesphere_authenticated'):
+        # Redirect to Citesphere login page
+        return redirect(reverse('citesphere_login') + f"?repository_id={repository_id}")
+
+
     texts = repository.texts.all().order_by('-added')
     manager = RepositoryManager(user=user, repository=repository)
     project_id = request.GET.get('project_id')

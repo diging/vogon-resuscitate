@@ -1,8 +1,11 @@
-from django.http import JsonResponse
-from .models import CitesphereAccount
+from django.conf import settings
+
 from django.utils.timezone import now
 from datetime import timedelta
-from django.conf import settings
+
+from .models import CitesphereAccount
+from repository.models import Repository
+
 import requests
 
 class TokenRefreshMiddleware:
@@ -16,28 +19,44 @@ class TokenRefreshMiddleware:
         return response
 
     def process_request(self, request):
-        if request.user.is_authenticated:
-            try:
-                citesphere_account = CitesphereAccount.objects.get(user=request.user)
-                if citesphere_account.is_token_expired():
-                    self.refresh_access_token(citesphere_account)
-            except CitesphereAccount.DoesNotExist:
-                pass
+        # Only proceed if the user is authenticated and has Citesphere access
+        if request.user.is_authenticated and request.session.get('citesphere_authenticated'):
+            repository_id = request.session.get('repository_id')
+            if repository_id:
+                try:
+                    citesphere_account = CitesphereAccount.objects.get(user=request.user)
+                    repository = Repository.objects.get(pk=repository_id)
 
-    def refresh_access_token(self, citesphere_account):
-        response = requests.post(settings.CITESPHERE_TOKEN_URL, data={
+                    # Refresh the token if it is expired
+                    if citesphere_account.is_token_expired():
+                        self.refresh_access_token(citesphere_account, repository, request)
+                except (CitesphereAccount.DoesNotExist, Repository.DoesNotExist):
+                    # Clear the session if no Citesphere account or repository is found
+                    request.session['citesphere_authenticated'] = False
+
+    def refresh_access_token(self, citesphere_account, repository, request):
+        # Use the repository-specific credentials for refreshing the token
+        response = requests.post(f"{repository.endpoint}/api/oauth/token", data={
             'grant_type': 'refresh_token',
             'refresh_token': citesphere_account.refresh_token,
-            'client_id': settings.CITESPHERE_CLIENT_ID,
-            'client_secret': settings.CITESPHERE_CLIENT_SECRET,
-        }).json()
+            'client_id': repository.client_id,
+            'client_secret': repository.client_secret,
+        })
 
-        new_access_token = response.get('access_token')
-        new_refresh_token = response.get('refresh_token')
-        expires_in = response.get('expires_in')
-        expires_at = now() + timedelta(seconds=int(expires_in))
+        if response.status_code == 200:
+            token_data = response.json()
+            new_access_token = token_data.get('access_token')
+            new_refresh_token = token_data.get('refresh_token')
+            expires_in = token_data.get('expires_in')
+            expires_at = now() + timedelta(seconds=int(expires_in))
 
-        citesphere_account.access_token = new_access_token
-        citesphere_account.refresh_token = new_refresh_token
-        citesphere_account.token_expires_at = expires_at
-        citesphere_account.save()
+            citesphere_account.access_token = new_access_token
+            citesphere_account.refresh_token = new_refresh_token
+            citesphere_account.token_expires_at = expires_at
+            citesphere_account.save()
+
+            request.session['citesphere_authenticated'] = True
+            
+        else:
+            request.session['citesphere_authenticated'] = False
+            citesphere_account.delete()

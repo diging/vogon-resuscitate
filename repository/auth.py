@@ -11,7 +11,6 @@ def citesphere_auth(user):
     """
     try:
         account = CitesphereAccount.objects.get(user=user)
-        print("WORK", account.access_token)
         return {'Authorization': f'Bearer {account.access_token}'}
     
     except CitesphereAccount.DoesNotExist:

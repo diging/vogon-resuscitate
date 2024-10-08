@@ -1,4 +1,5 @@
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from urllib.parse import urlencode
 from django.conf import settings
@@ -7,22 +8,33 @@ from django.utils import timezone
 from datetime import timedelta
 
 from .models import CitesphereAccount
+from repository.models import Repository
 
 import requests
 import secrets
 
+
 @login_required
 def citesphere_login(request):
+    repository_id = request.GET.get('repository_id')
+    if not repository_id:
+        return redirect('repository_list')
+    repository = get_object_or_404(Repository, pk=repository_id)
+
     state = secrets.token_urlsafe()
-    request.session['oauth_state'] = state  # Store state in user's session for later validation
+    # Store state and repository_id in user's session for later validation
+    request.session['oauth_state'] = state
+    request.session['repository_id'] = repository_id
 
     params = {
-        'client_id': settings.CITESPHERE_CLIENT_ID,
+        'client_id': repository.client_id,
         'scope': 'read',
         'response_type': 'code',
+        'redirect_uri': f"{settings.BASE_URL}/oauth/callback/citesphere/",
         'state': state
     }
-    url = f"{settings.CITESPHERE_AUTH_URL}?{urlencode(params)}"
+
+    url = f"{repository.endpoint}/api/oauth/authorize/?{urlencode(params)}"
     return redirect(url)
 
 def citesphere_callback(request):
@@ -30,35 +42,48 @@ def citesphere_callback(request):
     state = request.GET.get('state')
     error = request.GET.get('error')
 
+    # Retrieve the repository_id and state from the session
+    repository_id = request.session.get('repository_id')
+    stored_state = request.session.get('oauth_state')
+
+    # Validate state to prevent CSRF attacks
+    if state != stored_state:
+        return render(request, 'citesphere/error.html', {'message': 'State mismatch error during OAuth. Possible CSRF attack.'})
+
+    # Check if there is an error in the OAuth flow
     if error:
-        return render(request, 'error.html', {'message': 'Authorization failed with Citesphere.'})
+        return render(request, 'citesphere/error.html', {'message': f'Authorization failed with Citesphere. Error: {error}'})
 
-    token_response = requests.post(settings.CITESPHERE_TOKEN_URL, data={
-        'client_id': settings.CITESPHERE_CLIENT_ID,
-        'client_secret': settings.CITESPHERE_CLIENT_SECRET,
+    repository = get_object_or_404(Repository, pk=repository_id)
+    citesphere_redirect_uri = f"{settings.BASE_URL}oauth/callback/citesphere/"
+
+    token_response = requests.post(f"{repository.endpoint}/api/oauth/token", data={
+        'client_id': repository.client_id,
+        'client_secret': repository.client_secret,
         'code': code,
-        'redirect_uri': settings.CITESPHERE_REDIRECT_URI,
-        'state': state,
+        'redirect_uri': citesphere_redirect_uri,
         'grant_type': 'authorization_code',
-    }).json()
+    })
 
-    access_token = token_response.get('access_token')
-    refresh_token = token_response.get('refresh_token')
-    expires_in = token_response.get('expires_in')
+    if token_response.status_code != 200:
+        return render(request, 'citesphere/error.html', {'message': 'Failed to Authenticate. Please try again later.'})
 
-    # Calculate the expiration time
-    expires_at = expires_at = timezone.now() + timedelta(seconds=int(expires_in))
+    token_data = token_response.json()
+    access_token = token_data.get('access_token')
+    refresh_token = token_data.get('refresh_token')
+    expires_in = token_data.get('expires_in')
 
-    # Update or create the account instance
+    expires_at = timezone.now() + timedelta(seconds=int(expires_in))
+
     citesphere_account, created = CitesphereAccount.objects.update_or_create(
         user=request.user,
         defaults={
             'access_token': access_token,
             'refresh_token': refresh_token,
             'token_expires_at': expires_at,
-            'extra_data': token_response
+            'extra_data': token_data
         }
     )
 
-    return redirect('home')
-
+    request.session['citesphere_authenticated'] = True
+    return redirect(reverse('repository_details', args=[repository_id]))
