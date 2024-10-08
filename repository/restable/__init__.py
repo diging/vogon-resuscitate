@@ -32,11 +32,13 @@ class RESTManager(object):
         self.headers = headers or {}
 
     def _get_headers(self):
-        """
-        Helper method to add Authorization headers if not already set.
-        """
-        if self.user:
-            self.headers.update(citesphere_auth(self.user))
+        if self.user and self.repository:
+            auth_headers = citesphere_auth(self.user, self.repository)
+            if auth_headers:
+                self.headers.update(auth_headers)
+            else:
+                # Handle authentication failure appropriately
+                raise Exception("Authentication required. Please authenticate with Citesphere.")
         return self.headers
 
     def get(self, endpoint, params=None):

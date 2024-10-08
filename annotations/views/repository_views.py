@@ -22,6 +22,8 @@ from urllib.parse import urlparse, parse_qs
 from urllib.parse import urlencode
 from external_accounts.utils import parse_iso_datetimes
 
+from external_accounts.decorators import citesphere_authenticated
+
 def _get_params(request):
     # The request may include parameters that should be passed along to the
     #  repository -- at this point, this is just for pagination.
@@ -65,7 +67,7 @@ def _get_pagination(response, base_url, base_params):
 
 
 
-@login_required
+@citesphere_authenticated
 def repository_collections(request, repository_id):
     """View to fetch and display Citesphere Groups"""
     repository = get_object_or_404(Repository, pk=repository_id)
@@ -83,7 +85,8 @@ def repository_collections(request, repository_id):
     return render(request, "annotations/repository_collections.html", context)
 
 
-@login_required
+# Since in citesphere_authenticated we already have a login_required decorator, we don't need to add another one here
+@citesphere_authenticated
 def repository_collection(request, repository_id, group_id):
     """View to fetch and display collections within Citesphere Groups"""
     params = _get_params(request)
@@ -121,7 +124,7 @@ def repository_collection(request, repository_id, group_id):
 
 
 
-@login_required
+@citesphere_authenticated
 def repository_browse(request, repository_id):
     params = _get_params(request)
 
@@ -158,7 +161,7 @@ def repository_browse(request, repository_id):
 
 
 
-@login_required
+@citesphere_authenticated
 def repository_search(request, repository_id):
     repository = get_object_or_404(Repository, pk=repository_id)
     query = request.GET.get('query', '')
@@ -189,18 +192,25 @@ def repository_search(request, repository_id):
 
     return render(request, 'annotations/repository_search.html', context)
 
+@login_required
+def repository_list(request):
+    template = "annotations/repository_list.html"
+    project_id = request.GET.get('project_id')
+    context = {
+        'user': request.user,
+        'repositories': Repository.objects.all(),
+        'title': 'Repositories',
+        'project_id': project_id,
 
+    }
 
+    return render(request, template, context)
+
+@citesphere_authenticated
 def repository_details(request, repository_id):
     template = "annotations/repository_details.html"
     user = None if isinstance(request.user, AnonymousUser) else request.user
     repository = get_object_or_404(Repository, pk=repository_id)
-
-    # Check if user is authenticated with Citesphere and if it's for the correct repository
-    session_repository_id = request.session.get('repository_id')
-    if not request.session.get('citesphere_authenticated') or session_repository_id != str(repository_id):
-        # Redirect to Citesphere login page for the new repository
-        return redirect(reverse('citesphere_login') + f"?repository_id={repository_id}")
 
     texts = repository.texts.all().order_by('-added')
     manager = RepositoryManager(user=user, repository=repository)
@@ -216,21 +226,9 @@ def repository_details(request, repository_id):
 
     return render(request, template, context)
 
-@login_required
-def repository_list(request):
-    template = "annotations/repository_list.html"
-    project_id = request.GET.get('project_id')
-    context = {
-        'user': request.user,
-        'repositories': Repository.objects.all(),
-        'title': 'Repositories',
-        'project_id': project_id,
-
-    }
-
-    return render(request, template, context)
-
+@citesphere_authenticated
 def repository_collection_texts(request, repository_id, group_id, group_collection_id):
+    """View to fetch and display texts within a collection from Citesphere"""
     user = request.user
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=user, repository=repository)
@@ -253,7 +251,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
     return render(request, 'annotations/repository_collections_text_list.html', context)
 
-@login_required
+@citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key):
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=request.user, repository=repository)

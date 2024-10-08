@@ -69,7 +69,6 @@ MIDDLEWARE = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'external_accounts.middleware.TokenRefreshMiddleware',
 )
 
 ROOT_URLCONF = 'vogon.urls'
@@ -264,8 +263,7 @@ LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
 # Session Cookie Settings
 SESSION_COOKIE_NAME = 'vogon'
 SESSION_COOKIE_AGE = 1209600  # 2 weeks (default)
-SESSION_EXPIRE_AT_BROWSER_CLOSE = False
-SESSION_SAVE_EVERY_REQUEST = True  # Extend session expiry on each request.
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # Concept types
 PERSONAL_CONCEPT_TYPE = os.environ.get('PERSONAL_CONCEPT_TYPE',
