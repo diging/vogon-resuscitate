@@ -185,7 +185,6 @@ def user_projects(request):
     }
     return render(request, template, context)
 
-
 @login_required
 def dashboard(request):
     """
@@ -204,24 +203,17 @@ def dashboard(request):
     template = "annotations/dashboard.html"
 
     # Retrieve a unique list of texts that were recently annotated by the user.
-    #  Since many annotations will be on "subtexts" (i.e. Texts that are
-    #  part_of another Text), we need to first identify the unique subtexts,
-    #  and then assemble a list of unique "top level" texts.
     _recently_annotated = request.user.appellation_set.order_by('occursIn_id', '-created')\
                                            .values_list('occursIn_id')\
                                            .distinct('occursIn_id')[:20]
     _annotated_texts = Text.objects.filter(pk__in=_recently_annotated)
     _key = lambda t: t.id
-    _recent_grouper = groupby(sorted([t.top_level_text for t in _annotated_texts],
-                                     key=_key),
+    _recent_grouper = groupby(sorted([t.top_level_text for t in _annotated_texts], key=_key),
                               key=_key)
-    recent_texts = []
-    for t_id, group in _recent_grouper:
-        recent_texts.append(next(group))    # Take the first item only.
+    recent_texts = [next(group) for _, group in _recent_grouper]
 
     added_texts = Text.objects.filter(addedBy_id=request.user.id, part_of__isnull=True)\
                                 .order_by('-added')
-                                # .values('id', 'title', 'added')
 
     flds = ['id', 'name', 'description']
     projects_owned = request.user.collections.all().values(*flds)
@@ -233,15 +225,19 @@ def dashboard(request):
     relationset_qs = RelationSet.objects.filter(createdBy__pk=request.user.id)\
                                         .distinct().count()
 
-    try:
-        has_citesphere_account = CitesphereAccount.objects.filter(user=request.user).exists()
-    except ObjectDoesNotExist:
-        has_citesphere_account = False
-    
-    if has_citesphere_account:
-        citesphere_account = CitesphereAccount.objects.get(user=request.user)
-    else:
-        citesphere_account = ""
+    # Check if there are any connected Citesphere accounts for the user and retrieve them
+    citesphere_accounts = CitesphereAccount.objects.filter(user=request.user)
+    has_citesphere_account = citesphere_accounts.exists()
+
+    # A list of connected repositories if available
+    connected_repositories = [
+        {
+            'repository_name': account.repository.name,
+            'repository_description': account.repository.description,
+            'user_id': account.citesphere_user_id,
+        }
+        for account in citesphere_accounts
+    ]
 
     context = {
         'title': 'Dashboard',
@@ -254,9 +250,10 @@ def dashboard(request):
         'relation_count': relationset_qs,
         'relations': RelationSet.objects.filter(createdBy=request.user).order_by('-created')[:10],
         'has_citesphere_account': has_citesphere_account,
-        'citesphere_account':citesphere_account
+        'connected_repositories': connected_repositories,
     }
     return render(request, template, context)
+
 
 
 def user_details(request, userid, *args, **kwargs):

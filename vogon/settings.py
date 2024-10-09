@@ -69,7 +69,6 @@ MIDDLEWARE = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'external_accounts.middleware.TokenRefreshMiddleware',
 )
 
 ROOT_URLCONF = 'vogon.urls'
@@ -186,7 +185,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC_ROOT = os.environ.get('STATIC_ROOT',
                              os.path.join(PROJECT_ROOT, 'staticfiles'))
-STATIC_URL = BASE_URL + 'static/'
+STATIC_URL = BASE_DIR + 'static/'
 
 STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'), )
 
@@ -228,10 +227,8 @@ CACHES = {
 
 CONCEPTPOWER_USERID = os.environ.get('CONCEPTPOWER_USERID', None)
 CONCEPTPOWER_PASSWORD = os.environ.get('CONCEPTPOWER_PASSWORD', None)
-CONCEPTPOWER_ENDPOINT = os.environ.get(
-    'CONCEPTPOWER_ENDPOINT', 'http://chps.asu.edu/conceptpower/rest/')
-CONCEPTPOWER_NAMESPACE = os.environ.get('CONCEPTPOWER_NAMESPACE',
-                                        '{http://www.digitalhps.org/}')
+CONCEPTPOWER_ENDPOINT = os.environ.get('CONCEPTPOWER_ENDPOINT')
+CONCEPTPOWER_NAMESPACE = os.environ.get('CONCEPTPOWER_NAMESPACE')
 
 QUADRIGA_USERID = os.environ.get('QUADRIGA_USERID', '')
 QUADRIGA_PASSWORD = os.environ.get('QUADRIGA_PASSWORD', '')
@@ -257,21 +254,16 @@ GOOGLE_ANALYTICS_ID = os.environ.get('GOOGLE_ANALYTICS_ID', None)
 
 VERSION = '0.4'
 
-# Giles and HTTP.
-GILES = os.environ.get('GILES', 'https://diging-dev.asu.edu/giles-review')
-IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
-GET = requests.get
-POST = requests.post
-GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
-GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
-MAX_GILES_UPLOADS = 20
-
 GOAT = os.environ.get('GOAT', 'http://127.0.0.1:8000')
 GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN')
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
 
+
+# Session Cookie Settings
 SESSION_COOKIE_NAME = 'vogon'
+SESSION_COOKIE_AGE = 1209600  # 2 weeks (default)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # Concept types
 PERSONAL_CONCEPT_TYPE = os.environ.get('PERSONAL_CONCEPT_TYPE',
@@ -289,13 +281,11 @@ CONCEPT_TYPES = {
 
 SUBMIT_WAIT_TIME = {'days': 3, 'hours': 0, 'minutes': 0}
 
-# Citesphere Credentials
-CITESPHERE_ENDPOINT = os.environ.get('CITESPHERE_ENDPOINT')
-
-CITESPHERE_CLIENT_ID = os.environ.get('CITESPHERE_CLIENT_ID')
-CITESPHERE_CLIENT_SECRET = os.environ.get('CITESPHERE_CLIENT_SECRET')
-CITESPHERE_REDIRECT_URI = os.environ.get('CITESPHERE_REDIRECT_URI')
-
-# OAuth specific endpoints
-CITESPHERE_AUTH_URL = f"{CITESPHERE_ENDPOINT}/api/oauth/authorize"
-CITESPHERE_TOKEN_URL = f"{CITESPHERE_ENDPOINT}/api/oauth/token"
+# Giles Credentials
+GILES_ENDPOINT = os.environ.get('GILES_ENDPOINT')
+IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
+GET = requests.get
+POST = requests.post
+GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
+GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
+MAX_GILES_UPLOADS = 20

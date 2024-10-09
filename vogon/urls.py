@@ -126,11 +126,12 @@ urlpatterns = [
     re_path(r'^repository/(?P<repository_id>[0-9]+)/collections/$', views.repository_views.repository_collections, name='repository_collections'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/browse/$', views.repository_views.repository_browse, name='repository_browse'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/search/$', views.repository_views.repository_search, name='repository_search'),
-    re_path(r'^repository/(?P<repository_id>[0-9]+)/collections/(?P<collection_id>[0-9]+)/$', views.repository_views.repository_collection, name='repository_collection'),
-    re_path(r'^repository/(?P<repository_id>[0-9]+)/text/(?P<text_id>[0-9]+)/$', views.repository_views.repository_text, name='repository_text'),
+    re_path(r'^repository/(?P<repository_id>[0-9]+)/collections/(?P<group_id>[0-9]+)/$', views.repository_views.repository_collection, name='repository_collection'),
+    re_path(r'^repository/(?P<repository_id>[0-9]+)/collection/(?P<group_id>[0-9]+)/group-collection/(?P<group_collection_id>[a-zA-Z0-9]+)/texts/$', views.repository_views.repository_collection_texts, name='repository_collections_text_list'),
+    re_path(r'^repository/(?P<repository_id>[0-9]+)/group/(?P<group_id>[a-zA-Z0-9]+)/text/(?P<text_key>[a-zA-Z0-9]+)/$', views.repository_views.repository_text_import, name='repository_text_import'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/text/(?P<text_id>[0-9]+)/content/(?P<content_id>[0-9]+)/$', views.repository_views.repository_text_content, name='repository_text_content'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/$', views.repository_views.repository_details, name='repository_details'),
-    re_path(r'^repository/(?P<repository_id>[0-9]+)/text/(?P<text_id>[0-9]+)/project/(?P<project_id>[0-9]+)$', views.repository_views.repository_text_add_to_project, name='repository_text_add_to_project'),
+    re_path(r'^repository/(?P<repository_id>[0-9]+)/text/(?P<text_id>[0-9]+)/project/(?P<project_id>[0-9]+)/$', views.repository_views.repository_text_add_to_project, name='repository_text_add_to_project'),
 
     re_path(r'^repository/$', views.repository_views.repository_list, name='repository_list'),
 
@@ -138,15 +139,11 @@ urlpatterns = [
 
     #re_path(r'^annotate/image/(?P<text_id>[0-9]+)/$', views.annotation_views.annotate_image, name='annotate_image'),
 
-
     re_path(r'^sandbox/(?P<text_id>[0-9]+)/$', conceptViews.sandbox, name='sandbox'),
 
     path('login/citesphere/', externalAccountViews.citesphere_login, name='citesphere_login'),
     path('oauth/callback/citesphere/', externalAccountViews.citesphere_callback, name='citesphere_callback'),
+    path('citesphere/refresh/<int:repository_id>/', externalAccountViews.citesphere_refresh_token, name='citesphere_refresh_token'),
     
-    path('get/citesphere/groups/', externalAccountViews.get_citesphere_groups, name='get_citesphere_groups'),
-    path('get/citesphere/<int:group_id>/collections/', externalAccountViews.get_citesphere_collections, name='get_citesphere_collections'),
-    path('citesphere/group/<slug:slug>/', externalAccountViews.group_detail, name='citesphere_group_detail'),
-    path('citesphere/groups/', externalAccountViews.list_citesphere_groups, name='list_citesphere_groups'),
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

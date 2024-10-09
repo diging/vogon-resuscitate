@@ -29,7 +29,6 @@ import networkx as nx
 logger = logging.getLogger(__name__)
 logger.setLevel('ERROR')
 
-
 @staff_member_required
 def add_relationtemplate(request):
     """
@@ -77,9 +76,9 @@ def add_relationtemplate(request):
                 return HttpResponseRedirect(
                     reverse('get_relationtemplate', args=(template.id, )))
             except relations.InvalidTemplate as E:
-                relationtemplate_form.add_error(None, E.message)
+                relationtemplate_form.add_error(None, str(E))
                 logger.debug(
-                    'creating relationtemplate failed: %s' % (E.message))
+                    'creating relationtemplate failed: %s' % str(E))
         context['formset'] = relationtemplatepart_formset
         context['templateform'] = relationtemplate_form
 

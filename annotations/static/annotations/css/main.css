@@ -120,7 +120,7 @@ word {
     color: orange;
     font-style: italic;
 }
-# AngularJS compatability.
+ /* AngularJS compatability. */
 .nav, .pagination, .carousel, .panel-title a { cursor: pointer; }
 
 .angucomplete-dropdown {
@@ -288,10 +288,6 @@ circle.node {
 
 .btn-group {
   white-space: nowrap;
-  .btn {
-    float: none;
-    display: inline-block;
-  }
 }
 
 
@@ -777,4 +773,13 @@ a.appellation-list-item.selected {
 }
 .splash .h2 {
     margin-top: 10px;
+}
+
+.mt-5 {
+    margin-top: 35px;
+}
+
+
+.mt-5 {
+    margin-bottom: 35px;
 }

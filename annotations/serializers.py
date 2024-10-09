@@ -95,7 +95,7 @@ class AppellationSerializer(serializers.ModelSerializer):
                   'interpretation_type_label', 'position', 'project')
 
 class AppellationPOSTSerializer(serializers.ModelSerializer):
-    position = DocumentPositionSerializer(required=False)
+    position = DocumentPositionSerializer(read_only=True)
     tokenIds = serializers.CharField(required=False)
     stringRep = serializers.CharField(required=False)
 

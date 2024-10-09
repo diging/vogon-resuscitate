@@ -12,7 +12,9 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 
 import autocomplete_light
-
+from django.utils.html import format_html
+from django.forms.utils import flatatt
+from django.utils.encoding import force_str
 import networkx as nx
 
 
@@ -142,19 +144,19 @@ class AutocompleteWidget(widgets.TextInput):
             return formats.localize_input(value)
         return value
 
-    def render(self, name, value, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         if value is None:
             value = ''
-        final_attrs = self.build_attrs(attrs, type=self.input_type, name=name)
+        final_attrs = self.build_attrs(attrs, {'type': self.input_type, 'name': name})
         if value != '':
             # Only add the 'value' attribute if a value is non-empty.
-            final_attrs['value'] = widgets.force_text(self._format_value(value))
+            final_attrs['value'] = force_str(self._format_value(value))
 
         classes = 'autocomplete'
         if 'class' in final_attrs:
             classes += ' ' + final_attrs['class']
 
-        return widgets.format_html('<input class="' + classes + '"{} />', widgets.flatatt(final_attrs))
+        return format_html('<input class="' + classes + '"{} />', flatatt(final_attrs))
 
 
 class ConceptField(forms.CharField):

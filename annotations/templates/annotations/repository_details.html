@@ -4,7 +4,9 @@
 {% load staticfiles %}
 
 {% block breadcrumbs %}
-<a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "repository_list" %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Repositories</a>&raquo;<a href="{% url "repository_details" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ repository.name }}</a>
+<a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;
+<a href="{% url "repository_list" %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Repositories</a>&raquo;
+<a href="{% url "repository_details" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ repository.name }}</a>
 {% endblock %}
 
 {% block main %}
@@ -14,21 +16,41 @@
     <div class="h3">Repository <strong>{{ repository.name }}</strong></div>
     <p class="">{{ repository.description }}</p>
     <ul class="nav nav-pills nav-justified">
-        {% if "search" in manager.methods %}
         <li>
             <a href="{% url "repository_search" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Search</a>
         </li>
-        {% endif %}
-        {% if "list" in manager.methods %}
         <li>
-            <a href="{% url "repository_browse" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Browse</a>
+            <a href="{% url "repository_collections" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Browse</a>
         </li>
-        {% endif %}
-        {% if "collections" in manager.methods %}
-        <li>
-            <a href="{% url "repository_collections" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Collections</a>
-        </li>
-        {% endif %}
     </ul>
+
+    <h1 class="mt-5 mb-5 text-center">Repository Texts</h1>
+
+    <div class="container mt-5">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Added By</th>
+                    <th>Created On</th>
+                    <th>Added On</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for text in texts %}
+                <tr>
+                    <td>{{ text.title }}</td>
+                    <td>{{ text.addedBy }}</td>
+                    <td>{% if text.created is None %}{% else %}{{ text.created }}{% endif %}</td>
+                    <td>{{ text.added }}</td>
+                    <td>
+                        <a href="{% url "annotate" text.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-info">Annotate</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

@@ -47,6 +47,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
+from django.conf import settings
 
 from concepts.models import Concept
 from django.conf import settings
@@ -410,7 +411,8 @@ class Text(models.Model):
     """
 
     def get_absolute_url(self):
-        return reverse('repository_text', args=(self.repository.id, self.top_level_text.repository_source_id))
+        return reverse('annotate', args=[self.id])
+
 
     @property
     def annotation_count(self):

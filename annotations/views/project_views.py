@@ -35,8 +35,9 @@ def view_project(request, project_id):
 
     order_by = request.GET.get('order_by', 'title')
     texts = project.texts.all().order_by(order_by)\
-                         .values('id', 'title', 'added', 'repository_id', 'repository_source_id')
+                         .values('id', 'title', 'added', 'repository_source_id')
 
+    
     paginator = Paginator(texts, 15)
     page = request.GET.get('page')
     try:
@@ -60,7 +61,7 @@ def view_project(request, project_id):
         'title': project.name,
         'project': project,
         'texts': texts,
-        #'relations': relations,
+        # 'relations': relations,
     }
 
     return render(request, template, context)

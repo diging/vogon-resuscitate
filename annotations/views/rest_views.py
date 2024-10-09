@@ -13,6 +13,7 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import (IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
+from django.http import JsonResponse
 from rest_framework.decorators import action
 from rest_framework.pagination import (LimitOffsetPagination,
                                        PageNumberPagination)
@@ -23,10 +24,10 @@ from concepts.models import Concept, Type
 from concepts.lifecycle import *
 
 import uuid
+import xml.etree.ElementTree as ET
 
-import goat
-goat.GOAT = settings.GOAT
-goat.GOAT_APP_TOKEN = settings.GOAT_APP_TOKEN
+import requests
+from django.conf import settings
 
 import logging
 logging.basicConfig()
@@ -102,7 +103,6 @@ class DateAppellationViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
     permission_classes = (IsAuthenticatedOrReadOnly, )
 
     def create(self, request, *args, **kwargs):
-        print((request.data))
         data = request.data.copy()
         position = data.pop('position', None)
         if 'month' in data and data['month'] is None:
@@ -166,42 +166,63 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
-        position = data.pop('position', None)
-        interpretation = data.get('interpretation')
+        position = data.get('position')
+        pos = data.get('pos')
+        label = data.get('label')
+        interpretation = data.get('interpretation')  # The old logic checks for this
 
-        # A concept URI may have been passed directly, in which case we need to
-        #  get (or create) the local Concept instance.
-        if type(interpretation) in [str, str] and interpretation.startswith('http'):
-            try:
-                concept = Concept.objects.get(uri=interpretation)
-            except Concept.DoesNotExist:
+        try:
+            # Check if interpretation (a concept URI) was passed directly
+            if isinstance(interpretation, str) and interpretation.startswith('http'):
+                try:
+                    concept = Concept.objects.get(uri=interpretation)
+                except Concept.DoesNotExist:
+                    concept_data = fetch_concept_data(label, pos)
+                    type_data = concept_data.get('concept_type')
+                    type_instance = None
+                    
+                    # Handle concept type creation if necessary
+                    if type_data:
+                        try:
+                            type_instance = Type.objects.get(uri=type_data.get('identifier'))
+                        except Type.DoesNotExist:
+                            # Create a new Type instance if it doesn't exist
+                            type_instance = Type.objects.create(
+                                uri=type_data.get('identifier'),
+                                label=label,
+                                description=type_data.get('description'),
+                                authority=concept_data.data.get('authority', {}),
+                            )
 
-                concept_data = goat.Concept.retrieve(identifier=interpretation)
-                type_data = concept_data.data.get('concept_type')
-                type_instance = None
-                if type_data:
-                    try:
-                        type_instance = Type.objects.get(uri=type_data.get('identifier'))
-                    except Type.DoesNotExist:
-                        print(type_data)
-                        type_instance = Type.objects.create(
-                            uri = type_data.get('identifier'),
-                            label = type_data.get('name'),
-                            description = type_data.get('description'),
-                            authority = concept_data.data.get('authority', {}).get('name'),
-                        )
+                    # Create a new concept instance
+                    concept = ConceptLifecycle.create(
+                        uri=interpretation,
+                        label=label,
+                        description=concept_data.get('description'),
+                        typed=type_instance,
+                        authority=concept_data.get('authority', {}),
+                    ).instance
 
+                data['interpretation'] = concept.id
+
+            else:
+                # If interpretation is not a URI, fetch concept based on label and pos
                 concept = ConceptLifecycle.create(
-                    uri = interpretation,
-                    label = concept_data.data.get('name'),
-                    description = concept_data.data.get('description'),
-                    typed = type_instance,
-                    authority = concept_data.data.get('authority', {}).get('name'),
+                    uri=interpretation,
+                    label=label,
+                    description=concept_data.get('description'),
+                    typed=type_instance,
+                    authority=concept_data.get('authority', {}),
                 ).instance
 
-            data['interpretation'] = concept.id
+                # Set the interpretation to the concept ID
+                data['interpretation'] = concept.id
+
+        except ValueError as e:
+            return Response({'error': str(e)}, status=400)
 
         serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=data)
 
         try:
             serializer = serializer_class(data=data)
@@ -215,36 +236,26 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
             print((serializer.errors))
             raise E
 
-        # raise AttributeError('asdf')
         try:
             instance = serializer.save()
         except Exception as E:
             print((":::", E))
             raise E
 
-        # Prior to 0.5, the selected tokens were stored directly in Appellation,
-        #  as ``tokenIds``. Now that we have several different annotation
-        #  modes (e.g. images, HT/XML), we use the more flexible
-        #  DocumentPosition model instead. For now, however, the JS app in the
-        #  text annotation interface still relies on the original tokenId field.
-        #  So until we modify that JS app, we still need to store tokenIds on
-        #  Appellation, in addition to creating and linking a DocumentPosition.
         tokenIDs = serializer.data.get('tokenIds', None)
-
         text_id = serializer.data.get('occursIn')
 
         if tokenIDs:
             position = DocumentPosition.objects.create(
-                        occursIn_id=text_id,
-                        position_type=DocumentPosition.TOKEN_ID,
-                        position_value=tokenIDs)
-
+                occursIn_id=text_id,
+                position_type=DocumentPosition.TOKEN_ID,
+                position_value=tokenIDs
+            )
             instance.position = position
             instance.save()
 
-
         if position:
-            if type(position) is not DocumentPosition:
+            if not isinstance(position, DocumentPosition):
                 position_serializer = DocumentPositionSerializer(data=position)
                 try:
                     position_serializer.is_valid(raise_exception=True)
@@ -260,8 +271,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
         reserializer = AppellationSerializer(instance, context={'request': request})
 
         headers = self.get_success_headers(serializer.data)
-        return Response(reserializer.data, status=status.HTTP_201_CREATED,
-                        headers=headers)
+        return Response(reserializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     # TODO: implement some real filters!
     def get_queryset(self, *args, **kwargs):
@@ -450,7 +460,6 @@ class ConceptViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticatedOrReadOnly, )
 
     def create(self, request, *args, **kwargs):
-        print(("ConceptViewSet:: create::", request.data))
         data = request.data
         if data['uri'] == 'generate':
             data['uri'] = 'http://vogonweb.net/{0}'.format(uuid.uuid4())
@@ -483,17 +492,67 @@ class ConceptViewSet(viewsets.ModelViewSet):
         if not q:
             return Response({'results': []})
         pos = request.GET.get('pos', None)
-        concepts = goat.Concept.search(q=q, pos=pos, limit=50)
-
-        def _relabel(datum):
-            _fields = {
-                'name': 'label',
-                'id': 'alt_id',
-                'identifier': 'uri'
-            }
-
-            return {_fields.get(k, k): v for k, v in list(datum.items())}
-        return Response({'results': list(map(_relabel, [c.data for c in concepts]))})
+        url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{q}/{pos if pos else ''}"
+        response = requests.get(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
+        if response.status_code == 200:
+            try:
+                # Parse the XML response
+                root = ET.fromstring(response.content)
+                # Define the namespaces used in the XML
+                ns = {
+                    'madsrdf': 'http://www.loc.gov/mads/rdf/v1#',
+                    'schema': 'http://schema.org/',
+                    'skos': 'http://www.w3.org/2004/02/skos/core#',
+                    'owl': 'http://www.w3.org/2002/07/owl#',
+                    'dcterms': 'http://purl.org/dc/terms/',
+                    'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
+                }
+                concepts = []
+                for concept_entry in root.findall('.//madsrdf:Authority', ns) + root.findall('.//skos:Concept', ns):
+                    concept = {}
+                    # Extract the rdf:about attribute as the 'uri'
+                    concept['uri'] = concept_entry.get('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about')
+                    # Extract the 'name'
+                    name_elem = concept_entry.find('schema:name', ns)
+                    if name_elem is not None:
+                        concept['label'] = name_elem.text.strip()
+                    else:
+                        # Fallback to 'madsrdf:authoritativeLabel' or 'skos:prefLabel'
+                        label_elem = concept_entry.find('madsrdf:authoritativeLabel', ns) or concept_entry.find('skos:prefLabel', ns)
+                        if label_elem is not None:
+                            concept['label'] = label_elem.text.strip()
+                    # Extract 'description'
+                    desc_elem = concept_entry.find('schema:description', ns)
+                    if desc_elem is not None:
+                        concept['description'] = desc_elem.text.strip()
+                    # Extract 'id' from 'dcterms:identifiers'
+                    id_elem = concept_entry.find('dcterms:identifiers', ns)
+                    if id_elem is not None:
+                        concept['id'] = id_elem.text.strip()
+                    # Extract 'pos' from the id if possible
+                    if 'id' in concept:
+                        parts = concept['id'].split('-')
+                        if len(parts) > 2:
+                            concept['pos'] = parts[2]
+                    # Extract 'authority'
+                    authority_elem = concept_entry.find('madsrdf:isMemberOfMADSCollection', ns)
+                    if authority_elem is not None:
+                        authority_uri = authority_elem.text.strip()
+                        # Map the authority URI to a name
+                        if 'wordnet' in authority_uri.lower():
+                            concept['authority'] = {'name': 'WordNet'}
+                        else:
+                            concept['authority'] = {'name': authority_uri}
+                    else:
+                        concept['authority'] = {'name': 'Unknown'}
+                    # Now relabel the fields
+                    concept = _relabel(concept)
+                    concepts.append(concept)
+                return Response({'results': concepts})
+            except Exception as e:
+                return Response({'error': f'Error parsing ConceptPower response: {str(e)}'}, status=400)
+        else:
+            return Response({'error': 'Error fetching concepts from ConceptPower'}, status=response.status_code)
 
 
     def get_queryset(self, *args, **kwargs):
@@ -537,7 +596,80 @@ class ConceptViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-def concept_search(request):
-    q = request.get('search', None)
-    pos = self.request.query_params.get('pos', None)
-    return goat.Concept.search(q=q, pos=pos)
+def fetch_concept_data(label, pos=None):
+    """
+    Fetch concept data from ConceptPower based on the given URI (unique identifier) and part of speech (pos).
+    Returns the concept data in a suitable format for the create function.
+    """
+
+    if pos is 'N':
+        pos = 'noun'
+    elif pos is 'V':
+        pos = 'verb'
+    else:
+        pos = None
+
+    url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{label}/{pos}"
+    response = requests.get(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
+
+    if response.status_code == 200:
+        try:
+            root = ET.fromstring(response.content)
+            namespace = {
+                'madsrdf': 'http://www.loc.gov/mads/rdf/v1#',
+                'schema': 'http://schema.org/',
+                'skos': 'http://www.w3.org/2004/02/skos/core#',
+                'owl': 'http://www.w3.org/2002/07/owl#',
+                'dcterms': 'http://purl.org/dc/terms/',
+                'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
+            }
+            concept_entry = root.find('.//madsrdf:Authority', namespace) or root.find('.//skos:Concept', namespace)
+
+            if concept_entry is not None:
+                concept = {}
+
+                # Extract fields
+                concept['uri'] = concept_entry.get('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about')
+
+                # Extract name
+                name_elem = concept_entry.find('schema:name', namespace) or \
+                            concept_entry.find('madsrdf:authoritativeLabel', namespace) or \
+                            concept_entry.find('skos:prefLabel', namespace)
+                if name_elem is not None:
+                    concept['label'] = name_elem.text.strip()
+                else:
+                    concept['label'] = " "
+
+                # Extract description
+                desc_elem = concept_entry.find('schema:description', namespace)
+                if desc_elem is not None:
+                    concept['description'] = desc_elem.text.strip()
+
+                # Extract authority
+                authority_elem = concept_entry.find('madsrdf:isMemberOfMADSCollection', namespace)
+                if authority_elem is not None:
+                    concept['authority'] = authority_elem.text.strip()
+
+                # Extract pos (if available)
+                pos_elem = concept_entry.find('skos:note', namespace)
+                if pos_elem is not None:
+                    concept['concept_type'] = pos_elem.text.strip()
+
+                return concept
+
+        except Exception as e:
+            raise ValueError(f"Error parsing ConceptPower response: {str(e)}")
+    else:
+        raise ValueError(f"Error fetching concept data: {response.status_code}")
+
+
+def _relabel(datum):
+    """
+    Relabel fields to match a standardized structure.
+    """
+    _fields = {
+        'name': 'label',
+        'id': 'alt_id',
+        'concept_uri': 'uri'
+    }
+    return {_fields.get(k, k): v for k, v in datum.items()}
