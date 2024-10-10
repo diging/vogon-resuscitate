@@ -69,6 +69,7 @@ class RepositoryManager(RESTManager):
 
         if response.status_code == 200:
             item_data = response.json()
+            print(item_data)
 
             item_details = {
                 'key': item_data.get('item', {}).get('key'),
@@ -107,5 +108,55 @@ class RepositoryManager(RESTManager):
 
             return item_data
 
+        else:
+            response.raise_for_status()
+
+    def item_files(self, groupId, itemId):
+        """
+        Fetch individual item from repository's endpoint and list all associated files for import.
+
+        Args:
+            groupId: The group ID in the repository
+            itemId: The item ID in the repository
+
+        Returns:
+            A dictionary containing item details from repository and a list of files with their respective details.
+        """
+        headers = auth.citesphere_auth(self.user, self.repository)
+        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            item_data = response.json()
+
+            # Prepare the item details
+            item_details = {
+                'key': item_data.get('item', {}).get('key'),
+                'title': item_data.get('item', {}).get('title'),
+                'authors': item_data.get('item', {}).get('authors', []),
+                'itemType': item_data.get('item', {}).get('itemType'),
+                'addedOn': item_data.get('item', {}).get('dateAdded', 'Unknown date'),
+                'url': item_data.get('item', {}).get('url')
+            }
+
+            # Extract Giles upload file details if available
+            giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
+            files = []
+
+            for upload in giles_uploads:
+                uploaded_file = upload.get('uploadedFile', {})
+                if uploaded_file:
+                    files.append({
+                        'filename': uploaded_file.get('filename'),
+                        'url': uploaded_file.get('url'),
+                        'file_id': uploaded_file.get('id'),
+                        'content_type': uploaded_file.get('content-type'),
+                        'uploaded_date': upload.get('uploadedDate', 'Unknown date')
+                    })
+
+            item_data['item']['details'] = item_details
+            item_data['item']['files'] = files
+
+            return item_data
         else:
             response.raise_for_status()

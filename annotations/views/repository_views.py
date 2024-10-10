@@ -18,6 +18,8 @@ from annotations.models import Text, TextCollection
 from annotations.annotators import supported_content_types
 from annotations.tasks import tokenize
 
+from django.http import JsonResponse
+
 from urllib.parse import urlparse, parse_qs
 from urllib.parse import urlencode
 from external_accounts.utils import parse_iso_datetimes
@@ -250,6 +252,24 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     }
 
     return render(request, 'annotations/repository_collections_text_list.html', context)
+
+@citesphere_authenticated
+def repository_text_files(request, repository_id, group_id, item_id):
+    """View to fetch and display files for a specific text item."""
+    user = request.user
+    repository = get_object_or_404(Repository, pk=repository_id)
+    manager = RepositoryManager(user=user, repository=repository)
+
+    try:
+        item_data = manager.item_files(group_id, item_id)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({
+        'item': item_data['item']['details'],
+        'files': item_data['item']['files']
+    })
+
 
 @citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key):
