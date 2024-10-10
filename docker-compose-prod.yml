@@ -1,0 +1,27 @@
+version: "3.9"
+   
+services:
+  db:
+    image: postgres
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    env_file:
+      - .docker-env
+    ports:
+      - "${DB_PORT}:5432"
+  web:
+    build: .
+    env_file:
+      - .docker-env
+    command: tail -f /dev/null
+    volumes:
+      - .:/vogon
+      - ./data/files:/data/files
+    ports:
+      - "${WEB_PORT}:8000"
+    environment:
+      - DATA_PATH=/data/files/
+      - MEDIA_URL_PATH=/dashboard/files/
+      - MEDIA_ROOT_PATH=files
+    depends_on:
+      - db
