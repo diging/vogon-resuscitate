@@ -132,6 +132,7 @@ urlpatterns = [
     re_path(r'^repository/(?P<repository_id>[0-9]+)/text/(?P<text_id>[0-9]+)/content/(?P<content_id>[0-9]+)/$', views.repository_views.repository_text_content, name='repository_text_content'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/$', views.repository_views.repository_details, name='repository_details'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/text/(?P<text_id>[0-9]+)/project/(?P<project_id>[0-9]+)/$', views.repository_views.repository_text_add_to_project, name='repository_text_add_to_project'),
+    re_path(r'^repository/(?P<repository_id>[0-9]+)/collections/(?P<group_id>[0-9]+)/texts/$', views.repository_views.repository_group_texts, name='repository_group_text_list'),
 
     re_path(r'^repository/$', views.repository_views.repository_list, name='repository_list'),
 
