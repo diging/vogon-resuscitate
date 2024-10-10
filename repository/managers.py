@@ -30,6 +30,17 @@ class RepositoryManager(RESTManager):
         else:
             response.raise_for_status()
 
+    def group_items(self, groupId):
+        """Fetch items in a particular Group from the repository's endpoint"""
+        headers = auth.citesphere_auth(self.user, self.repository)
+        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            response.raise_for_status()
+            
     def collections(self, groupId):
         """Fetch collections from the repository's endpoint"""
         headers = auth.citesphere_auth(self.user, self.repository)

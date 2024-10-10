@@ -29,11 +29,16 @@
                 </tr>
             </thead>
             <tbody>
+                <tr>
+                    <td>Texts in {{ group.name }}</td>
+                    <td>{{ group.numItems }}</td>
+                    <td><a href="{% url "repository_group_text_list" repository.id group_id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-info">View</a></td>
+                </tr>
                 {% for collection in collections %}
                     <tr>
                         <td>{{ collection.name }}</td>
                         <td>{{ collection.numberOfItems }}</td>
-                        <td><a href="{% url "repository_collections_text_list" repository.id group_id collection.key %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-info">View</a>
+                        <td><a href="{% url "repository_collections_text_list" repository.id group_id collection.key %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-info">View</a></td>
                     </tr>
                     {% empty %}
                     <tr>
