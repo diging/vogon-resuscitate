@@ -255,7 +255,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
 @citesphere_authenticated
 def repository_text_files(request, repository_id, group_id, item_id):
-    """View to fetch and display files for a specific text item."""
+    """View to fetch and return a dictionary of files for a specific text item."""
     user = request.user
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=user, repository=repository)
@@ -266,10 +266,8 @@ def repository_text_files(request, repository_id, group_id, item_id):
         return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({
-        'item': item_data['item']['details'],
-        'files': item_data['item']['files']
+        'files': item_data.get('files', [])
     })
-
 
 @citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key):
