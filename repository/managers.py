@@ -40,17 +40,71 @@ class RepositoryManager(RESTManager):
             return response.json()  # Return the Collections data
         else:
             response.raise_for_status()
-    
+
     def collection_items(self, groupId, collectionId):
-        """Fetch collection items from the repository's endpoint"""
+        """
+        Fetch all items from a specific collection in a group.
+
+        This function retrieves all items from the specified collection in the repository.
+        It gathers all pages of items, combines them into a single JSON object, and includes the group details.
+
+        Args:
+            groupId: The ID of the group in the repository.
+            collectionId: The ID of the collection within the group.
+
+        Returns:
+            A dictionary containing:
+                - "group": Details about the group.
+                - "items": A list of all items in the specified collection.
+        """
         headers = auth.citesphere_auth(self.user, self.repository)
-        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/{collectionId}/items/"
-        response = requests.get(url, headers=headers)
         
-        if response.status_code == 200:
-            return response.json()
-        else:
+        base_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/{collectionId}/items/"
+        collections_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/"
+
+        # Fetch the collection details to determine the total number of items
+        collections_response = requests.get(collections_url, headers=headers)
+        if collections_response.status_code != 200:
+            collections_response.raise_for_status()
+
+        # Parse the response to find the specific collection and get the number of items in the collection
+        collections_data = collections_response.json().get('collections', [])
+        collection_num_items = 0
+        group_info = collections_response.json().get('group', {})
+        for collection in collections_data:
+            if collection.get('key') == collectionId:
+                collection_num_items = collection.get('numberOfItems', 0)
+                break
+
+        # Get total pages which will be required to get all items as it only returns 50 in one request
+        total_pages = (collection_num_items // 50) + (1 if collection_num_items % 50 else 0)
+
+        final_result = {
+            "group": group_info,
+            "items": []
+        }
+
+        # Fetch the first page of items
+        response = requests.get(f"{base_url}?page=1", headers=headers)
+        if response.status_code != 200:
             response.raise_for_status()
+
+        # Add the items from the first page to the final result
+        first_page_data = response.json()
+        final_result["items"].extend(first_page_data.get('items', []))
+
+        # Fetch subsequent pages if there are more than one
+        for page in range(2, total_pages + 1):
+            paginated_response = requests.get(f"{base_url}?page={page}", headers=headers)
+            if paginated_response.status_code == 200:
+                page_data = paginated_response.json()
+                # Add the items from the current page to the final result
+                final_result["items"].extend(page_data.get('items', []))
+            else:
+                paginated_response.raise_for_status()
+
+        # Return the combined JSON object with group info and all items
+        return final_result
 
     def item(self, groupId, itemId):
         """
