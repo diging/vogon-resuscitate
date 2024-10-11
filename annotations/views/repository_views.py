@@ -262,57 +262,73 @@ def repository_text_files(request, repository_id, group_id, item_id):
 
     try:
         item_data = manager.item_files(group_id, item_id)
+        files = item_data.get('files', [])
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        files = []
 
-    return JsonResponse({
-        'files': item_data.get('files', [])
-    })
+    return JsonResponse({'files': files}, status=200)
 
 @citesphere_authenticated
-def repository_text_import(request, repository_id, group_id, text_key):
+def repository_text_import(request, repository_id, group_id, text_key, file_id):
+    """
+    Handles the import process for a specific file associated with a text.
+    """
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=request.user, repository=repository)
 
     try:
-        result = manager.item(group_id, text_key)
+        result = manager.item(group_id, text_key, file_id)
     except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+        return JsonResponse({'error': 'An error occurred while accessing the repository.'}, status=500)
 
     # Extracting item details and Giles details from the result
     item_details = result.get('item', {}).get('details', {})
-    giles_text = result.get('item', {}).get('text', [])
+    giles_text = result.get('item', {}).get('text')
+
+    if not giles_text:
+        return JsonResponse({'error': 'Failed to retrieve the content from Giles.'}, status=400)
 
     tokenized_content = tokenize(giles_text)
+
+    # Include the file_id in the URI to make it unique per file import
+    unique_uri = f"{item_details.get('key')}-{file_id}"
 
     defaults = {
         'title': item_details.get('title', 'Unknown Title'),
         'content_type': 'text/plain',  # Explicitly set to 'text/plain'
         'tokenizedContent': tokenized_content,
         'repository': repository,
-        'repository_source_id':repository_id,
+        'repository_source_id': repository_id,
         'addedBy': request.user,
-        #Parse date provides a list however we only provide one date, hence will provide only one date
         'created': parse_iso_datetimes([item_details.get('addedOn')])[0],
         'originalResource': item_details.get('url'),
     }
 
+    # Create or update the text in the database with the unique URI
     master_text, created = Text.objects.get_or_create(
-        uri=item_details.get('key'),
+        uri=unique_uri,
         defaults=defaults
     )
 
-    master_text.save()
+    if not created:
+        # If the text already exists, update its tokenized content
+        master_text.tokenizedContent = tokenized_content
+        master_text.save()
 
     project_id = request.GET.get('project_id')
-    if project_id and master_text:
-        project = TextCollection.objects.get(pk=project_id)
-        project.texts.add(master_text)
-        # Directly redirect to annotation page, skip repository_text view
-        return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + f'?project_id={project_id}')
+    if project_id:
+        try:
+            project = TextCollection.objects.get(pk=project_id)
+            project.texts.add(master_text)
+            redirect_url = reverse('annotate', args=[master_text.id]) + f'?project_id={project_id}'
+        except TextCollection.DoesNotExist:
+            return JsonResponse({'error': 'Project not found.'}, status=404)
+    else:
+        # Redirect to the annotation page without a project ID
+        redirect_url = reverse('annotate', args=[master_text.id])
 
-    # Directly redirect to annotation page, no need to redirect to repository_text
-    return HttpResponseRedirect(reverse('annotate', args=[master_text.id]))
+    # Using json response as in repository_collections_text_list template this view is being called via AJAX
+    return JsonResponse({'success': True, 'redirect_url': redirect_url})
 
 
 @login_required

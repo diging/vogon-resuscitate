@@ -52,7 +52,46 @@ class RepositoryManager(RESTManager):
         else:
             response.raise_for_status()
 
-    def item(self, groupId, itemId):
+    def item_files(self, groupId, itemId):
+        """
+        Fetch individual item from repository's endpoint and list all associated files for import.
+
+        Args:
+            groupId: The group ID in the repository
+            itemId: The item ID in the repository
+
+        Returns:
+            A dictionary containing a list of files with their respective details.
+        """
+        headers = auth.citesphere_auth(self.user, self.repository)
+        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            item_data = response.json()
+
+            files = []
+            
+            # Extract Giles upload file details if available
+            giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
+
+            if giles_uploads:
+                for giles_upload in giles_uploads:
+                    extracted_text = giles_upload.get('extractedText', {})
+                    if extracted_text.get('content-type') == 'text/plain':
+                        files.append({
+                            'id': extracted_text.get('id'),
+                            'filename': extracted_text.get('filename'),
+                            'url': extracted_text.get('url')
+                        })
+                    
+            return {
+                "files": files,
+            }
+        else:
+            response.raise_for_status()
+
+    def item(self, groupId, itemId, fileId):
         """
         Fetch individual item from repository's endpoint and get Giles document details for documents of type 'text/plain'
 
@@ -80,29 +119,9 @@ class RepositoryManager(RESTManager):
                 'url': item_data.get('item', {}).get('url')
             }
 
-            # Extract Giles upload details if available
-            giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
-
-            if giles_uploads:
-                giles_details = []
-                extracted_text = giles_uploads[0].get('extractedText', {})
-
-                if extracted_text and extracted_text.get('content-type') == 'text/plain':
-                    extracted_text_data = get_giles_document_details(self.user, extracted_text.get('id'))
-                    item_data['item']['text'] = extracted_text_data
-                elif giles_uploads[0].get('pages'):
-                    pages = giles_uploads[0].get('pages')
-                    text = ""
-                    for page in pages:
-                        if page.get('text') and page.get('text').get('content-type') == 'text/plain':
-                            data = get_giles_document_details(self.user, page.get('text').get('id'))
-                            text += data
-                    item_data['item']['text'] = text
-                else:
-                    item_data['item']['text'] = "No valid text/plain content found."
-            else:
-                print("No Giles uploads available")
-                item_data['item']['text'] = "No Giles uploads available."
+            # Extract Giles file data and pass it in the response
+            text = get_giles_document_details(self.user, fileId)
+            item_data['item']['text'] = text
 
             item_data['item']['details'] = item_details
 
@@ -110,44 +129,3 @@ class RepositoryManager(RESTManager):
 
         else:
             response.raise_for_status()
-
-    def item_files(self, groupId, itemId):
-        """
-        Fetch individual item from repository's endpoint and list all associated files for import.
-
-        Args:
-            groupId: The group ID in the repository
-            itemId: The item ID in the repository
-
-        Returns:
-            A dictionary containing a list of files with their respective details.
-        """
-        headers = auth.citesphere_auth(self.user, self.repository)
-        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"
-        response = requests.get(url, headers=headers)
-
-        if response.status_code == 200:
-            item_data = response.json()
-
-            files = []
-            
-            # Extract Giles upload file details if available
-            giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
-            print(giles_uploads)
-
-            if giles_uploads:
-                for giles_upload in giles_uploads:
-                    extracted_text = giles_upload.get('extractedText', {})
-                    if extracted_text.get('content-type') == 'text/plain':
-                        files.append({
-                            'id': extracted_text.get('id'),
-                            'filename': extracted_text.get('filename'),
-                            'url': extracted_text.get('url')
-                        })
-                    
-            return {
-                "files": files,
-            }
-        else:
-            response.raise_for_status()
-            
