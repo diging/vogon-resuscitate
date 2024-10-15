@@ -287,14 +287,16 @@ def repository_text_import(request, repository_id, group_id, text_key):
     master_text.save()
 
     project_id = request.GET.get('project_id')
-    if project_id and master_text:
-        project = TextCollection.objects.get(pk=project_id)
-        project.texts.add(master_text)
-        # Directly redirect to annotation page, skip repository_text view
-        return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + f'?project_id={project_id}')
+    project = None
+    if project_id:
+        try:
+            project = TextCollection.objects.get(pk=project_id)
+            project.texts.add(master_text)  # Add text to the project
+        except TextCollection.DoesNotExist:
+            project = None  # If the project does not exist, set to None
 
-    # Directly redirect to annotation page, no need to redirect to repository_text
-    return HttpResponseRedirect(reverse('annotate', args=[master_text.id]))
+    # Redirect to the annotation page
+    return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + (f'?project_id={project_id}' if project_id else ''))
 
 
 @login_required
@@ -361,6 +363,7 @@ def repository_text_content(request, repository_id, text_id, content_id):
         'addedBy': request.user,
         'content_type': content_type,
         'part_of': resource_text,
+        'project':project,
         'originalResource': getattr(resource.get('url'), 'value', None),
     }
     text, _ = Text.objects.get_or_create(uri=content['uri'], defaults=defaults)

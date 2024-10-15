@@ -35,6 +35,19 @@
             </div>
         </div>
 
+        {% if project %}
+            {% if in_project %}
+                <div class="btn btn-xs btn-success">
+                    <span class="glyphicon glyphicon-ok"></span> Text already in {{ project.name }}
+                </div>
+            {% else %}
+                <a class="btn btn-xs btn-primary" href="{% url "repository_text_add_to_project" repository_id textid project.id %}">
+                    <span class="glyphicon glyphicon-plus"></span> Add to {{ project.name }}
+                </a>
+            {% endif %}
+        {% endif %}
+
+
         <div class="container-fluid" id="main-container">
             <div class="row">
                 <div class="col-xs-12">
