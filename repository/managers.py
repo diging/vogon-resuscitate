@@ -84,7 +84,6 @@ class RepositoryManager(RESTManager):
             "items": []
         }
 
-        # Fetch the first page of items
         response = requests.get(f"{base_url}?page=1", headers=headers)
         if response.status_code != 200:
             response.raise_for_status()
@@ -98,12 +97,11 @@ class RepositoryManager(RESTManager):
             paginated_response = requests.get(f"{base_url}?page={page}", headers=headers)
             if paginated_response.status_code == 200:
                 page_data = paginated_response.json()
-                # Add the items from the current page to the final result
+                # Add items from the current page to the final result
                 final_result["items"].extend(page_data.get('items', []))
             else:
                 paginated_response.raise_for_status()
 
-        # Return the combined JSON object with group info and all items
         return final_result
 
     def item(self, groupId, itemId):
