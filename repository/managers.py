@@ -31,15 +31,60 @@ class RepositoryManager(RESTManager):
             response.raise_for_status()
 
     def group_items(self, groupId):
-        """Fetch items in a particular Group from the repository's endpoint"""
+        """
+        Fetch all items from a specific group.
+
+        This function retrieves all items from the specified group in the repository.
+        It gathers all pages of items, combines them into a single JSON object, and includes the group details.
+
+        Args:
+            groupId: The ID of the group in the repository.
+
+        Returns:
+            A dictionary containing:
+                - "group": Details about the group.
+                - "items": A list of all items in the specified group.
+        """
         headers = auth.citesphere_auth(self.user, self.repository)
-        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/"
-        response = requests.get(url, headers=headers)
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
+        base_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/"
+
+        # Fetch the group details to determine the total number of items
+        group_response = requests.get(base_url, headers=headers)
+        if group_response.status_code != 200:
+            group_response.raise_for_status()
+
+        # Parse the response to get the number of items in the group
+        group_data = group_response.json().get('group', {})
+        group_num_items = group_data.get('numItems', 0)
+
+        # Get total pages required to fetch all items (50 items per page)
+        total_pages = (group_num_items // 50) + (1 if group_num_items % 50 else 0)
+
+        final_result = {
+            "group": group_data,
+            "items": []
+        }
+
+        response = requests.get(f"{base_url}?page=1", headers=headers)
+        if response.status_code != 200:
             response.raise_for_status()
+
+        # Add the items from the first page to the final result
+        first_page_data = response.json()
+        final_result["items"].extend(first_page_data.get('items', []))
+
+        # Fetch subsequent pages if there are more than one
+        for page in range(2, total_pages + 1):
+            paginated_response = requests.get(f"{base_url}?page={page}", headers=headers)
+            if paginated_response.status_code == 200:
+                page_data = paginated_response.json()
+                # Add items from the current page to the final result
+                final_result["items"].extend(page_data.get('items', []))
+            else:
+                paginated_response.raise_for_status()
+
+        return final_result
+
             
     def collections(self, groupId):
         """Fetch collections from the repository's endpoint"""
