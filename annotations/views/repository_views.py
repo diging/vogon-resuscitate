@@ -22,6 +22,8 @@ from urllib.parse import urlparse, parse_qs
 from urllib.parse import urlencode
 from external_accounts.utils import parse_iso_datetimes
 
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
 from external_accounts.decorators import citesphere_authenticated
 
 def _get_params(request):
@@ -66,7 +68,7 @@ def _get_pagination(response, base_url, base_params):
     return previous_page, next_page
 
 
-
+# Since in citesphere_authenticated we already have a login_required decorator, we don't need to add another one here
 @citesphere_authenticated
 def repository_collections(request, repository_id):
     """View to fetch and display Citesphere Groups"""
@@ -85,7 +87,6 @@ def repository_collections(request, repository_id):
     return render(request, "annotations/repository_collections.html", context)
 
 
-# Since in citesphere_authenticated we already have a login_required decorator, we don't need to add another one here
 @citesphere_authenticated
 def repository_collection(request, repository_id, group_id):
     """View to fetch and display collections within Citesphere Groups"""
@@ -239,17 +240,66 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
 
     project_id = request.GET.get('project_id', None)
+    
+    # Pagination
+    page = request.GET.get('page', 1)
+    paginator = Paginator(texts['items'], 20)  # Show 20 texts per page
+    
+    try:
+        paginated_texts = paginator.page(page)
+    except PageNotAnInteger:
+        paginated_texts = paginator.page(1)
+    except EmptyPage:
+        paginated_texts = paginator.page(paginator.num_pages)
+
     context = {
         'user': user,
         'repository': repository,
-        'texts': texts['items'],
+        'texts': paginated_texts,
         'title': f'Texts in Collection: ', # Collection name is rendered from frontend
-        'group_info':texts['group'],
-        'group_id':group_id,
+        'group_info': texts['group'],
+        'group_id': group_id,
         'project_id': project_id,
     }
 
     return render(request, 'annotations/repository_collections_text_list.html', context)
+
+@citesphere_authenticated
+def repository_group_texts(request, repository_id, group_id):
+    """View to fetch and display texts within a group from Citesphere"""
+    user = request.user
+    repository = get_object_or_404(Repository, pk=repository_id)
+    manager = RepositoryManager(user=user, repository=repository)
+
+    try:
+        texts = manager.group_items(group_id)
+    except Exception as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+
+    project_id = request.GET.get('project_id', None)
+    
+    # Pagination
+    page = request.GET.get('page', 1)
+    paginator = Paginator(texts['items'], 20)  # Show 20 texts per page
+    
+    try:
+        paginated_texts = paginator.page(page)
+    except PageNotAnInteger:
+        paginated_texts = paginator.page(1)
+    except EmptyPage:
+        paginated_texts = paginator.page(paginator.num_pages)
+
+    context = {
+        'user': user,
+        'repository': repository,
+        'texts': paginated_texts,
+        'title': f'Texts in Group: ', # Group name is rendered from frontend
+        'group_info': texts['group'],
+        'group_id': group_id,
+        'project_id': project_id,
+    }
+
+    return render(request, 'annotations/repository_group_text_list.html', context)
 
 @citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key):
