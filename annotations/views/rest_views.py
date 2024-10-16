@@ -461,6 +461,7 @@ class ConceptViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         data = request.data
+        print("data is", data)
         if data['uri'] == 'generate':
             data['uri'] = 'http://vogonweb.net/{0}'.format(uuid.uuid4())
 
@@ -493,7 +494,9 @@ class ConceptViewSet(viewsets.ModelViewSet):
             return Response({'results': []})
         pos = request.GET.get('pos', None)
         url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{q}/{pos if pos else ''}"
+        print("url is", url)
         response = requests.get(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
+        print("Response is", response)
         if response.status_code == 200:
             try:
                 # Parse the XML response
