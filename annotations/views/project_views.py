@@ -184,5 +184,6 @@ def list_projects(request):
     # Preserve the original action URL to return after project selection, if list_project is being called by repository_views, else it will simply open project details in template
     if request.GET.get('next'):
         context['next_url'] = request.GET.get('next')
+        context['title'] = 'Select a Project you want to add this text to:'
 
     return render(request, template, context)
