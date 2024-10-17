@@ -253,6 +253,12 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
 @citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key):
+    project_id = request.GET.get('project_id')
+    # Redirect to project selection if no project is provided
+    if not project_id:
+        # Redirect to 'list_projects' with the next URL to come back after selection
+        return redirect(f"{reverse('list_projects')}?next={request.get_full_path()}")
+    
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=request.user, repository=repository)
 
@@ -286,14 +292,9 @@ def repository_text_import(request, repository_id, group_id, text_key):
 
     master_text.save()
 
-    project_id = request.GET.get('project_id')
-    project = None
     if project_id:
-        try:
-            project = TextCollection.objects.get(pk=project_id)
-            project.texts.add(master_text)  # Add text to the project
-        except TextCollection.DoesNotExist:
-            project = None  # If the project does not exist, set to None
+        project = TextCollection.objects.get(pk=project_id)
+        project.texts.add(master_text)  # Add text to the project
 
     # Redirect to the annotation page
     return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + (f'?project_id={project_id}' if project_id else ''))

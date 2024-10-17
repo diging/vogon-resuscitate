@@ -2,7 +2,7 @@
 Provides project (:class:`.TextCollection`) -related views.
 """
 
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -36,6 +36,7 @@ def view_project(request, project_id):
     order_by = request.GET.get('order_by', 'title')
     texts = project.texts.all().order_by(order_by)\
                          .values('id', 'title', 'added', 'repository_source_id')
+    print(texts)
 
     
     paginator = Paginator(texts, 15)
@@ -178,5 +179,10 @@ def list_projects(request):
         'user': request.user,
         'title': 'Projects',
         'projects': qs,
-    }
+        }
+    
+    # Preserve the original action URL to return after project selection, if list_project is being called by repository_views, else it will simply open project details in template
+    if request.GET.get('next'):
+        context['next_url'] = request.GET.get('next')
+
     return render(request, template, context)
