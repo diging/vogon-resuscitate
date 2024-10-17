@@ -494,63 +494,80 @@ class ConceptViewSet(viewsets.ModelViewSet):
             return Response({'results': []})
         pos = request.GET.get('pos', None)
         url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{q}/{pos if pos else ''}"
+        headers = {
+            'Accept': 'application/json',  # Request JSON response
+        }
         print("url is", url)
-        response = requests.get(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
-        print("Response is", response)
+        response = requests.get(url, headers=headers)
+        # print("Response is", response.json())
         if response.status_code == 200:
             try:
-                # Parse the XML response
-                root = ET.fromstring(response.content)
+                # Parse the JSON response
+                data = response.json()
+                # print('concept_entries is', data['conceptEntries'])
+                # root = ET.fromstring(response.content)
                 # Define the namespaces used in the XML
-                ns = {
-                    'madsrdf': 'http://www.loc.gov/mads/rdf/v1#',
-                    'schema': 'http://schema.org/',
-                    'skos': 'http://www.w3.org/2004/02/skos/core#',
-                    'owl': 'http://www.w3.org/2002/07/owl#',
-                    'dcterms': 'http://purl.org/dc/terms/',
-                    'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
-                }
+                # ns = {
+                #     'madsrdf': 'http://www.loc.gov/mads/rdf/v1#',
+                #     'schema': 'http://schema.org/',
+                #     'skos': 'http://www.w3.org/2004/02/skos/core#',
+                #     'owl': 'http://www.w3.org/2002/07/owl#',
+                #     'dcterms': 'http://purl.org/dc/terms/',
+                #     'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
+                # }
                 concepts = []
-                for concept_entry in root.findall('.//madsrdf:Authority', ns) + root.findall('.//skos:Concept', ns):
+                
+                for concept_entry in data['conceptEntries']:
                     concept = {}
-                    # Extract the rdf:about attribute as the 'uri'
-                    concept['uri'] = concept_entry.get('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about')
-                    # Extract the 'name'
-                    name_elem = concept_entry.find('schema:name', ns)
-                    if name_elem is not None:
-                        concept['label'] = name_elem.text.strip()
-                    else:
-                        # Fallback to 'madsrdf:authoritativeLabel' or 'skos:prefLabel'
-                        label_elem = concept_entry.find('madsrdf:authoritativeLabel', ns) or concept_entry.find('skos:prefLabel', ns)
-                        if label_elem is not None:
-                            concept['label'] = label_elem.text.strip()
-                    # Extract 'description'
-                    desc_elem = concept_entry.find('schema:description', ns)
-                    if desc_elem is not None:
-                        concept['description'] = desc_elem.text.strip()
-                    # Extract 'id' from 'dcterms:identifiers'
-                    id_elem = concept_entry.find('dcterms:identifiers', ns)
-                    if id_elem is not None:
-                        concept['id'] = id_elem.text.strip()
-                    # Extract 'pos' from the id if possible
+                    concept['uri'] = concept_entry.get('concept_uri','')
+                    concept['label'] = concept_entry.get('lemma','')
+                    concept['description'] = concept_entry.get('description','')
+                    concept['id'] = concept_entry.get('id','')
                     if 'id' in concept:
                         parts = concept['id'].split('-')
                         if len(parts) > 2:
                             concept['pos'] = parts[2]
-                    # Extract 'authority'
-                    authority_elem = concept_entry.find('madsrdf:isMemberOfMADSCollection', ns)
-                    if authority_elem is not None:
-                        authority_uri = authority_elem.text.strip()
-                        # Map the authority URI to a name
-                        if 'wordnet' in authority_uri.lower():
-                            concept['authority'] = {'name': 'WordNet'}
-                        else:
-                            concept['authority'] = {'name': authority_uri}
-                    else:
-                        concept['authority'] = {'name': 'Unknown'}
-                    # Now relabel the fields
-                    concept = _relabel(concept)
-                    concepts.append(concept)
+                # for concept_entry in root.findall('.//madsrdf:Authority', ns) + root.findall('.//skos:Concept', ns):
+                #     concept = {}
+                #     # Extract the rdf:about attribute as the 'uri'
+                #     concept['uri'] = concept_entry.get('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about')
+                #     # Extract the 'name'
+                #     name_elem = concept_entry.find('schema:name', ns)
+                #     if name_elem is not None:
+                #         concept['label'] = name_elem.text.strip()
+                #     else:
+                #         # Fallback to 'madsrdf:authoritativeLabel' or 'skos:prefLabel'
+                #         label_elem = concept_entry.find('madsrdf:authoritativeLabel', ns) or concept_entry.find('skos:prefLabel', ns)
+                #         if label_elem is not None:
+                #             concept['label'] = label_elem.text.strip()
+                #     # Extract 'description'
+                #     desc_elem = concept_entry.find('schema:description', ns)
+                #     if desc_elem is not None:
+                #         concept['description'] = desc_elem.text.strip()
+                #     # Extract 'id' from 'dcterms:identifiers'
+                #     id_elem = concept_entry.find('dcterms:identifiers', ns)
+                #     if id_elem is not None:
+                #         concept['id'] = id_elem.text.strip()
+                #     # Extract 'pos' from the id if possible
+                #     if 'id' in concept:
+                #         parts = concept['id'].split('-')
+                #         if len(parts) > 2:
+                #             concept['pos'] = parts[2]
+                #     # Extract 'authority'
+                #     authority_elem = concept_entry.find('madsrdf:isMemberOfMADSCollection', ns)
+                #     if authority_elem is not None:
+                #         authority_uri = authority_elem.text.strip()
+                #         # Map the authority URI to a name
+                #         if 'wordnet' in authority_uri.lower():
+                #             concept['authority'] = {'name': 'WordNet'}
+                #         else:
+                #             concept['authority'] = {'name': authority_uri}
+                #     else:
+                #         concept['authority'] = {'name': 'Unknown'}
+                #     # Now relabel the fields
+                #     concept = _relabel(concept)
+                #     concepts.append(concept)
+                # print("concepts are", concepts)
                 return Response({'results': concepts})
             except Exception as e:
                 return Response({'error': f'Error parsing ConceptPower response: {str(e)}'}, status=400)
