@@ -209,22 +209,33 @@ def repository_list(request):
 @citesphere_authenticated
 def repository_details(request, repository_id):
     template = "annotations/repository_details.html"
-    user = None if isinstance(request.user, AnonymousUser) else request.user
     repository = get_object_or_404(Repository, pk=repository_id)
-
-    texts = repository.texts.all().order_by('-added')
-    manager = RepositoryManager(user=user, repository=repository)
+    user = None if isinstance(request.user, AnonymousUser) else request.user
     project_id = request.GET.get('project_id')
+
+    # Fetch text collections (projects) owned by the current user
+    user_owned_collections = TextCollection.objects.filter(ownedBy=user)
+    texts_by_project = {}
+
+    for collection in user_owned_collections:
+        # Filter texts within each collection that belong to the repository
+        collection_texts = collection.texts.filter(repository=repository).order_by('-added')
+        if collection_texts.exists():
+            texts_by_project[collection] = list(collection_texts)
+
+    manager = RepositoryManager(user=user, repository=repository)
+
     context = {
         'user': user,
         'repository': repository,
         'manager': manager,
-        'title': 'Repository details: %s' % repository.name,
-        'texts':texts,
+        'title': f'Repository details: {repository.name}',
+        'texts_by_project': texts_by_project,
         'project_id': project_id,
     }
 
     return render(request, template, context)
+
 
 @citesphere_authenticated
 def repository_collection_texts(request, repository_id, group_id, group_collection_id):
@@ -253,6 +264,12 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
 @citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key):
+    project_id = request.GET.get('project_id')
+    # Redirect to project selection if no project is provided
+    if not project_id:
+        # Redirect to 'list_projects' with the next URL to come back after selection
+        return redirect(f"{reverse('list_projects')}?next={request.get_full_path()}")
+    
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=request.user, repository=repository)
 
@@ -286,15 +303,14 @@ def repository_text_import(request, repository_id, group_id, text_key):
 
     master_text.save()
 
-    project_id = request.GET.get('project_id')
-    if project_id and master_text:
+    # Check if the text is already in the project before adding it
+    if project_id:
         project = TextCollection.objects.get(pk=project_id)
-        project.texts.add(master_text)
-        # Directly redirect to annotation page, skip repository_text view
-        return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + f'?project_id={project_id}')
+        if not project.texts.filter(pk=master_text.pk).exists():
+            project.texts.add(master_text)  # Add text to the project if not already there
 
-    # Directly redirect to annotation page, no need to redirect to repository_text
-    return HttpResponseRedirect(reverse('annotate', args=[master_text.id]))
+    # Redirect to the annotation page
+    return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + (f'?project_id={project_id}' if project_id else ''))
 
 
 @login_required
@@ -361,6 +377,7 @@ def repository_text_content(request, repository_id, text_id, content_id):
         'addedBy': request.user,
         'content_type': content_type,
         'part_of': resource_text,
+        'project':project,
         'originalResource': getattr(resource.get('url'), 'value', None),
     }
     text, _ = Text.objects.get_or_create(uri=content['uri'], defaults=defaults)
