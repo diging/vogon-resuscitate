@@ -169,7 +169,7 @@ def list_projects(request):
         'num_texts',
         'num_relations',
     ]
-    qs = TextCollection.objects.all()
+    qs = TextCollection.objects.filter(ownedBy=request.user)
     qs = qs.annotate(num_texts=Count('texts'),
                      num_relations=Count('texts__relationsets'))
     qs = qs.values(*fields)
