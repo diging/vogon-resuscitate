@@ -209,22 +209,33 @@ def repository_list(request):
 @citesphere_authenticated
 def repository_details(request, repository_id):
     template = "annotations/repository_details.html"
-    user = None if isinstance(request.user, AnonymousUser) else request.user
     repository = get_object_or_404(Repository, pk=repository_id)
-
-    texts = repository.texts.all().order_by('-added')
-    manager = RepositoryManager(user=user, repository=repository)
+    user = None if isinstance(request.user, AnonymousUser) else request.user
     project_id = request.GET.get('project_id')
+
+    # Fetch text collections (projects) owned by the current user
+    user_owned_collections = TextCollection.objects.filter(ownedBy=user)
+    texts_by_project = {}
+
+    for collection in user_owned_collections:
+        # Filter texts within each collection that belong to the repository
+        collection_texts = collection.texts.filter(repository=repository).order_by('-added')
+        if collection_texts.exists():
+            texts_by_project[collection] = list(collection_texts)
+
+    manager = RepositoryManager(user=user, repository=repository)
+
     context = {
         'user': user,
         'repository': repository,
         'manager': manager,
-        'title': 'Repository details: %s' % repository.name,
-        'texts':texts,
+        'title': f'Repository details: {repository.name}',
+        'texts_by_project': texts_by_project,
         'project_id': project_id,
     }
 
     return render(request, template, context)
+
 
 @citesphere_authenticated
 def repository_collection_texts(request, repository_id, group_id, group_collection_id):
@@ -292,9 +303,11 @@ def repository_text_import(request, repository_id, group_id, text_key):
 
     master_text.save()
 
+    # Check if the text is already in the project before adding it
     if project_id:
         project = TextCollection.objects.get(pk=project_id)
-        project.texts.add(master_text)  # Add text to the project
+        if not project.texts.filter(pk=master_text.pk).exists():
+            project.texts.add(master_text)  # Add text to the project if not already there
 
     # Redirect to the annotation page
     return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + (f'?project_id={project_id}' if project_id else ''))

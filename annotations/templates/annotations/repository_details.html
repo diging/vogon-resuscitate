@@ -10,11 +10,12 @@
 {% endblock %}
 
 {% block main %}
-
 <script src="{% static "annotations/js/bootstrap-datepicker.min.js" %}"></script>
+
 <div class="container-fluid">
     <div class="h3">Repository <strong>{{ repository.name }}</strong></div>
     <p class="">{{ repository.description }}</p>
+
     <ul class="nav nav-pills nav-justified">
         <li>
             <a href="{% url "repository_search" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">Search</a>
@@ -24,33 +25,45 @@
         </li>
     </ul>
 
-    <h1 class="mt-5 mb-5 text-center">Repository Texts</h1>
+    <h1 class="mt-5 mb-5 text-center">Your Texts</h1>
 
     <div class="container mt-5">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Added By</th>
-                    <th>Created On</th>
-                    <th>Added On</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for text in texts %}
-                <tr>
-                    <td>{{ text.title }}</td>
-                    <td>{{ text.addedBy }}</td>
-                    <td>{% if text.created is None %}{% else %}{{ text.created }}{% endif %}</td>
-                    <td>{{ text.added }}</td>
-                    <td>
-                        <a href="{% url "annotate" text.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-info">Annotate</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {% if texts_by_project %}
+            {% for project, texts in texts_by_project.items %}
+                <h2 class="project-title">
+                    <a href="{% url 'view_project' project.id %}" class="project-link" style="color: inherit; text-decoration: none;">
+                        <span class="project-name">{{ project.name }}</span>
+                        <i class="fas fa-external-link-alt"></i>
+                    </a>
+                </h2>
+                <table class="table table-striped mt-3">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Added By</th>
+                            <th>Created On</th>
+                            <th>Added On</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for text in texts %}
+                            <tr>
+                                <td>{{ text.title }}</td>
+                                <td>{{ text.addedBy }}</td>
+                                <td>{{ text.created|default:"-" }}</td>
+                                <td>{{ text.added }}</td>
+                                <td>
+                                    <a href="{% url "annotate" text.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-info">Annotate</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endfor %}
+        {% else %}
+            <p>No texts available in this repository.</p>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
