@@ -144,7 +144,9 @@ urlpatterns = [
 
     path('login/citesphere/', externalAccountViews.citesphere_login, name='citesphere_login'),
     path('oauth/callback/citesphere/', externalAccountViews.citesphere_callback, name='citesphere_callback'),
+    path('citesphere/refresh/<int:repository_id>/', externalAccountViews.citesphere_refresh_token, name='citesphere_refresh_token'),
     
+<<<<<<< HEAD
     path('get/citesphere/groups/', externalAccountViews.get_citesphere_groups, name='get_citesphere_groups'),
     path('get/citesphere/<int:group_id>/collections/', externalAccountViews.get_citesphere_collections, name='get_citesphere_collections'),
     path('citesphere/group/<slug:slug>/', externalAccountViews.group_detail, name='citesphere_group_detail'),
@@ -152,5 +154,7 @@ urlpatterns = [
 
     path('import/citesphere/texts/<int:citesphere_item_id>/', views.citesphere_import_views.import_citesphere_items_from_group, name='import_citesphere_item'),
 
+=======
+>>>>>>> develop
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

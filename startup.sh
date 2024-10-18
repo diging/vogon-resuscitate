@@ -1,6 +1,6 @@
 #!/bin/sh
 
-./vogon/.env-app
+BASH_ENV=.env_app
 python -m pip install -r requirements.txt
 python manage.py migrate
 python manage.py collectstatic --noinput

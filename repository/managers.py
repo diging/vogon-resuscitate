@@ -1,28 +1,28 @@
 from repository.restable import RESTManager
 from repository import auth
-
 from external_accounts.utils import get_giles_document_details
-
 import requests
 
 class RepositoryManager(RESTManager):
     def __init__(self, **kwargs):
         self.user = kwargs.get('user')
-        self.repository = kwargs.pop('repository')
-        if self.user:
-            kwargs.update({'headers': auth.citesphere_auth(self.user)})
+        self.repository = kwargs.get('repository')
+        
+        if self.user and self.repository:
+            kwargs.update({'headers': auth.citesphere_auth(self.user, self.repository)})
+        
         super(RepositoryManager, self).__init__(**kwargs)
 
     def get_raw(self, target, **params):
         headers = {}
-        if self.user:
-            headers = auth.citesphere_auth(self.user)
+        if self.user and self.repository:
+            headers = auth.citesphere_auth(self.user, self.repository)
         return requests.get(target, headers=headers, params=params).content
 
     def groups(self):
         """Fetch Groups from the repository's endpoint"""
-        headers = auth.citesphere_auth(self.user)
-        url = f"{self.repository.endpoint}/api/v1/groups/"  # Use repository's endpoint
+        headers = auth.citesphere_auth(self.user, self.repository)
+        url = f"{self.repository.endpoint}/api/v1/groups/"
         response = requests.get(url, headers=headers)
         
         if response.status_code == 200:
@@ -32,8 +32,8 @@ class RepositoryManager(RESTManager):
 
     def collections(self, groupId):
         """Fetch collections from the repository's endpoint"""
-        headers = auth.citesphere_auth(self.user)
-        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/"  # Use repository's endpoint
+        headers = auth.citesphere_auth(self.user, self.repository)
+        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/"
         response = requests.get(url, headers=headers)
         
         if response.status_code == 200:
@@ -43,9 +43,8 @@ class RepositoryManager(RESTManager):
     
     def collection_items(self, groupId, collectionId):
         """Fetch collection items from the repository's endpoint"""
-
-        headers = auth.citesphere_auth(self.user)
-        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/{collectionId}/items/"  # Use repository's endpoint
+        headers = auth.citesphere_auth(self.user, self.repository)
+        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/{collectionId}/items/"
         response = requests.get(url, headers=headers)
         
         if response.status_code == 200:
@@ -64,8 +63,8 @@ class RepositoryManager(RESTManager):
         Returns:
             A dictionary containing item details from repository, and Giles document details with extracted text
         """
-        headers = auth.citesphere_auth(self.user)
-        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"  # Use repository's endpoint
+        headers = auth.citesphere_auth(self.user, self.repository)
+        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"
         response = requests.get(url, headers=headers)
 
         if response.status_code == 200:

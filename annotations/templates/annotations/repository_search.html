@@ -66,7 +66,7 @@
         <div class="list-group">
             {% for result in texts  %}
             <a class="list-group-item clearfix"
-                href="{% url "repository_text" repository.id result.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">
+                href="{% url "annotate" result.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">
                 <strong>{{ result.title }}</strong>
                 <p class="text-muted">{{ result.uri }}</p>
                 <span class="text-warning pull-right">
