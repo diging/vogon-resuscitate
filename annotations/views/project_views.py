@@ -12,7 +12,7 @@ from django.contrib.auth import login, authenticate
 from django.conf import settings
 from django.db.models import Q, Count
 
-from annotations.models import TextCollection, RelationSet, ImportedCitesphereItem
+from annotations.models import TextCollection, RelationSet
 from annotations.forms import ProjectForm
 
 

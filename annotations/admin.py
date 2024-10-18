@@ -142,9 +142,4 @@ admin.site.register(Relation, RelationAdmin)
 admin.site.register(RelationSet, RelationSetAdmin)
 admin.site.register(RelationTemplate)
 admin.site.register(RelationTemplatePart)
-<<<<<<< HEAD
 admin.site.register(DateAppellation)
-admin.site.register(ImportedCitesphereItem)
-=======
-admin.site.register(DateAppellation)
->>>>>>> develop

@@ -12,7 +12,6 @@ from repository.models import Repository
 
 import requests
 import secrets
-from .utils import parse_iso_datetimes
 
 @login_required
 def citesphere_login(request):
