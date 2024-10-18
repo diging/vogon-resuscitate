@@ -223,20 +223,6 @@ CACHES = {
     }
 }
 
-<<<<<<< HEAD
-=======
-CONCEPTPOWER_USERID = os.environ.get('CONCEPTPOWER_USERID', None)
-CONCEPTPOWER_PASSWORD = os.environ.get('CONCEPTPOWER_PASSWORD', None)
-CONCEPTPOWER_ENDPOINT = os.environ.get('CONCEPTPOWER_ENDPOINT')
-CONCEPTPOWER_NAMESPACE = os.environ.get('CONCEPTPOWER_NAMESPACE')
-
-QUADRIGA_USERID = os.environ.get('QUADRIGA_USERID', '')
-QUADRIGA_PASSWORD = os.environ.get('QUADRIGA_PASSWORD', '')
-QUADRIGA_ENDPOINT = os.environ.get('QUADRIGA_ENDPOINT', '')
-QUADRIGA_CLIENTID = os.environ.get('QUADRIGA_CLIENTID', 'vogonweb')
-QUADRIGA_PROJECT = os.environ.get('QUADRIGA_PROJECT', 'vogonweb')
-
->>>>>>> develop
 BASE_URI_NAMESPACE = u'http://www.vogonweb.net'
 
 GOOGLE_ANALYTICS_ID = os.environ.get('GOOGLE_ANALYTICS_ID', None)
@@ -248,11 +234,7 @@ GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN')
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
 
-
-# Session Cookie Settings
 SESSION_COOKIE_NAME = 'vogon'
-SESSION_COOKIE_AGE = 1209600  # 2 weeks (default)
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # Concept types
 PERSONAL_CONCEPT_TYPE = os.environ.get('PERSONAL_CONCEPT_TYPE',
@@ -270,7 +252,6 @@ CONCEPT_TYPES = {
 
 SUBMIT_WAIT_TIME = {'days': 3, 'hours': 0, 'minutes': 0}
 
-<<<<<<< HEAD
 # Citesphere Credentials
 CITESPHERE_ENDPOINT = os.environ.get('CITESPHERE_ENDPOINT')
 
@@ -284,16 +265,12 @@ CITESPHERE_TOKEN_URL = f"{CITESPHERE_ENDPOINT}/api/oauth/token"
 
 # Giles Credentials
 # Giles and HTTP.
-=======
-# Giles Credentials
->>>>>>> develop
 GILES_ENDPOINT = os.environ.get('GILES_ENDPOINT')
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 GET = requests.get
 POST = requests.post
 GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
 GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
-<<<<<<< HEAD
 MAX_GILES_UPLOADS = 20
 
 # Conceptpower Credentials
@@ -310,6 +287,3 @@ QUADRIGA_PROJECT = os.environ.get('QUADRIGA_PROJECT', 'vogonweb')
 
 QUADRIGA_ENDPOINT = os.environ.get('QUADRIGA_ENDPOINT')
 QUADRIGA_COLLECTION_ID = os.environ.get('QUADRIGA_COLLECTION_ID')
-=======
-MAX_GILES_UPLOADS = 20
->>>>>>> develop

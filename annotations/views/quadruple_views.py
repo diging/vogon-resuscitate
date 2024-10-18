@@ -112,7 +112,16 @@ def submit_quadruples(request, text_id):
     text = Text.objects.get(pk=text_id)
     user = request.user
     relationsets = RelationSet.objects.filter(occursIn_id=text_id, createdBy_id=user, submitted=False)
-    citesphere_account = CitesphereAccount.objects.get(user=user)
+    
+    # Get the repository associated with this text
+    repository = text.repository
+    
+    # Get the CitesphereAccount for this user and repository
+    try:
+        citesphere_account = CitesphereAccount.objects.get(user=user, repository=repository)
+    except CitesphereAccount.DoesNotExist:
+        messages.error(request, 'No Citesphere account found for this user and repository.')
+        return redirect('annotate', text_id=text_id)
 
     if not all(rs.ready() for rs in relationsets):
         messages.error(request, 'Not all concepts are resolved or merged.')
