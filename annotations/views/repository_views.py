@@ -74,7 +74,10 @@ def repository_collections(request, repository_id):
     manager = RepositoryManager(user=request.user, repository=repository)
     project_id = request.GET.get('project_id')
 
-    collections = manager.groups()  # Fetch collections
+    try:
+        collections = manager.groups()  # Fetch collections
+    except IOError:
+        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
 
     context = {
         'collections': collections,
@@ -148,7 +151,6 @@ def repository_browse(request, repository_id):
         'manager': manager,
         'title': 'Browse repository %s' % repository.name,
         'project_id': project_id,
-        'manager': manager,
         'resources': resources['resources'],
     }
     previous_page, next_page = _get_pagination(resources, base_url, base_params)
