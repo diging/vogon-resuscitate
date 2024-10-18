@@ -1,111 +1,80 @@
-from repository.restable import RESTManager
-from repository import auth
+from external_accounts.citesphere_api_v1 import CitesphereAPIv1
 from external_accounts.utils import get_giles_document_details
 import requests
 
-class RepositoryManager(RESTManager):
-    def __init__(self, **kwargs):
-        self.user = kwargs.get('user')
-        self.repository = kwargs.get('repository')
-        
-        if self.user and self.repository:
-            kwargs.update({'headers': auth.citesphere_auth(self.user, self.repository)})
-        
-        super(RepositoryManager, self).__init__(**kwargs)
+class RepositoryManager:
+    def __init__(self, user, repository):
+        """Initialize the manager with the user and repository."""
+        self.api = CitesphereAPIv1(user, repository)
+        self.user = user
 
     def get_raw(self, target, **params):
-        headers = {}
-        if self.user and self.repository:
-            headers = auth.citesphere_auth(self.user, self.repository)
-        return requests.get(target, headers=headers, params=params).content
+        """Fetch raw data from any API target."""
+        response = requests.get(target, headers=self.api._get_headers(), params=params)
+        response.raise_for_status()
+        return response.content
 
     def groups(self):
-        """Fetch Groups from the repository's endpoint"""
-        headers = auth.citesphere_auth(self.user, self.repository)
-        url = f"{self.repository.endpoint}/api/v1/groups/"
-        response = requests.get(url, headers=headers)
-        
-        if response.status_code == 200:
-            return response.json()  # Return the groups data
-        else:
-            response.raise_for_status()
+        """Fetch all groups from the repository."""
+        return self.api.get_groups()
 
-    def collections(self, groupId):
-        """Fetch collections from the repository's endpoint"""
-        headers = auth.citesphere_auth(self.user, self.repository)
-        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/"
-        response = requests.get(url, headers=headers)
-        
-        if response.status_code == 200:
-            return response.json()  # Return the Collections data
-        else:
-            response.raise_for_status()
+    def collections(self, group_id):
+        """Fetch all collections within a specific group."""
+        return self.api.get_group_collections(group_id)
+
+    def collection_items(self, group_id, collection_id):
+        """Fetch items from a specific collection."""
+        return self.api.get_collection_items(group_id, collection_id)
     
-    def collection_items(self, groupId, collectionId):
-        """Fetch collection items from the repository's endpoint"""
-        headers = auth.citesphere_auth(self.user, self.repository)
-        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/{collectionId}/items/"
-        response = requests.get(url, headers=headers)
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            response.raise_for_status()
-
-    def item(self, groupId, itemId):
+    def item(self, group_id, item_id):
         """
-        Fetch individual item from repository's endpoint and get Giles document details for documents of type 'text/plain'
+        Fetch individual item details from the repository and extract Giles document text.
 
         Args:
-            groupId: The group ID in the repository
-            itemId: The item ID in the repository
+            group_id: The group ID from which the item is fetched.
+            item_id: The item ID to fetch.
 
         Returns:
-            A dictionary containing item details from repository, and Giles document details with extracted text
+            A dictionary containing item details and Giles document text.
         """
-        headers = auth.citesphere_auth(self.user, self.repository)
-        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"
-        response = requests.get(url, headers=headers)
+        # Fetch item details using CitesphereAPIv1
+        item_data = self.api.get_item_details(group_id, item_id)
 
-        if response.status_code == 200:
-            item_data = response.json()
+        # Extract core item details
+        item_details = {
+            'key': item_data.get('item', {}).get('key'),
+            'title': item_data.get('item', {}).get('title'),
+            'authors': item_data.get('item', {}).get('authors', []),
+            'itemType': item_data.get('item', {}).get('itemType'),
+            'addedOn': item_data.get('item', {}).get('dateAdded', 'Unknown date'),
+            'url': item_data.get('item', {}).get('url')
+        }
 
-            item_details = {
-                'key': item_data.get('item', {}).get('key'),
-                'title': item_data.get('item', {}).get('title'),
-                'authors': item_data.get('item', {}).get('authors', []),
-                'itemType': item_data.get('item', {}).get('itemType'),
-                'addedOn': item_data.get('item', {}).get('dateAdded', 'Unknown date'),
-                'url': item_data.get('item', {}).get('url')
-            }
+        # Extract Giles uploads and their text if available
+        giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
+        item_data['item']['text'] = self._fetch_giles_text(giles_uploads)
+        item_data['item']['details'] = item_details
 
-            # Extract Giles upload details if available
-            giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
+        return item_data
 
-            if giles_uploads:
-                giles_details = []
-                extracted_text = giles_uploads[0].get('extractedText', {})
+    def _fetch_giles_text(self, giles_uploads):
+        """Extract text from Giles uploads."""
+        if not giles_uploads:
+            return "No Giles uploads available."
 
-                if extracted_text and extracted_text.get('content-type') == 'text/plain':
-                    extracted_text_data = get_giles_document_details(self.user, extracted_text.get('id'))
-                    item_data['item']['text'] = extracted_text_data
-                elif giles_uploads[0].get('pages'):
-                    pages = giles_uploads[0].get('pages')
-                    text = ""
-                    for page in pages:
-                        if page.get('text') and page.get('text').get('content-type') == 'text/plain':
-                            data = get_giles_document_details(self.user, page.get('text').get('id'))
-                            text += data
-                    item_data['item']['text'] = text
-                else:
-                    item_data['item']['text'] = "No valid text/plain content found."
-            else:
-                print("No Giles uploads available")
-                item_data['item']['text'] = "No Giles uploads available."
+        upload = giles_uploads[0]
+        text_content = ""
 
-            item_data['item']['details'] = item_details
+        # Extract plain text if available
+        extracted_text = upload.get('extractedText', {})
+        if extracted_text and extracted_text.get('content-type') == 'text/plain':
+            text_content = get_giles_document_details(self.user, extracted_text['id'])
 
-            return item_data
+        # Fallback to extracting text from pages
+        elif 'pages' in upload:
+            for page in upload['pages']:
+                text_data = page.get('text')
+                if text_data and text_data.get('content-type') == 'text/plain':
+                    text_content += get_giles_document_details(self.user, text_data['id'])
 
-        else:
-            response.raise_for_status()
+        return text_content or "No valid text/plain content found."

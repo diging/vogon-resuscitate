@@ -96,7 +96,7 @@ def repository_collection(request, repository_id, group_id):
     manager = RepositoryManager(user=request.user, repository=repository)
     
     try:
-        response_data = manager.collections(groupId=group_id)
+        response_data = manager.collections(group_id=group_id)
         group_info = response_data.get('group')
         collections = response_data.get('collections', [])
     except IOError:

@@ -23,15 +23,15 @@ class CitesphereAPIv1:
 
     def get_groups(self):
         """Fetch all groups."""
-        return self._make_request("/groups/").get('groups', [])
+        return self._make_request("/groups/")
 
     def get_group_collections(self, group_id):
         """Fetch all collections within a group."""
-        return self._make_request(f"/groups/{group_id}/collections/").get('collections', [])
+        return self._make_request(f"/groups/{group_id}/collections/")
 
     def get_collection_items(self, group_id, collection_id):
         """Fetch items in a specific collection."""
-        return self._make_request(f"/groups/{group_id}/collections/{collection_id}/items/").get('items', [])
+        return self._make_request(f"/groups/{group_id}/collections/{collection_id}/items/")
 
     def get_item_details(self, group_id, item_id):
         """Fetch detailed information of an item."""
