@@ -25,37 +25,33 @@
         </li>
     </ul>
 
-    <h1 class="mt-5 mb-5 text-center">Your Texts</h1>
+    <h2 class="mt-5 mb-5 text-center">Your Texts</h2>
 
     <div class="container mt-5">
         {% if texts_by_project %}
             {% for project, texts in texts_by_project.items %}
-                <h2 class="project-title">
+                <h3 class="project-title">
                     <a href="{% url 'view_project' project.id %}" class="project-link" style="color: inherit; text-decoration: none;">
-                        <span class="project-name">{{ project.name }}</span>
+                        <span class="project-name">{{ project.name|title }}</span>
                         <i class="fas fa-external-link-alt"></i>
                     </a>
-                </h2>
+                </h3>
                 <table class="table table-striped mt-3">
                     <thead>
                         <tr>
                             <th>Title</th>
-                            <th>Added By</th>
+                            <th>Creator</th>
                             <th>Created On</th>
                             <th>Added On</th>
-                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for text in texts %}
                             <tr>
-                                <td>{{ text.title }}</td>
+                                <td><a href="{% url "annotate" text.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}">{{ text.title }}</a></td>
                                 <td>{{ text.addedBy }}</td>
-                                <td>{{ text.created|default:"-" }}</td>
-                                <td>{{ text.added }}</td>
-                                <td>
-                                    <a href="{% url "annotate" text.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-info">Annotate</a>
-                                </td>
+                                <td style="width: 120px;">{{ text.created|date:"Y-m-d" }}</td>
+                                <td style="width: 120px;">{{ text.added|date:"Y-m-d" }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
