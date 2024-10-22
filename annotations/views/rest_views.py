@@ -185,14 +185,14 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                     # Handle concept type creation if necessary
                     if type_data:
                         try:
-                            type_instance = Type.objects.get(uri=type_data.get('identifier'))
+                            type_instance = Type.objects.get(uri=type_data.get('type_uri'))
                         except Type.DoesNotExist:
                             # Create a new Type instance if it doesn't exist
                             type_instance = Type.objects.create(
-                                uri=type_data.get('identifier'),
+                                uri=type_data.get('type_uri'),
                                 label=label,
-                                description=type_data.get('description'),
-                                authority=concept_data.data.get('authority', {}),
+                                description=type_data.get('description',''),
+                                authority=concept_data.get('authority', {}),
                             )
 
                     # Create a new concept instance
@@ -493,11 +493,15 @@ class ConceptViewSet(viewsets.ModelViewSet):
         if not q:
             return Response({'results': []})
         pos = request.GET.get('pos', None)
-        url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{q}/{pos if pos else ''}"
+        url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
+        parameters = {
+            'word': q,
+            'pos': pos if pos else '',
+        }
         headers = {
             'Accept': 'application/json',
         }
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, params=parameters)
         
         if response.status_code == 200:
             try:
@@ -510,24 +514,18 @@ class ConceptViewSet(viewsets.ModelViewSet):
                     concept['label'] = concept_entry.get('lemma','')
                     concept['id'] = concept_entry.get('id','')
                     concept['pos'] = concept_entry.get('pos','')
+                    
                     description = concept_entry.get('description', '')
                     try:
                         concept['description'] = json.loads(f'"{description}"')
                     except json.JSONDecodeError:
                         concept['description'] = description
-                    concept['authority'] = {'name': 'Unknown'}
-                    # TODO: Extract 'authority'
-                    # authority_elem = concept_entry.find('madsrdf:isMemberOfMADSCollection', ns)
-                    # if authority_elem is not None:
-                    #     authority_uri = authority_elem.text.strip()
-                    #     # Map the authority URI to a name
-                    #     if 'wordnet' in authority_uri.lower():
-                    #         concept['authority'] = {'name': 'WordNet'}
-                    #     else:
-                    #         concept['authority'] = {'name': authority_uri}
-                    # else:
-                    #     concept['authority'] = {'name': 'Unknown'}
                     
+                    if concept['uri'].startswith(('http://www.digitalhps.org/', 'https://www.digitalhps.org/')):
+                        concept['authority'] = {'name': 'Conceptpower'}
+                    else:
+                        concept['authority'] = {'name': 'Unknown'}
+                        
                     # Now relabel the fields
                     concept = _relabel(concept)
                     concepts.append(concept)
@@ -605,22 +603,12 @@ def fetch_concept_data(concept_uri, pos=None):
                 except json.JSONDecodeError:
                     concept['description'] = description
                     
-                # TODO: Extract 'concept_type'
-                # concept['concept_type'] = concept_entry.get('pos','')
+                concept['concept_type'] = concept_entry.get('type','')
 
-                # TODO: Extract 'authority'
-                concept['authority'] = {'name': 'Unknown'} # Placeholder for now
-
-                # authority_elem = concept_entry.find('madsrdf:isMemberOfMADSCollection', ns)
-                # if authority_elem is not None:
-                #     authority_uri = authority_elem.text.strip()
-                #     # Map the authority URI to a name
-                #     if 'wordnet' in authority_uri.lower():
-                #         concept['authority'] = {'name': 'WordNet'}
-                #     else:
-                #         concept['authority'] = {'name': authority_uri}
-                # else:
-                #     concept['authority'] = {'name': 'Unknown'}
+                if concept['uri'].startswith(('http://www.digitalhps.org/', 'https://www.digitalhps.org/')):
+                    concept['authority'] = {'name': 'Conceptpower'}
+                else:
+                    concept['authority'] = {'name': 'Unknown'}
             return concept
 
         except Exception as e:
