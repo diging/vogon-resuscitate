@@ -272,34 +272,50 @@ def repository_group_texts(request, repository_id, group_id):
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=user, repository=repository)
 
+    project_id = request.GET.get('project_id', None)
+    page = request.GET.get('page', 1)
     try:
-        texts = manager.group_items(group_id)
+        page = int(page)
+    except ValueError:
+        page = 1
+
+    items_per_page = getattr(settings, 'PAGINATION_PAGE_SIZE')
+
+    try:
+        texts = manager.group_items(group_id, page=page, items_per_page=items_per_page)
     except Exception as e:
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
 
-    project_id = request.GET.get('project_id', None)
-    
     # Pagination
-    paginator = Paginator(texts['items'], settings.PAGINATION_PAGE_SIZE)  # Show 20 texts per page
-    
-    page = request.GET.get('page', 1)
+    total_items = texts['total_items'] 
+    items = texts['items']
+
+    # Create a Paginator object with a dummy list to represent total items
+    # range(total_items) is being used as a placeholder to create correct pagination metadata
+    paginator = Paginator(range(total_items), items_per_page)
     try:
         paginated_texts = paginator.page(page)
     except PageNotAnInteger:
-        paginated_texts = paginator.page(1)
+        page = 1
+        paginated_texts = paginator.page(page)
     except EmptyPage:
-        paginated_texts = paginator.page(paginator.num_pages)
+        page = paginator.num_pages
+        paginated_texts = paginator.page(page)
+
+    # Replace the object list in the Page object with the actual items fetched from the API
+    # This is necessary because we used a dummy list to create the paginator
+    paginated_texts.object_list = items
 
     context = {
         'user': user,
         'repository': repository,
         'texts': paginated_texts,
-        'title': f'Texts in Group: ', # Group name is rendered from frontend
+        'title': f'Texts in Group: ',
         'group_info': texts['group'],
         'group_id': group_id,
         'project_id': project_id,
     }
-
+    
     return render(request, 'annotations/repository_group_text_list.html', context)
 
 @citesphere_authenticated

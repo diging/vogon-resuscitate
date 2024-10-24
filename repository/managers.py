@@ -31,59 +31,47 @@ class RepositoryManager(RESTManager):
         else:
             response.raise_for_status()
 
-    def group_items(self, groupId):
+    def group_items(self, groupId, page=1, items_per_page=50):
         """
-        Fetch all items from a specific group.
+        Fetch items from a specific group, for a specific page.
 
-        This function retrieves all items from the specified group in the repository.
-        It gathers all pages of items, combines them into a single JSON object, and includes the group details.
+        This function retrieves items from the specified group in the repository for a given page.
+        It includes the group details and total number of items.
 
         Args:
             groupId: The ID of the group in the repository.
+            page: The page number to fetch (default is 1).
+            items_per_page: Number of items per page (default is 50).
 
         Returns:
             A dictionary containing:
                 - "group": Details about the group.
-                - "items": A list of all items in the specified group.
+                - "items": A list of items in the specified group for the given page.
+                - "total_items": Total number of items in the group.
         """
         headers = auth.citesphere_auth(self.user, self.repository)
         base_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/"
 
-        # Fetch the group details to determine the total number of items
-        group_response = requests.get(base_url, headers=headers)
+        params = {
+            'page': page,
+            'maxItemNumber': items_per_page
+        }
+
+        # Fetch the group details along with the items for the specified page
+        group_response = requests.get(base_url, headers=headers, params=params)
         if group_response.status_code != 200:
             group_response.raise_for_status()
 
-        # Parse the response to get the number of items in the group
-        group_data = group_response.json().get('group', {})
-        group_num_items = group_data.get('numItems', 0)
-
-        # Get total pages required to fetch all items (By default citesphere return50 items per page)
-        items_per_page = getattr(settings, 'CITESPHERE_ITEM_PAGE', 50)
-        total_pages = (group_num_items // items_per_page) + (1 if group_num_items % items_per_page else 0)
+        response_data = group_response.json()
+        group_data = response_data.get('group', {})
+        items = response_data.get('items', [])
+        total_items = group_data.get('numItems', 0)
 
         final_result = {
             "group": group_data,
-            "items": []
+            "items": items,
+            "total_items": total_items
         }
-
-        response = requests.get(f"{base_url}?page=1", headers=headers)
-        if response.status_code != 200:
-            response.raise_for_status()
-
-        # Add the items from the first page to the final result
-        first_page_data = response.json()
-        final_result["items"].extend(first_page_data.get('items', []))
-
-        # Fetch subsequent pages if there are more than one
-        for page in range(2, total_pages + 1):
-            paginated_response = requests.get(f"{base_url}?page={page}", headers=headers)
-            if paginated_response.status_code == 200:
-                page_data = paginated_response.json()
-                # Add items from the current page to the final result
-                final_result["items"].extend(page_data.get('items', []))
-            else:
-                paginated_response.raise_for_status()
 
         return final_result
 
