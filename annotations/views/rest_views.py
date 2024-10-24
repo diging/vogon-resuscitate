@@ -509,23 +509,7 @@ class ConceptViewSet(viewsets.ModelViewSet):
                 data = response.json()
                 concepts = []
                 for concept_entry in data['conceptEntries']:
-                    concept = {}
-                    concept['uri'] = concept_entry.get('concept_uri','')
-                    concept['label'] = concept_entry.get('lemma','')
-                    concept['id'] = concept_entry.get('id','')
-                    concept['pos'] = concept_entry.get('pos','')
-                    
-                    description = concept_entry.get('description', '')
-                    try:
-                        concept['description'] = json.loads(f'"{description}"')
-                    except json.JSONDecodeError:
-                        concept['description'] = description
-                    
-                    if concept['uri'].startswith(('http://www.digitalhps.org/', 'https://www.digitalhps.org/')):
-                        concept['authority'] = {'name': 'Conceptpower'}
-                    else:
-                        concept['authority'] = {'name': 'Unknown'}
-                        
+                    concept = parse_concept(concept_entry)
                     # Now relabel the fields
                     concept = _relabel(concept)
                     concepts.append(concept)
@@ -592,25 +576,8 @@ def fetch_concept_data(concept_uri, pos=None):
     if response.status_code == 200:
         try:
             data = response.json()
-            concept = {}
             concept_entry = data.get('conceptEntries', [None])[0]
-            if concept_entry is not None:
-                concept['uri'] = concept_entry.get('concept_uri','')
-                concept['label'] = concept_entry.get('lemma','')
-                description = concept_entry.get('description', '')
-                try:
-                    concept['description'] = json.loads(f'"{description}"')
-                except json.JSONDecodeError:
-                    concept['description'] = description
-                    
-                concept['concept_type'] = concept_entry.get('type','')
-
-                if concept['uri'].startswith(('http://www.digitalhps.org/', 'https://www.digitalhps.org/')):
-                    concept['authority'] = {'name': 'Conceptpower'}
-                else:
-                    concept['authority'] = {'name': 'Unknown'}
-            return concept
-
+            return parse_concept(concept_entry) if concept_entry else {}
         except Exception as e:
             raise ValueError(f"Error parsing ConceptPower response: {str(e)}")
     else:
@@ -627,3 +594,27 @@ def _relabel(datum):
         'concept_uri': 'uri'
     }
     return {_fields.get(k, k): v for k, v in datum.items()}
+
+def parse_concept(concept_entry):
+    """
+    Parse a concept and return a dictionary with the required fields.
+    """
+    concept = {}
+    concept['uri'] = concept_entry.get('concept_uri', '')
+    concept['label'] = concept_entry.get('lemma', '')
+    concept['id'] = concept_entry.get('id', '')
+    concept['pos'] = concept_entry.get('pos', '')
+    concept['concept_type'] = concept_entry.get('type','')
+
+    description = concept_entry.get('description', '')
+    try:
+        concept['description'] = json.loads(f'"{description}"')
+    except json.JSONDecodeError:
+        concept['description'] = description
+    
+    if concept['uri'].startswith(('http://www.digitalhps.org/', 'https://www.digitalhps.org/')):
+        concept['authority'] = {'name': 'Conceptpower'}
+    else:
+        concept['authority'] = {'name': 'Unknown'}
+    
+    return concept
