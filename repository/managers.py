@@ -108,7 +108,6 @@ class RepositoryManager(RESTManager):
 
         if response.status_code == 200:
             item_data = response.json()
-            print(item_data)
 
             item_details = {
                 'key': item_data.get('item', {}).get('key'),
