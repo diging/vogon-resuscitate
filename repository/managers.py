@@ -1,3 +1,4 @@
+from django.conf import settings
 from repository.restable import RESTManager
 from repository import auth
 from external_accounts.utils import get_giles_document_details
@@ -57,8 +58,9 @@ class RepositoryManager(RESTManager):
         group_data = group_response.json().get('group', {})
         group_num_items = group_data.get('numItems', 0)
 
-        # Get total pages required to fetch all items (50 items per page)
-        total_pages = (group_num_items // 50) + (1 if group_num_items % 50 else 0)
+        # Get total pages required to fetch all items (By default citesphere return50 items per page)
+        items_per_page = getattr(settings, 'CITESPHERE_ITEM_PAGE', 50)
+        total_pages = (group_num_items // items_per_page) + (1 if group_num_items % items_per_page else 0)
 
         final_result = {
             "group": group_data,
