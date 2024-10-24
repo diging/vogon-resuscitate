@@ -96,27 +96,18 @@ def text_xml(request, text_id, user_id):
 
 from django.utils import timezone
 
-def submit_quadruples(request, text_id):
-    """
-    Submit quadruples to Quadriga for a given text and user.
-    
-    Parameters
-    ----------
-    request : `django.http.requests.HttpRequest`
-    text_id : int
+import requests
+from requests.auth import HTTPBasicAuth
 
-    Returns
-    ----------
-    :class:`django.http.response.HttpResponseRedirect`
-    """
+# Tried changing auth to submit quadruples but still dosent work
+
+def submit_quadruples(request, text_id):
     text = Text.objects.get(pk=text_id)
     user = request.user
     relationsets = RelationSet.objects.filter(occursIn_id=text_id, createdBy_id=user, submitted=False)
-    
-    # Get the repository associated with this text
+
     repository = text.repository
-    
-    # Get the CitesphereAccount for this user and repository
+
     try:
         citesphere_account = CitesphereAccount.objects.get(user=user, repository=repository)
     except CitesphereAccount.DoesNotExist:
@@ -127,38 +118,31 @@ def submit_quadruples(request, text_id):
         messages.error(request, 'Not all concepts are resolved or merged.')
         return redirect('annotate', text_id=text_id)
 
-    nodes = {}
-    edges = []
+    nodes, edges = {}, []
 
-    # Loop through each RelationSet
     for rs in relationsets:
-        relations = rs.constituents.all()  # Retrieve all relations for this RelationSet
+        relations = rs.constituents.all()
 
         for relation in relations:
-            # Fetch subject, predicate, object data
             subject_concept = relation.source_content_object.interpretation if hasattr(relation.source_content_object, 'interpretation') else None
             object_concept = relation.object_content_object.interpretation if hasattr(relation.object_content_object, 'interpretation') else None
             predicate_concept = relation.predicate.interpretation if hasattr(relation.predicate, 'interpretation') else None
 
-            # Build subject node if it exists
             if subject_concept:
                 subject_id = str(subject_concept.id)
                 if subject_id not in nodes:
                     nodes[subject_id] = build_concept_node(subject_concept, user)
 
-            # Build object node if it exists
             if object_concept:
                 object_id = str(object_concept.id)
                 if object_id not in nodes:
                     nodes[object_id] = build_concept_node(object_concept, user)
 
-            # Build predicate node if it exists
             if predicate_concept:
                 predicate_id = str(predicate_concept.id)
                 if predicate_id not in nodes:
                     nodes[predicate_id] = build_concept_node(predicate_concept, user)
 
-            # Create edges connecting source -> predicate -> object
             if subject_concept and predicate_concept:
                 edges.append({
                     "source": subject_id,
@@ -172,24 +156,13 @@ def submit_quadruples(request, text_id):
                     "target": object_id
                 })
 
-    # Construct JSON payload dynamically from the database data
     graph_data = {
         "graph": {
             "metadata": {
                 "defaultMapping": {
-                    "subject": {
-                        "type": "REF",
-                        "reference": "0"  # Updated dynamically
-                    },
-                    "predicate": {
-                        "type": "URI",
-                        "uri": "",  # Updated dynamically
-                        "label": ""
-                    },
-                    "object": {
-                        "type": "REF",
-                        "reference": "3"  # Updated dynamically
-                    }
+                    "subject": {"type": "REF", "reference": "0"},
+                    "predicate": {"type": "URI", "uri": "", "label": ""},
+                    "object": {"type": "REF", "reference": "3"}
                 },
                 "context": {
                     "creator": user.username,
@@ -198,37 +171,31 @@ def submit_quadruples(request, text_id):
                     "sourceUri": text.uri
                 }
             },
-            "nodes": nodes,  # Populated from database content
-            "edges": edges   # Populated from database content
+            "nodes": nodes,
+            "edges": edges
         }
     }
 
-    # Retrieve collection ID from settings
     collection_id = settings.QUADRIGA_COLLECTION_ID
     endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
 
-    # Prepare request headers
-    headers = {
-        'Authorization': f'Bearer {citesphere_account.access_token}',
-        'Content-Type': 'application/json'
-    }
+    headers = {'Content-Type': 'application/json'}
 
-    print("GRAPH DATA", graph_data)
+    # Use basic authentication with the configured user ID and password
+    auth = HTTPBasicAuth(settings.QUADRIGA_USERID, settings.QUADRIGA_PASSWORD)
 
-    # Submit to Quadriga
     try:
-        response = requests.post(endpoint, json=graph_data, headers=headers)
+        response = requests.post(endpoint, json=graph_data, headers=headers, auth=auth)
         response.raise_for_status()
-        print("QUADRIGA RESPONSE", response.text)
 
-        # Update relationsets as submitted
         relationsets.update(submitted=True, pending=False, submittedOn=timezone.now())
-        
-        messages.success(request, f'Quadruples submitted successfully.')
+        messages.success(request, 'Quadruples submitted successfully.')
         return redirect('text_public', text_id=text_id)
     except requests.RequestException as e:
         print(f'Failed to submit quadruples. Error: {str(e)}')
+        messages.error(request, 'Failed to submit quadruples.')
         return redirect('annotate', text_id=text_id)
+
 
 def build_concept_node(concept, user):
     """
