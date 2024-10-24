@@ -8,6 +8,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.db.models import Q
 from django.contrib.auth.models import AnonymousUser
+from django.conf import settings
 
 from annotations.forms import RepositorySearchForm
 from annotations.tasks import tokenize
@@ -21,6 +22,8 @@ from annotations.tasks import tokenize
 from urllib.parse import urlparse, parse_qs
 from urllib.parse import urlencode
 from external_accounts.utils import parse_iso_datetimes
+
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 from external_accounts.decorators import citesphere_authenticated
 
@@ -66,7 +69,7 @@ def _get_pagination(response, base_url, base_params):
     return previous_page, next_page
 
 
-
+# Since in citesphere_authenticated we already have a login_required decorator, we don't need to add another one here
 @citesphere_authenticated
 def repository_collections(request, repository_id):
     """View to fetch and display Citesphere Groups"""
@@ -85,7 +88,6 @@ def repository_collections(request, repository_id):
     return render(request, "annotations/repository_collections.html", context)
 
 
-# Since in citesphere_authenticated we already have a login_required decorator, we don't need to add another one here
 @citesphere_authenticated
 def repository_collection(request, repository_id, group_id):
     """View to fetch and display collections within Citesphere Groups"""
@@ -239,17 +241,82 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
 
     project_id = request.GET.get('project_id', None)
+    
+    # Pagination
+    paginator = Paginator(texts['items'], settings.PAGINATION_PAGE_SIZE)
+    
+    page = request.GET.get('page', 1)
+    try:
+        paginated_texts = paginator.page(page)
+    except PageNotAnInteger:
+        paginated_texts = paginator.page(1)
+    except EmptyPage:
+        paginated_texts = paginator.page(paginator.num_pages)
+
     context = {
         'user': user,
         'repository': repository,
-        'texts': texts['items'],
+        'texts': paginated_texts,
         'title': f'Texts in Collection: ', # Collection name is rendered from frontend
-        'group_info':texts['group'],
-        'group_id':group_id,
+        'group_info': texts['group'],
+        'group_id': group_id,
         'project_id': project_id,
     }
 
     return render(request, 'annotations/repository_collections_text_list.html', context)
+
+@citesphere_authenticated
+def repository_group_texts(request, repository_id, group_id):
+    """View to fetch and display texts within a group from Citesphere"""
+    user = request.user
+    repository = get_object_or_404(Repository, pk=repository_id)
+    manager = RepositoryManager(user=user, repository=repository)
+
+    project_id = request.GET.get('project_id', None)
+    page = request.GET.get('page', 1)
+    try:
+        page = int(page)
+    except ValueError:
+        page = 1
+
+    items_per_page = getattr(settings, 'PAGINATION_PAGE_SIZE')
+
+    try:
+        texts = manager.group_items(group_id, page=page, items_per_page=items_per_page)
+    except Exception as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+
+    # Pagination
+    total_items = texts['total_items'] 
+    items = texts['items']
+
+    # Create a Paginator object with a dummy list to represent total items
+    # range(total_items) is being used as a placeholder to create correct pagination metadata
+    paginator = Paginator(range(total_items), items_per_page)
+    try:
+        paginated_texts = paginator.page(page)
+    except PageNotAnInteger:
+        page = 1
+        paginated_texts = paginator.page(page)
+    except EmptyPage:
+        page = paginator.num_pages
+        paginated_texts = paginator.page(page)
+
+    # Replace the object list in the Page object with the actual items fetched from the API
+    # This is necessary because we used a dummy list to create the paginator
+    paginated_texts.object_list = items
+
+    context = {
+        'user': user,
+        'repository': repository,
+        'texts': paginated_texts,
+        'title': f'Texts in Group: ',
+        'group_info': texts['group'],
+        'group_id': group_id,
+        'project_id': project_id,
+    }
+    
+    return render(request, 'annotations/repository_group_text_list.html', context)
 
 @citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key):
