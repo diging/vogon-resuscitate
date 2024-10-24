@@ -289,3 +289,5 @@ POST = requests.post
 GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
 GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
 MAX_GILES_UPLOADS = 20
+
+PAGINATION_PAGE_SIZE = 20

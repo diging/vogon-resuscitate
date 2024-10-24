@@ -8,6 +8,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.db.models import Q
 from django.contrib.auth.models import AnonymousUser
+from django.conf import settings
 
 from annotations.forms import RepositorySearchForm
 from annotations.tasks import tokenize
@@ -242,9 +243,9 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     project_id = request.GET.get('project_id', None)
     
     # Pagination
-    page = request.GET.get('page', 1)
-    paginator = Paginator(texts['items'], 20)  # Show 20 texts per page
+    paginator = Paginator(texts['items'], settings.PAGINATION_PAGE_SIZE)
     
+    page = request.GET.get('page', 1)
     try:
         paginated_texts = paginator.page(page)
     except PageNotAnInteger:
@@ -279,9 +280,9 @@ def repository_group_texts(request, repository_id, group_id):
     project_id = request.GET.get('project_id', None)
     
     # Pagination
-    page = request.GET.get('page', 1)
-    paginator = Paginator(texts['items'], 20)  # Show 20 texts per page
+    paginator = Paginator(texts['items'], settings.PAGINATION_PAGE_SIZE)  # Show 20 texts per page
     
+    page = request.GET.get('page', 1)
     try:
         paginated_texts = paginator.page(page)
     except PageNotAnInteger:
