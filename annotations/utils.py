@@ -48,10 +48,12 @@ def get_pagination_metadata(total_items, page, items_per_page):
     Returns:
         dict: Pagination metadata including total pages, page range, and the validated current page.
     """
-    # Calculate total pages (round up for leftover items)
+
+    # Calculate total pages by dividing total items by items per page. If there are any leftover items, an additional page is created.
     total_pages = (total_items + items_per_page - 1) // items_per_page
 
     # Ensure the requested page is within valid range
+    # If the requested page exceeds total pages, set it to the last available page.
     if page < 1:
         page = 1
     elif page > total_pages:

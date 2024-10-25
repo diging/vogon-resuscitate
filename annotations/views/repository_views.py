@@ -240,25 +240,13 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
 
     project_id = request.GET.get('project_id', None)
-    
-    # Pagination
-    paginator = Paginator(texts['items'], settings.PAGINATION_PAGE_SIZE)
-    
-    page = request.GET.get('page', 1)
-    try:
-        paginated_texts = paginator.page(page)
-    except PageNotAnInteger:
-        paginated_texts = paginator.page(1)
-    except EmptyPage:
-        paginated_texts = paginator.page(paginator.num_pages)
-
     context = {
         'user': user,
         'repository': repository,
-        'texts': paginated_texts,
+        'texts': texts['items'],
         'title': f'Texts in Collection: ', # Collection name is rendered from frontend
-        'group_info': texts['group'],
-        'group_id': group_id,
+        'group_info':texts['group'],
+        'group_id':group_id,
         'project_id': project_id,
     }
 
@@ -272,25 +260,15 @@ def repository_group_texts(request, repository_id, group_id):
     manager = RepositoryManager(user=user, repository=repository)
 
     project_id = request.GET.get('project_id')
-    page = request.GET.get('page', 1)
+    page = int(request.GET.get('page', 1))
 
     try:
-        texts = manager.group_items(group_id)
+        texts = manager.group_items(group_id, page)
     except Exception as e:
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
 
-    try:
-        page = int(page)
-    except ValueError:
-        page = 1  # Default to page 1 if invalid
-
-    items_per_page = getattr(settings, 'PAGINATION_PAGE_SIZE', 20)
-
-    pagination = get_pagination_metadata(
-        total_items=texts.get('total_items'),
-        page=page,
-        items_per_page=items_per_page,
-    )
+    items_per_page = getattr(settings, 'PAGINATION_PAGE_SIZE')
+    pagination = get_pagination_metadata(total_items=texts.get('total_items'), page=page, items_per_page=items_per_page)
 
     context = {
         'user': user,
