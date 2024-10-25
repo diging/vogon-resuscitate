@@ -190,7 +190,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                             # Create a new Type instance if it doesn't exist
                             type_instance = Type.objects.create(
                                 uri=type_data.get('type_uri'),
-                                label=label,
+                                label=type_data.get('type_name'),
                                 description=type_data.get('description',''),
                                 authority=concept_data.get('authority', {}),
                             )
