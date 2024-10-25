@@ -18,12 +18,11 @@ from repository.managers import *
 from annotations.models import Text, TextCollection
 from annotations.annotators import supported_content_types
 from annotations.tasks import tokenize
+from annotations.utils import get_pagination_metadata
 
 from urllib.parse import urlparse, parse_qs
 from urllib.parse import urlencode
 from external_accounts.utils import parse_iso_datetimes
-
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 from external_accounts.decorators import citesphere_authenticated
 
@@ -276,45 +275,36 @@ def repository_group_texts(request, repository_id, group_id):
     page = request.GET.get('page', 1)
 
     try:
-        page = int(page)
-    except ValueError:
-        page = 1
-
-    items_per_page = getattr(settings, 'PAGINATION_PAGE_SIZE')
-
-    try:
-        texts = manager.group_items(group_id, page=page)
+        texts = manager.group_items(group_id)
     except Exception as e:
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
 
-    items = texts.get('items', [])
-    total_items = texts.get('total_items', 0)
-    group_info = texts.get('group', {})
+    try:
+        page = int(page)
+    except ValueError:
+        page = 1  # Default to page 1 if invalid
 
-    # Calculates the total number of pages by adding (items_per_page - 1) to ensure any leftover items are included in an extra page, 
-    # then uses floor division (//) to return an integer result representing the total number of full or partial pages required.
-    total_pages = (total_items + items_per_page - 1) // items_per_page 
-    print("total_items", total_items)
-    print("items_per_page", items_per_page)
-    print("total_pages", total_pages)
+    items_per_page = getattr(settings, 'PAGINATION_PAGE_SIZE', 20)
 
-    # Provide the range of pages as a list
-    page_range = list(range(1, total_pages + 1))
+    pagination = get_pagination_metadata(
+        total_items=texts.get('total_items'),
+        page=page,
+        items_per_page=items_per_page,
+    )
 
     context = {
         'user': user,
         'repository': repository,
-        'texts': items,
-        'current_page': page,
-        'group_info': group_info,
+        'texts': texts.get('items', []),
+        'group_info': texts.get('group', {}),
         'group_id': group_id,
         'project_id': project_id,
-        'total_pages': total_pages,
-        'page_range': page_range,
+        'current_page': pagination['current_page'],
+        'total_pages': pagination['total_pages'],
+        'page_range': pagination['page_range'],
     }
 
     return render(request, 'annotations/repository_group_text_list.html', context)
-
 
 
 @citesphere_authenticated
