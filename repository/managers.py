@@ -31,50 +31,30 @@ class RepositoryManager(RESTManager):
         else:
             response.raise_for_status()
 
-    def group_items(self, groupId, page=1, items_per_page=50):
+    def group_items(self, groupId, page=1):
         """
-        Fetch items from a specific group, for a specific page.
-
-        This function retrieves items from the specified group in the repository for a given page.
-        It includes the group details and total number of items.
-
-        Args:
-            groupId: The ID of the group in the repository.
-            page: The page number to fetch (default is 1).
-            items_per_page: Number of items per page (default is 50).
-
-        Returns:
-            A dictionary containing:
-                - "group": Details about the group.
-                - "items": A list of items in the specified group for the given page.
-                - "total_items": Total number of items in the group.
+        Fetch items from a specific group for a specific page.
         """
         headers = auth.citesphere_auth(self.user, self.repository)
         base_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/"
 
         params = {
             'page': page,
-            'maxItemNumber': items_per_page
         }
 
-        # Fetch the group details along with the items for the specified page
         group_response = requests.get(base_url, headers=headers, params=params)
-        if group_response.status_code != 200:
-            group_response.raise_for_status()
+        group_response.raise_for_status()
 
         response_data = group_response.json()
         group_data = response_data.get('group', {})
         items = response_data.get('items', [])
         total_items = group_data.get('numItems', 0)
 
-        final_result = {
+        return {
             "group": group_data,
             "items": items,
             "total_items": total_items
         }
-
-        return final_result
-
             
     def collections(self, groupId):
         """Fetch collections from the repository's endpoint"""

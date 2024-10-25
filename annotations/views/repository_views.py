@@ -267,13 +267,14 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
 @citesphere_authenticated
 def repository_group_texts(request, repository_id, group_id):
-    """View to fetch and display texts within a group from Citesphere"""
+    """View to fetch and display texts within a group from Citesphere."""
     user = request.user
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=user, repository=repository)
 
-    project_id = request.GET.get('project_id', None)
+    project_id = request.GET.get('project_id')
     page = request.GET.get('page', 1)
+
     try:
         page = int(page)
     except ValueError:
@@ -282,41 +283,39 @@ def repository_group_texts(request, repository_id, group_id):
     items_per_page = getattr(settings, 'PAGINATION_PAGE_SIZE')
 
     try:
-        texts = manager.group_items(group_id, page=page, items_per_page=items_per_page)
+        texts = manager.group_items(group_id, page=page)
     except Exception as e:
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
 
-    # Pagination
-    total_items = texts['total_items'] 
-    items = texts['items']
+    items = texts.get('items', [])
+    total_items = texts.get('total_items', 0)
+    group_info = texts.get('group', {})
 
-    # Create a Paginator object with a dummy list to represent total items
-    # range(total_items) is being used as a placeholder to create correct pagination metadata
-    paginator = Paginator(range(total_items), items_per_page)
-    try:
-        paginated_texts = paginator.page(page)
-    except PageNotAnInteger:
-        page = 1
-        paginated_texts = paginator.page(page)
-    except EmptyPage:
-        page = paginator.num_pages
-        paginated_texts = paginator.page(page)
+    # Calculates the total number of pages by adding (items_per_page - 1) to ensure any leftover items are included in an extra page, 
+    # then uses floor division (//) to return an integer result representing the total number of full or partial pages required.
+    total_pages = (total_items + items_per_page - 1) // items_per_page 
+    print("total_items", total_items)
+    print("items_per_page", items_per_page)
+    print("total_pages", total_pages)
 
-    # Replace the object list in the Page object with the actual items fetched from the API
-    # This is necessary because we used a dummy list to create the paginator
-    paginated_texts.object_list = items
+    # Provide the range of pages as a list
+    page_range = list(range(1, total_pages + 1))
 
     context = {
         'user': user,
         'repository': repository,
-        'texts': paginated_texts,
-        'title': f'Texts in Group: ',
-        'group_info': texts['group'],
+        'texts': items,
+        'current_page': page,
+        'group_info': group_info,
         'group_id': group_id,
         'project_id': project_id,
+        'total_pages': total_pages,
+        'page_range': page_range,
     }
-    
+
     return render(request, 'annotations/repository_group_text_list.html', context)
+
+
 
 @citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key):
