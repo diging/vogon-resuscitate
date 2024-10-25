@@ -94,18 +94,16 @@ def text_xml(request, text_id, user_id):
     text_xml, _ = quadriga.to_quadruples(relationsets, text, user, toString=True)
     return HttpResponse(text_xml, content_type='application/xml')
 
-from django.utils import timezone
-
-import requests
-from requests.auth import HTTPBasicAuth
-
-# Tried changing auth to submit quadruples but still dosent work
 
 def submit_quadruples(request, text_id):
+    """
+    Submit quadruples to Quadriga for a given text and user.
+    """
     text = Text.objects.get(pk=text_id)
     user = request.user
     relationsets = RelationSet.objects.filter(occursIn_id=text_id, createdBy_id=user, submitted=False)
 
+    # Get the repository associated with this text
     repository = text.repository
 
     try:
@@ -118,42 +116,53 @@ def submit_quadruples(request, text_id):
         messages.error(request, 'Not all concepts are resolved or merged.')
         return redirect('annotate', text_id=text_id)
 
-    nodes, edges = {}, []
+    nodes = {}
+    edges = []
+    node_counter = 0  # Ensure sequential node IDs
+
+    def get_node_id():
+        nonlocal node_counter
+        node_id = str(node_counter)
+        node_counter += 1
+        return node_id
 
     for rs in relationsets:
         relations = rs.constituents.all()
-
+        
         for relation in relations:
-            subject_concept = relation.source_content_object.interpretation if hasattr(relation.source_content_object, 'interpretation') else None
-            object_concept = relation.object_content_object.interpretation if hasattr(relation.object_content_object, 'interpretation') else None
-            predicate_concept = relation.predicate.interpretation if hasattr(relation.predicate, 'interpretation') else None
+            subject = relation.source_content_object.interpretation if hasattr(relation.source_content_object, 'interpretation') else None
+            obj = relation.object_content_object.interpretation if hasattr(relation.object_content_object, 'interpretation') else None
+            predicate = relation.predicate.interpretation if hasattr(relation.predicate, 'interpretation') else None
 
-            if subject_concept:
-                subject_id = str(subject_concept.id)
+            # Add nodes
+            if subject:
+                subject_id = get_node_id()
                 if subject_id not in nodes:
-                    nodes[subject_id] = build_concept_node(subject_concept, user)
+                    nodes[subject_id] = build_concept_node(subject, user)
 
-            if object_concept:
-                object_id = str(object_concept.id)
-                if object_id not in nodes:
-                    nodes[object_id] = build_concept_node(object_concept, user)
+            if obj:
+                obj_id = get_node_id()
+                if obj_id not in nodes:
+                    nodes[obj_id] = build_concept_node(obj, user)
 
-            if predicate_concept:
-                predicate_id = str(predicate_concept.id)
+            if predicate:
+                predicate_id = get_node_id()
                 if predicate_id not in nodes:
-                    nodes[predicate_id] = build_concept_node(predicate_concept, user)
+                    nodes[predicate_id] = build_concept_node(predicate, user)
 
-            if subject_concept and predicate_concept:
+            # Add edges
+            if subject and predicate:
                 edges.append({
                     "source": subject_id,
                     "relation": "subject",
                     "target": predicate_id
                 })
-            if predicate_concept and object_concept:
+
+            if predicate and obj:
                 edges.append({
                     "source": predicate_id,
                     "relation": "predicate",
-                    "target": object_id
+                    "target": obj_id
                 })
 
     graph_data = {
@@ -176,40 +185,43 @@ def submit_quadruples(request, text_id):
         }
     }
 
-    collection_id = settings.QUADRIGA_COLLECTION_ID
+    collection_id = "671c131c717d316af555a8c2"
     endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
 
-    headers = {'Content-Type': 'application/json'}
+    headers = {
+        'Authorization': f'Bearer {citesphere_account.access_token}',
+        'Content-Type': 'application/json'
+    }
 
-    # Use basic authentication with the configured user ID and password
-    auth = HTTPBasicAuth(settings.QUADRIGA_USERID, settings.QUADRIGA_PASSWORD)
+    print(graph_data)
 
     try:
-        response = requests.post(endpoint, json=graph_data, headers=headers, auth=auth)
+        response = requests.post(endpoint, json=graph_data, headers=headers)
         response.raise_for_status()
 
-        relationsets.update(submitted=True, pending=False, submittedOn=timezone.now())
+        # relationsets.update(submitted=True, pending=False, submittedOn=timezone.now())
         messages.success(request, 'Quadruples submitted successfully.')
         return redirect('text_public', text_id=text_id)
     except requests.RequestException as e:
         print(f'Failed to submit quadruples. Error: {str(e)}')
-        messages.error(request, 'Failed to submit quadruples.')
         return redirect('annotate', text_id=text_id)
-
 
 def build_concept_node(concept, user):
     """
     Helper function to build a concept node dictionary.
     """
     return {
-        "label": concept.label,
+        "label": concept.label or "",
         "metadata": {
-            "type": "concept",
+            "type": "appellation_event",
             "interpretation": concept.uri,
             "termParts": [
                 {
                     "position": 1,
-                    "expression": concept.label 
+                    "expression": concept.label or "",
+                    "normalization": "",
+                    "formattedPointer": "",
+                    "format": ""
                 }
             ]
         },
@@ -217,6 +229,7 @@ def build_concept_node(concept, user):
             "creator": user.username,
             "creationTime": timezone.now().strftime('%Y-%m-%d'),
             "creationPlace": "phoenix",
-            "sourceUri": concept.authority if hasattr(concept, 'authority') else ''
+            "sourceUri": concept.authority if hasattr(concept, 'authority') else ""
         }
     }
+
