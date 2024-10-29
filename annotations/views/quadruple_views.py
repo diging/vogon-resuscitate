@@ -202,30 +202,47 @@ def submit_quadruples(request, text_id):
     try:
         text = Text.objects.get(pk=text_id)
         user = request.user
-        relationsets = RelationSet.objects.filter(occursIn=text, createdBy=user, submitted=False)
+
+        relationsets = RelationSet.objects.filter(
+            occursIn=text, createdBy=user, submitted=False
+        )
+
+        if not relationsets.exists():
+            messages.warning(request, "All quadruples are already submitted.")
+            return JsonResponse({'warning': 'No pending quadruples to submit.'}, status=400)
+
+        if any(rs.pending for rs in relationsets):
+            messages.error(request, "Not all quadruples are approved.")
+            return JsonResponse({'error': 'Quadruples not approved.'}, status=400)
 
         graph_data = generate_graph_data(relationsets, user)
-        print("Generated Graph Data:", graph_data)  # For debugging
 
         collection_id = settings.QUADRIGA_COLLECTION_ID
         endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
 
+        citesphere_access_token = CitesphereAccount.objects.get(user=user, repository=text.repository).access_token
+
         headers = {
-            'Authorization': f'Bearer {CitesphereAccount.objects.get(user=user, repository=text.repository).access_token}',
-            'Content-Type': 'application/json'
+            'Authorization': f'Bearer {citesphere_access_token}',
+            'Content-Type': 'application/json',
         }
 
         response = requests.post(endpoint, json=graph_data, headers=headers)
         response.raise_for_status()
 
         relationsets.update(submitted=True, submittedOn=timezone.now())
+        messages.success(request, "Quadruples submitted successfully.")
 
         return JsonResponse({'success': 'Quadruples submitted successfully.'})
 
     except Text.DoesNotExist:
+        messages.error(request, "Text not found.")
         return JsonResponse({'error': 'Text not found.'}, status=404)
+
     except CitesphereAccount.DoesNotExist:
-        return JsonResponse({'error': 'No Citesphere account found for this user and repository.'}, status=400)
+        messages.error(request, "Citesphere account not found.")
+        return JsonResponse({'error': 'Citesphere authentication error.'}, status=400)
+
     except requests.RequestException as e:
-        print(f"Error submitting quadruples: {e}")
+        messages.error(request, f"Submission failed, please try again later!")
         return JsonResponse({'error': 'Failed to submit quadruples.'}, status=500)
