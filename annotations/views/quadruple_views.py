@@ -202,11 +202,9 @@ def generate_graph_data(relationsets, user):
 
 def submit_quadruples(request, text_id):
     try:
-        # Fetch the text and user
         text = Text.objects.get(pk=text_id)
         user = request.user
 
-        # Filter pending and unsubmitted RelationSets for the current user and text
         relationsets = RelationSet.objects.filter(
             occursIn=text, createdBy=user, status='ready_to_submit', submitted=False
         )
@@ -220,13 +218,9 @@ def submit_quadruples(request, text_id):
             messages.error(request, "Not all quadruples are ready for submission.")
             return JsonResponse({'error': 'Not all quadruples are ready.'}, status=400)
 
-        # Set up the required graph data
         graph_data = generate_graph_data(relationsets, user)
 
-        # Retrieve the access token from the Citesphere account
-        citesphere_account = CitesphereAccount.objects.get(
-            user=user, repository=text.repository
-        )
+        citesphere_account = CitesphereAccount.objects.get(user=user, repository=text.repository)
         access_token = citesphere_account.access_token
 
         headers = {
@@ -234,11 +228,9 @@ def submit_quadruples(request, text_id):
             'Content-Type': 'application/json',
         }
 
-        # Define the Quadriga endpoint
         collection_id = settings.QUADRIGA_COLLECTION_ID
         endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
 
-        # Submit the data to the Quadriga endpoint
         response = requests.post(endpoint, json=graph_data, headers=headers)
         response.raise_for_status()
 
@@ -248,7 +240,7 @@ def submit_quadruples(request, text_id):
         )
 
         messages.success(request, "Quadruples submitted successfully.")
-        return JsonResponse({'success': 'Quadruples submitted successfully.'})
+        return JsonResponse({'success': 'Quadruples submitted successfully.'}, status=200)
 
     except Text.DoesNotExist:
         messages.error(request, "Text not found.")
@@ -259,5 +251,5 @@ def submit_quadruples(request, text_id):
         return JsonResponse({'error': 'No Citesphere account found.'}, status=400)
 
     except requests.RequestException as e:
-        messages.error(request, f"Submission failed: {e}")
+        messages.error(request, f"Quadruples submission failed. Please try again later.")
         return JsonResponse({'error': 'Failed to submit quadruples.'}, status=500)

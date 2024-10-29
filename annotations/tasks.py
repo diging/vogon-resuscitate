@@ -9,15 +9,9 @@ from django.utils.safestring import SafeText
 from django.contrib.contenttypes.models import ContentType
 
 import requests, uuid, re
-from datetime import datetime, timedelta
-from django.utils import timezone
-from itertools import groupby, chain
-from collections import defaultdict
 
 from annotations.models import *
 from annotations import quadriga
-
-from celery import shared_task
 
 from django.conf import settings
 import logging
@@ -169,85 +163,6 @@ def save_text_instance(tokenized_content, text_title, date_created, is_public, u
     if is_public:
         group = Group.objects.get_or_create(name='Public')[0]
     return text
-
-
-@shared_task
-def submit_relationsets_to_quadriga(rset_ids, text_id, user_id, **kwargs):
-    logger.debug('Submitting %i relations to Quadriga' % len(rset_ids))
-    rsets = RelationSet.objects.filter(pk__in=rset_ids)
-    text = Text.objects.get(pk=text_id)
-    user = VogonUser.objects.get(pk=user_id)
-    status, response = quadriga.submit_relationsets(rsets, text, user, **kwargs)
-
-    if status:
-        qsr = RelationSet.objects.filter(pk__in=rset_ids)
-        project_id = response.get('projectId')
-        workspace_id = response.get('workspaceId')
-        network_id = response.get('networkId')
-        accession = QuadrigaAccession.objects.create(**{
-            'createdBy': user,
-            'project_id': project_id,
-            'workspace_id': workspace_id,
-            'network_id': network_id
-        })
-        logger.debug('Submitted %i relations as network %s to project %s workspace %s' % (qsr.count(), network_id, project_id, workspace_id))
-
-        for relationset in qsr:
-            relationset.submitted = True
-            relationset.submittedOn = accession.created
-            relationset.submittedWith = accession
-            relationset.save()
-            for relation in relationset.constituents.all():
-                relation.submitted = True
-                relation.submittedOn = accession.created
-                relation.submittedWith = accession
-                relation.save()
-            for appellation in relationset.appellations():
-                appellation.submitted = True
-                appellation.submittedOn = accession.created
-                appellation.submittedWith = accession
-                appellation.save()
-    else:
-        logger.debug('Quadriga submission failed with %s' % str(response))
-
-@shared_task
-def accession_ready_relationsets():
-    logger.debug('Looking for relations to accession to Quadriga...')
-    # print 'processing %i relationsets' % len(all_rsets)
-    # project_grouper = lambda rs: getattr(rs.occursIn.partOf.first(), 'quadriga_id', -1)
-
-    # for project_id, project_group in groupby(sorted(all_rsets, key=project_grouper), key=project_grouper):
-    kwargs = {}
-
-    for project_id in chain([None], TextCollection.objects.values_list('quadriga_id', flat=True).distinct('quadriga_id')):
-        if project_id:
-            kwargs.update({
-                'project_id': project_id,
-            })
-
-        qs = RelationSet.objects.filter(submitted=False, pending=False)
-        if project_id:
-            qs = qs.filter(project_id__quadriga_id=project_id)
-        else:    # Don't grab relations that actually do belong to a project.
-            qs = qs.filter(project_id__isnull=True)
-
-        # Do not submit a relationset to Quadriga if the constituent interpretations
-        #  involve concepts that are not resolved.
-        qs = [o for o in qs if o.ready()]
-        relationsets = defaultdict(lambda: defaultdict(list))
-
-        for relationset in qs:
-            timeCreated = relationset.created
-            if timeCreated + timedelta(days=settings.SUBMIT_WAIT_TIME['days'], hours=settings.SUBMIT_WAIT_TIME['hours'], minutes=settings.SUBMIT_WAIT_TIME['minutes']) < datetime.now(timezone.utc):
-                relationsets[relationset.occursIn.id][relationset.createdBy.id].append(relationset)
-                for text_id, text_rsets in list(relationsets.items()):
-                    for user_id, user_rsets in list(text_rsets.items()):
-                        # Update state.
-                        def _state(obj):
-                            obj.pending = True
-                            obj.save()
-                        list(map(_state, user_rsets))
-                        submit_relationsets_to_quadriga.delay([o.id for o in user_rsets], text_id, user_id, **kwargs)
 
 
 # TODO: this should be retired.
