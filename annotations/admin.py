@@ -123,7 +123,7 @@ class RelationSetAdmin(admin.ModelAdmin):
         model = RelationSet
 
     list_display = ('id', 'createdBy', 'occursIn', 'created', 'ready',
-                    'pending', 'submitted', )
+                    'pending', 'submitted', 'status',)
     actions = (submit_relationsets, submit_relationsets_synch)
 
 

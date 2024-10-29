@@ -918,6 +918,17 @@ class RelationSet(models.Model):
         return all(map(criteria, values))
     ready.boolean = True    # So that we can display a nifty icon in changelist.
 
+    def update_status(self):
+        """
+        Check if the RelationSet is ready and update the status accordingly.
+        """
+        if self.ready():  # Check readiness based on the concepts
+            if self.status != 'submitted':  # Avoid overriding submitted status
+                self.status = 'ready_to_submit'
+        else:
+            self.status = 'not_ready'
+        self.save()
+
     def appellations(self):
         """
         Get all non-predicate appellations in child :class:`.Relation`\s.
