@@ -6,6 +6,7 @@ from django.conf import settings
 
 from itertools import chain, combinations, groupby
 import re
+import math
 
 def help_text(text):
     """
@@ -38,28 +39,27 @@ def basepath(request):
 
 def get_pagination_metadata(total_items, page, items_per_page):
     """
-    Calculate pagination metadata such as total pages, page range, and the current page.
-    
+    Calculate pagination metadata including total pages, page range, and the current page.
+
     Args:
         total_items (int): Total number of items.
         page (int): The current page number requested.
         items_per_page (int): Number of items per page.
-    
+
     Returns:
         dict: Pagination metadata including total pages, page range, and the validated current page.
     """
 
-    # Calculate total pages by dividing total items by items per page. If there are any leftover items, an additional page is created.
-    total_pages = (total_items + items_per_page - 1) // items_per_page
+    # Calculate total pages by rounding up the division of total_items / items_per_page
+    total_pages = math.ceil(total_items / items_per_page)
 
-    # Ensure the requested page is within valid range
-    # If the requested page exceeds total pages, set it to the last available page.
+    # Ensure the requested page is within the valid range
     if page < 1:
         page = 1
     elif page > total_pages:
         page = total_pages
 
-    # Create a list of page numbers for the pagination range
+    # Create a list of page numbers for pagination navigation
     page_range = list(range(1, total_pages + 1))
 
     return {
