@@ -94,6 +94,8 @@ def text_xml(request, text_id, user_id):
     relationsets = RelationSet.objects.filter(occursIn_id=text_id, createdBy_id=user_id)
     text_xml, _ = quadriga.to_quadruples(relationsets, text, user, toString=True)
     return HttpResponse(text_xml, content_type='application/xml')
+
+
 def build_concept_node(concept, user):
     """
     Helper function to build a concept node dictionary.
@@ -200,39 +202,52 @@ def generate_graph_data(relationsets, user):
 
 def submit_quadruples(request, text_id):
     try:
+        # Fetch the text and user
         text = Text.objects.get(pk=text_id)
         user = request.user
 
+        # Filter pending and unsubmitted RelationSets for the current user and text
         relationsets = RelationSet.objects.filter(
-            occursIn=text, createdBy=user, submitted=False
+            occursIn=text, createdBy=user, status='ready_to_submit', submitted=False
         )
 
         if not relationsets.exists():
-            messages.warning(request, "All quadruples are already submitted.")
+            messages.warning(request, "No pending quadruples to submit.")
             return JsonResponse({'warning': 'No pending quadruples to submit.'}, status=400)
 
-        if any(rs.pending for rs in relationsets):
-            messages.error(request, "Not all quadruples are approved.")
-            return JsonResponse({'error': 'Quadruples not approved.'}, status=400)
+        # Ensure all RelationSets are ready for submission
+        if any(not rs.ready() for rs in relationsets):
+            messages.error(request, "Not all quadruples are ready for submission.")
+            return JsonResponse({'error': 'Not all quadruples are ready.'}, status=400)
 
+        # Set up the required graph data
         graph_data = generate_graph_data(relationsets, user)
 
-        collection_id = settings.QUADRIGA_COLLECTION_ID
-        endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
-
-        citesphere_access_token = CitesphereAccount.objects.get(user=user, repository=text.repository).access_token
+        # Retrieve the access token from the Citesphere account
+        citesphere_account = CitesphereAccount.objects.get(
+            user=user, repository=text.repository
+        )
+        access_token = citesphere_account.access_token
 
         headers = {
-            'Authorization': f'Bearer {citesphere_access_token}',
+            'Authorization': f'Bearer {access_token}',
             'Content-Type': 'application/json',
         }
 
+        # Define the Quadriga endpoint
+        collection_id = settings.QUADRIGA_COLLECTION_ID
+        endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
+
+        # Submit the data to the Quadriga endpoint
         response = requests.post(endpoint, json=graph_data, headers=headers)
         response.raise_for_status()
 
-        relationsets.update(submitted=True, submittedOn=timezone.now())
-        messages.success(request, "Quadruples submitted successfully.")
+        # Update submitted status and timestamp on successful submission
+        relationsets.update(
+            submitted=True, submittedOn=timezone.now(), status='submitted'
+        )
 
+        messages.success(request, "Quadruples submitted successfully.")
         return JsonResponse({'success': 'Quadruples submitted successfully.'})
 
     except Text.DoesNotExist:
@@ -241,8 +256,8 @@ def submit_quadruples(request, text_id):
 
     except CitesphereAccount.DoesNotExist:
         messages.error(request, "Citesphere account not found.")
-        return JsonResponse({'error': 'Citesphere authentication error.'}, status=400)
+        return JsonResponse({'error': 'No Citesphere account found.'}, status=400)
 
     except requests.RequestException as e:
-        messages.error(request, f"Submission failed, please try again later!")
+        messages.error(request, f"Submission failed: {e}")
         return JsonResponse({'error': 'Failed to submit quadruples.'}, status=500)

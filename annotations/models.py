@@ -788,6 +788,16 @@ class RelationSet(models.Model):
     """The text on which this RelationSet is based."""
 
     pending = models.BooleanField(default=False)
+
+    STATUS_CHOICES = [
+        ('not_ready', 'Not Ready'),
+        ('ready_to_submit', 'Ready to Submit'),
+        ('submitted', 'Submitted'),
+    ]
+
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='not_ready'
+    )
     """
     A :class:`.RelationSet` is pending if it has been selected for submission,
     but the submission process has not yet completed. The primary purpose of
