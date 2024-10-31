@@ -1,6 +1,8 @@
 from django.utils.deprecation import MiddlewareMixin
 from annotations.models import RelationSet
 from asgiref.sync import async_to_sync, sync_to_async
+from django.utils import timezone
+from datetime import timedelta
 
 class CheckRelationSetStatusMiddleware(MiddlewareMixin):
     """
@@ -17,29 +19,40 @@ class CheckRelationSetStatusMiddleware(MiddlewareMixin):
     RelationSets are always in the correct state before they can be submitted to Quadriga.
     """
 
+    # Cache the last check time to reduce query frequency
+    last_check_time = None
+    check_interval = timedelta(minutes=5)  # Adjust the interval as needed
+
     def process_request(self, request):
         """
-        This synchronous method is called before each request. We need to run an 
-        asynchronous function (`check_and_update_relation_sets`) to perform the status 
-        checks. Since Django middleware is synchronous, we use `async_to_sync` to 
-        safely call the async function from this synchronous method.
+        Synchronous method called before each request. It triggers the status check
+        asynchronously, with a rate limit based on `check_interval` to reduce load.
         """
-        async_to_sync(self.check_and_update_relation_sets)()
+        if self.should_run_check():
+            async_to_sync(self.check_and_update_relation_sets)()
+
+    def should_run_check(self):
+        """
+        Determines whether the status check should be run based on the defined interval.
+        """
+        current_time = timezone.now()
+        if not self.last_check_time or (current_time - self.last_check_time) > self.check_interval:
+            self.last_check_time = current_time
+            return True
+        return False
 
     async def check_and_update_relation_sets(self):
         """
-        This is the asynchronous function responsible for checking and updating the 
-        statuses of RelationSets. It fetches all RelationSets that need to be checked, 
-        and if they meet the readiness criteria (all related concepts are resolved), 
-        it updates their status to 'ready_to_submit'. If not, the status remains 'not_ready'.
+        This asynchronous function is responsible for checking and updating the 
+        statuses of RelationSets in bulk. It uses the `update_status` method of 
+        each RelationSet instance to evaluate and adjust their status based on 
+        readiness conditions.
         """
-        # Fetch RelationSets asynchronously, limiting to those with 'not_ready' or 
-        # 'ready_to_submit' statuses.
+        # Fetch RelationSets that need a status check asynchronously
         relation_sets = await sync_to_async(list)(
             RelationSet.objects.filter(status__in=['not_ready', 'ready_to_submit'])
         )
 
-        # Iterate over the RelationSets and update their status if necessary.
+        # Update statuses for each RelationSet using the update_status method
         for relation_set in relation_sets:
-            # Call the `update_status` method asynchronously to update the RelationSet's status.
-            await sync_to_async(relation_set.update_status)()
+            await sync_to_async(relation_set.update_status)()  # Efficiently checks and updates status
