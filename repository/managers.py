@@ -40,17 +40,49 @@ class RepositoryManager(RESTManager):
             return response.json()  # Return the Collections data
         else:
             response.raise_for_status()
-    
-    def collection_items(self, groupId, collectionId):
-        """Fetch collection items from the repository's endpoint"""
+
+    def collection_items(self, groupId, collectionId, page=1):
+        """
+        Fetch items from a specific collection in a group for a specific page.
+
+        Args:
+            groupId: The ID of the group in the repository.
+            collectionId: The ID of the collection within the group.
+            page: The page number to retrieve.
+
+        Returns:
+            A dictionary containing:
+                - "group": Details about the group.
+                - "items": A list of items in the specified collection for the given page.
+                - "total_items": The total number of items in the collection.
+        """
         headers = auth.citesphere_auth(self.user, self.repository)
-        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/{collectionId}/items/"
-        response = requests.get(url, headers=headers)
         
-        if response.status_code == 200:
-            return response.json()
-        else:
-            response.raise_for_status()
+        items_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/{collectionId}/items/"
+        collections_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/"
+
+        # Fetch collection details to get total items
+        collections_response = requests.get(collections_url, headers=headers)
+        collections_response.raise_for_status()
+
+        # Extract group and total items for the collection
+        collections_data = collections_response.json().get('collections', [])
+        group_info = collections_response.json().get('group', {})
+        
+        # TODO: Once there is a collection information endpoint,this will need to be updated
+        total_items = next((c.get('numberOfItems', 0) for c in collections_data if c.get('key') == collectionId), 0)
+
+        # Get items for the specific page
+        response = requests.get(items_url, headers=headers, params={'page': page})
+        response.raise_for_status()
+        items = response.json().get('items', [])
+
+        return {
+            "group": group_info,
+            "items": items,
+            "total_items": total_items
+        }
+
 
     def item(self, groupId, itemId):
         """
