@@ -41,68 +41,46 @@ class RepositoryManager(RESTManager):
         else:
             response.raise_for_status()
 
-    def collection_items(self, groupId, collectionId):
+    def collection_items(self, groupId, collectionId, page=1):
         """
-        Fetch all items from a specific collection in a group.
-
-        This function retrieves all items from the specified collection in the repository.
-        It gathers all pages of items, combines them into a single JSON object, and includes the group details.
+        Fetch items from a specific collection in a group for a specific page.
 
         Args:
             groupId: The ID of the group in the repository.
             collectionId: The ID of the collection within the group.
+            page: The page number to retrieve.
 
         Returns:
             A dictionary containing:
                 - "group": Details about the group.
-                - "items": A list of all items in the specified collection.
+                - "items": A list of items in the specified collection for the given page.
+                - "total_items": The total number of items in the collection.
         """
         headers = auth.citesphere_auth(self.user, self.repository)
         
         base_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/{collectionId}/items/"
         collections_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/"
 
-        # Fetch the collection details to determine the total number of items
+        # Fetch collection details to get total items
         collections_response = requests.get(collections_url, headers=headers)
-        if collections_response.status_code != 200:
-            collections_response.raise_for_status()
+        collections_response.raise_for_status()
 
-        # Parse the response to find the specific collection and get the number of items in the collection
+        # Extract group and total items for the collection
         collections_data = collections_response.json().get('collections', [])
-        collection_num_items = 0
         group_info = collections_response.json().get('group', {})
-        for collection in collections_data:
-            if collection.get('key') == collectionId:
-                collection_num_items = collection.get('numberOfItems', 0)
-                break
+        total_items = next((c.get('numberOfItems', 0) for c in collections_data if c.get('key') == collectionId), 0)
 
-        # Get total pages which will be required to get all items as it only returns 50 in one request
-        total_pages = (collection_num_items // 50) + (1 if collection_num_items % 50 else 0)
+        # Get items for the specific page
+        response = requests.get(base_url, headers=headers, params={'page': page})
+        response.raise_for_status()
+        items = response.json().get('items', [])
 
-        final_result = {
+        return {
             "group": group_info,
-            "items": []
+            "items": items,
+            "total_items": total_items
         }
 
-        response = requests.get(f"{base_url}?page=1", headers=headers)
-        if response.status_code != 200:
-            response.raise_for_status()
-
-        # Add the items from the first page to the final result
-        first_page_data = response.json()
-        final_result["items"].extend(first_page_data.get('items', []))
-
-        # Fetch subsequent pages if there are more than one
-        for page in range(2, total_pages + 1):
-            paginated_response = requests.get(f"{base_url}?page={page}", headers=headers)
-            if paginated_response.status_code == 200:
-                page_data = paginated_response.json()
-                # Add items from the current page to the final result
-                final_result["items"].extend(page_data.get('items', []))
-            else:
-                paginated_response.raise_for_status()
-
-        return final_result
 
     def item(self, groupId, itemId):
         """
