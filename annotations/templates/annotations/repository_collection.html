@@ -17,7 +17,6 @@
 <div class="container">
     <div class="h4 mb-4">Collections and Texts in group {{ group.name }} of repository <strong>{{ repository.name }}</strong></div>
 
-    <!-- Group Info Collapsible Section -->
     <div class="panel panel-default mb-4">
         <div class="panel-heading" id="groupInfoHeader" data-toggle="collapse" href="#groupInfoCollapse" style="cursor: pointer;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -48,14 +47,12 @@
     </div>
 
     <div class="row">
-        <!-- Sidebar with collections -->
         <div class="col-md-3">
             <div class="list-group">
                 <div class="list-group-item active">
                     <h5 class="list-group-item-heading mb-0">Collections</h5>
                 </div>
 
-                <!-- Collections -->
                 {% for collection in collections %}
                 <div class="list-group-item">
                     <div class="row">
@@ -78,7 +75,6 @@
             </div>
         </div>
 
-        <!-- Main content area with texts table -->
         <div class="col-md-9">
             <div class="list-group-item active mb-4">
                 <h5 class="list-group-item-heading mb-0">Group Texts</h5>

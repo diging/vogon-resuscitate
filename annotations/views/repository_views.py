@@ -89,7 +89,7 @@ def repository_collections(request, repository_id):
 
 @citesphere_authenticated
 def repository_collection(request, repository_id, group_id):
-    """View to fetch and display collections within Citesphere Groups"""
+    """View to fetch and display collections and group texts within Citesphere Groups"""
     params = _get_params(request)
 
     repository = get_object_or_404(Repository, pk=repository_id)
