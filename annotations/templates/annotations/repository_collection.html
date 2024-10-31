@@ -19,12 +19,15 @@
 
     <!-- Group Info Collapsible Section -->
     <div class="panel panel-default mb-4">
-        <div class="panel-heading" id="groupInfoHeader">
-            <h5 class="panel-title">
-                <a data-toggle="collapse" href="#groupInfoCollapse" aria-expanded="false" aria-controls="groupInfoCollapse">
+        <div class="panel-heading" id="groupInfoHeader" data-toggle="collapse" href="#groupInfoCollapse" style="cursor: pointer;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h5 class="panel-title mb-0">
                     Group Information
-                </a>
-            </h5>
+                </h5>
+                <span>
+                    <i class="glyphicon glyphicon-chevron-down" style="transition: transform 0.3s;"></i>
+                </span>
+            </div>
         </div>
         <div id="groupInfoCollapse" class="panel-collapse collapse" aria-labelledby="groupInfoHeader">
             <div class="panel-body">
@@ -128,7 +131,7 @@
                                 <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"/>
                               </svg>{% else %}{% endif %}</td>
                             <td>
-                                <button class="btn btn-primary btn-sm">Import</button>
+                                <a href="{% url "repository_text_import" repository.id group_id text.key %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-primary btn-sm">Import</a>
                             </td>
                         </tr>
                         {% empty %}
