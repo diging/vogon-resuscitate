@@ -58,7 +58,7 @@ class RepositoryManager(RESTManager):
         """
         headers = auth.citesphere_auth(self.user, self.repository)
         
-        base_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/{collectionId}/items/"
+        items_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/{collectionId}/items/"
         collections_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/collections/"
 
         # Fetch collection details to get total items
@@ -68,10 +68,12 @@ class RepositoryManager(RESTManager):
         # Extract group and total items for the collection
         collections_data = collections_response.json().get('collections', [])
         group_info = collections_response.json().get('group', {})
+        
+        # TODO: Once there is a collection information endpoint,this will need to be updated
         total_items = next((c.get('numberOfItems', 0) for c in collections_data if c.get('key') == collectionId), 0)
 
         # Get items for the specific page
-        response = requests.get(base_url, headers=headers, params={'page': page})
+        response = requests.get(items_url, headers=headers, params={'page': page})
         response.raise_for_status()
         items = response.json().get('items', [])
 
