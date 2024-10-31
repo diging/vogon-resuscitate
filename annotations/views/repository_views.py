@@ -261,40 +261,6 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     return render(request, 'annotations/repository_collections_text_list.html', context)
 
 @citesphere_authenticated
-def repository_group_texts(request, repository_id, group_id):
-    user = request.user
-    repository = get_object_or_404(Repository, pk=repository_id)
-    manager = RepositoryManager(user=user, repository=repository)
-
-    project_id = request.GET.get('project_id')
-    page = int(request.GET.get('page', 1))
-
-    try:
-        texts = manager.group_items(group_id, page)
-        collections = manager.collections(group_id)
-    except Exception as e:
-        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
-
-    items_per_page = getattr(settings, 'PAGINATION_PAGE_SIZE')
-    pagination = get_pagination_metadata(total_items=texts.get('total_items'), page=page, items_per_page=items_per_page)
-
-    context = {
-        'user': user,
-        'repository': repository,
-        'texts': texts.get('items', []),
-        'group_info': texts.get('group', {}),
-        'group_id': group_id,
-        'project_id': project_id,
-        'current_page': pagination['current_page'],
-        'total_pages': pagination['total_pages'],
-        'page_range': pagination['page_range'],
-        'collections': collections.get('collections', [])
-    }
-
-    return render(request, 'annotations/repository_group_text_list.html', context)
-
-
-@citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key):
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=request.user, repository=repository)
