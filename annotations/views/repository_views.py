@@ -25,6 +25,7 @@ from urllib.parse import urlencode
 from external_accounts.utils import parse_iso_datetimes
 
 from external_accounts.decorators import citesphere_authenticated
+from annotations.utils import get_pagination_metadata
 
 def _get_params(request):
     # The request may include parameters that should be passed along to the
@@ -237,28 +238,38 @@ def repository_details(request, repository_id):
 
 @citesphere_authenticated
 def repository_collection_texts(request, repository_id, group_id, group_collection_id):
-    """View to fetch and display texts within a collection from Citesphere"""
+    """View to fetch and display paginated texts within a collection from Citesphere."""
     user = request.user
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=user, repository=repository)
 
+    page = int(request.GET.get('page', 1))
+
     try:
-        texts = manager.collection_items(group_id, group_collection_id)
+        texts = manager.collection_items(group_id, group_collection_id, page=page)
     except Exception as e:
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
 
-    project_id = request.GET.get('project_id', None)
+    # retrieve items per page from settings and calculate pagination metadata from util function
+    items_per_page = getattr(settings, 'PAGINATION_PAGE_SIZE', 50)
+    pagination = get_pagination_metadata(total_items=texts.get('total_items'), page=page, items_per_page=items_per_page)
+
+    project_id = request.GET.get('project_id')
     context = {
         'user': user,
         'repository': repository,
         'texts': texts['items'],
-        'title': f'Texts in Collection: ', # Collection name is rendered from frontend
-        'group_info':texts['group'],
-        'group_id':group_id,
+        'title': 'Texts in Collection:',
+        'group_info': texts['group'],
+        'group_id': group_id,
         'project_id': project_id,
+        'current_page': pagination['current_page'],
+        'total_pages': pagination['total_pages'],
+        'page_range': pagination['page_range'],
     }
 
     return render(request, 'annotations/repository_collections_text_list.html', context)
+
 
 @citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key):

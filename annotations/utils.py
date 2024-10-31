@@ -40,12 +40,10 @@ def basepath(request):
 def get_pagination_metadata(total_items, page, items_per_page):
     """
     Calculate pagination metadata including total pages, page range, and the current page.
-
     Args:
         total_items (int): Total number of items.
         page (int): The current page number requested.
         items_per_page (int): Number of items per page.
-
     Returns:
         dict: Pagination metadata including total pages, page range, and the validated current page.
     """
