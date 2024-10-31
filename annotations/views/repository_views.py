@@ -95,17 +95,21 @@ def repository_collection(request, repository_id, group_id):
     repository = get_object_or_404(Repository, pk=repository_id)
     
     manager = RepositoryManager(user=request.user, repository=repository)
+
+    page = int(request.GET.get('page', 1))
     
     try:
         response_data = manager.collections(groupId=group_id)
         group_info = response_data.get('group')
         collections = response_data.get('collections', [])
+        group_texts =  manager.group_items(groupId=group_id, page=page)
     except IOError:
         return render(request, 'annotations/repository_ioerror.html', {}, status=500)
 
     project_id = request.GET.get('project_id')
     
-    base_url = reverse('repository_collection', args=(repository_id, group_id))
+    items_per_page = getattr(settings, 'PAGINATION_PAGE_SIZE')
+    pagination = get_pagination_metadata(total_items=group_texts.get('total_items'), page=page, items_per_page=items_per_page)
     
     base_params = {}
     if project_id:
@@ -118,7 +122,11 @@ def repository_collection(request, repository_id, group_id):
         'group_id': group_id,
         'collections': collections,
         'title': f'Browse collections in {group_id}',
-        'project_id': project_id
+        'project_id': project_id,
+        'group_texts': group_texts['items'],
+        'current_page': pagination['current_page'],
+        'total_pages': pagination['total_pages'],
+        'page_range': pagination['page_range'],
     }
 
     return render(request, 'annotations/repository_collection.html', context)
@@ -254,7 +262,6 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
 @citesphere_authenticated
 def repository_group_texts(request, repository_id, group_id):
-    """View to fetch and display texts within a group from Citesphere."""
     user = request.user
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=user, repository=repository)
@@ -264,6 +271,7 @@ def repository_group_texts(request, repository_id, group_id):
 
     try:
         texts = manager.group_items(group_id, page)
+        collections = manager.collections(group_id)
     except Exception as e:
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
 
@@ -280,6 +288,7 @@ def repository_group_texts(request, repository_id, group_id):
         'current_page': pagination['current_page'],
         'total_pages': pagination['total_pages'],
         'page_range': pagination['page_range'],
+        'collections': collections.get('collections', [])
     }
 
     return render(request, 'annotations/repository_group_text_list.html', context)
