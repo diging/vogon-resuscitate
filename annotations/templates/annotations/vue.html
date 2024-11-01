@@ -164,7 +164,7 @@
                                                 <div v-if="sidebarIsShown()" style="padding: 0px;">
                                                     <div class="clearfix sidebar-buttons">
                                                         <div>
-                                                            <!-- Submit Quadruples Button -->
+                                                            {% comment %} <!-- Submit Quadruples Button -->
                                                             <div class="row">
                                                                 <div class="col-xs-12 text-right">
                                                                     <button id="submit-quadruples" 
@@ -175,7 +175,7 @@
                                                                         Submit Quadruples
                                                                     </button>
                                                                 </div>
-                                                            </div>
+                                                            </div> {% endcomment %}
                                                             <h6  v-if="massAssignmentFailed" style="color: red;">Assignment Failed!</h6>
                                                             <div class="pull-right btn-group">
                                                                 <a  id="appellation-submit"v-tooltip="'Appellations'"
