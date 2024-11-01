@@ -20,8 +20,11 @@ from rest_framework.pagination import (LimitOffsetPagination,
 
 from annotations.serializers import *
 from annotations.models import *
+from annotations.utils import generate_graph_data_for_relation
 from concepts.models import Concept, Type
 from concepts.lifecycle import *
+
+from external_accounts.models import CitesphereAccount
 
 import uuid
 import xml.etree.ElementTree as ET
@@ -374,6 +377,59 @@ class RelationViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def submit(self, request, pk=None):
+        relation = self.get_object()
+        user = request.user
+
+        # Check if the user is the creator
+        if relation.createdBy != user:
+            return Response({'error': 'You are not authorized to submit this quadruple.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        # Check if the RelationSet is ready to submit
+        relationset = relation.relationset
+        if relationset.status != 'ready_to_submit':
+            return Response({'error': 'RelationSet is not ready to submit.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if relationset.submitted:
+            return Response({'error': 'RelationSet has already been submitted.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Generate graph data for the relation
+            graph_data = generate_graph_data_for_relation(relation, user)
+
+            # Send the data to the external API
+            citesphere_account = CitesphereAccount.objects.get(user=user, repository=relationset.occursIn.repository)
+            access_token = citesphere_account.access_token
+
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json',
+            }
+
+            collection_id = settings.QUADRIGA_COLLECTION_ID
+            endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
+
+            response = requests.post(endpoint, json=graph_data, headers=headers)
+            response.raise_for_status()
+
+            # Update the status of the RelationSet
+            relationset.status = 'submitted'
+            relationset.submitted = True
+            relationset.submittedOn = timezone.now()
+            relationset.save()
+
+            return Response({'success': 'Quadruple submitted successfully.'}, status=status.HTTP_200_OK)
+
+        except CitesphereAccount.DoesNotExist:
+            return Response({'error': 'No Citesphere account found.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        except requests.RequestException as e:
+            return Response({'error': 'Failed to submit quadruple.'},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # TODO: do we need this anymore?
 class TemporalBoundsViewSet(viewsets.ModelViewSet, AnnotationFilterMixin):

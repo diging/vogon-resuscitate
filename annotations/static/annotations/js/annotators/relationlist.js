@@ -1,33 +1,39 @@
 RelationListItem = {
     props: ['relation'],
-    template: `<li v-bind:class="{
-                        'list-group-item': true,
-                        'relation-list-item': true,
-                        'relation-disabled': !relation.ready_to_submit
-                    }"
-                    :title="!relation.ready_to_submit ? 'Not ready for submission' : ''">
-                    <span class="pull-right text-muted btn-group">
-                        <a class="btn btn-xs" v-on:click="select" :class="{ 'disabled': !relation.ready_to_submit }">
-                            <span class="glyphicon glyphicon-hand-down"></span>
-                        </a>
-                    </span>
-                    <div>
-                        <input type="checkbox" 
-                               v-model="isChecked" 
-                               @change="toggleSelection" 
-                               :disabled="!relation.ready_to_submit" />
-                        {{ getRepresentation(relation) }}
-                    </div>
-                    <div class="text-warning">Created by <strong>{{ getCreatorName(relation.createdBy) }}</strong> on {{ getFormattedDate(relation.created) }}</div>
-                </li>`,
-
+    template: `
+        <li v-bind:class="{
+                'list-group-item': true,
+                'relation-list-item': true,
+                'relation-disabled': !isReadyToSubmit
+            }"
+            :title="!isReadyToSubmit ? 'RelationSet is not ready to submit' : ''">
+            <div>
+                <input type="checkbox"
+                       v-model="isChecked"
+                       @change="toggleSelection"
+                       :disabled="!isReadyToSubmit" />
+                {{ getRepresentation(relation) }}
+            </div>
+            <div class="text-warning">
+                Created by <strong>{{ getCreatorName(relation.createdBy) }}</strong> on {{ getFormattedDate(relation.created) }}
+            </div>
+        </li>
+    `,
     data() {
         return {
             isChecked: false
         };
     },
-
+    computed: {
+        isReadyToSubmit() {
+            console.log('relationset_status:', this.relation);
+            return this.relation.status === 'ready_to_submit';
+        }
+    },
     methods: {
+        toggleSelection() {
+            this.$emit('toggleSelection', { relation: this.relation, selected: this.isChecked });
+        },
         select: function () {
             this.$emit('selectrelation', this.relation);
         },
@@ -103,20 +109,55 @@ RelationList = {
                 alert("No quadruples selected");
                 return;
             }
-            // Submit selected quadruples via an API call
-            this.selectedQuadruples.forEach((quadrupleId) => {
-                this.submitQuadruple(quadrupleId);
+
+            let submissionPromises = this.selectedQuadruples.map((quadrupleId) => {
+                return this.submitQuadruple(quadrupleId);
+            });
+
+            Promise.allSettled(submissionPromises).then((results) => {
+                let successes = results.filter(r => r.status === 'fulfilled');
+                let failures = results.filter(r => r.status === 'rejected');
+
+                if (successes.length > 0) {
+                    alert(`${successes.length} quadruple(s) submitted successfully.`);
+                }
+
+                if (failures.length > 0) {
+                    let errorMessages = failures.map(r => r.reason.message || r.reason);
+                    alert(`Failed to submit ${failures.length} quadruple(s):\n${errorMessages.join('\n')}`);
+                }
+
+                // Refresh the list or update relations as needed
+                this.fetchRelations();
             });
         },
+
         submitQuadruple(quadrupleId) {
-            // Replace with your actual submission endpoint or API method
-            axios.post(`/api/quadruples/${quadrupleId}/submit/`)
+            return axios.post(`/rest/relation/${quadrupleId}/submit/`)
                 .then(() => {
                     console.log(`Quadruple ${quadrupleId} submitted successfully`);
-                    // Optionally update relation or refresh list after submission
+                    // Optionally update the relation's status locally
+                    let relation = this.relations.find(r => r.id === quadrupleId);
+                    if (relation) {
+                        relation.relationset_status = 'submitted';
+                    }
+                    // Remove from selectedQuadruples
+                    this.selectedQuadruples = this.selectedQuadruples.filter(id => id !== quadrupleId);
                 })
                 .catch((error) => {
                     console.error(`Failed to submit quadruple ${quadrupleId}:`, error);
+                    throw error.response ? error.response.data.error : 'Unknown error';
+                });
+        },
+
+        fetchRelations() {
+            // Implement a method to fetch the updated list of relations
+            axios.get('/rest/relation/')
+                .then(response => {
+                    this.relations = response.data;
+                })
+                .catch(error => {
+                    console.error('Failed to fetch relations:', error);
                 });
         }
     }
