@@ -53,6 +53,6 @@ class CheckRelationSetStatusMiddleware(MiddlewareMixin):
             RelationSet.objects.filter(status__in=['not_ready', 'ready_to_submit'])
         )
 
-        # Update statuses for each RelationSet using the update_status method
+        # Update statuses for each RelationSet using the update_status method from Relationset model
         for relation_set in relation_sets:
-            await sync_to_async(relation_set.update_status)()  # Efficiently checks and updates status
+            await sync_to_async(relation_set.update_status)()
