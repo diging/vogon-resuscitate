@@ -65,38 +65,52 @@ RelationListItem = {
     }
 }
 
+// RelationList Component
 RelationList = {
     props: ['relations'],
     template: `<div>
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5>Relations</h5>
-                        <button class="btn btn-primary btn-sm" @click="submitSelected" style="margin: 5px;">
+                        <button class="btn btn-primary btn-sm" 
+                                @click="submitSelected" 
+                                style="margin: 5px;"
+                                :disabled="!canSubmit">
                             <i class="glyphicon glyphicon-send"></i>    
                             Submit Selected Quadruples
                         </button>
+                        <button class="btn btn-secondary" @click="toggleSidebar">
+                            <span :class="sidebarVisible ? 'glyphicon glyphicon-chevron-left' : 'glyphicon glyphicon-chevron-right'"></span>
+                        </button>
                     </div>
-                    <ul class="list-group relation-list">
-                        <relation-list-item
-                            v-for="relation in relations"
-                            :key="relation.id"
-                            :relation="relation"
-                            @selectrelation="selectRelation"
-                            @toggleSelection="toggleSelection">
-                        </relation-list-item>
-                    </ul>
+                    <div v-show="sidebarVisible">
+                        <ul class="list-group relation-list">
+                            <relation-list-item
+                                v-for="relation in relations"
+                                :key="relation.id"
+                                :relation="relation"
+                                @toggleSelection="toggleSelection">
+                            </relation-list-item>
+                        </ul>
+                    </div>
                 </div>`,
     components: {
         'relation-list-item': RelationListItem
     },
     data() {
         return {
-            selectedQuadruples: []
+            selectedQuadruples: [],
+            sidebarVisible: false
         };
     },
+    computed: {
+        canSubmit() {
+            return this.selectedQuadruples.length > 0 && this.selectedQuadruples.every(id => {
+                const relation = this.relations.find(rel => rel.id === id);
+                return relation && relation.status === 'ready_to_submit';
+            });
+        }
+    },
     methods: {
-        selectRelation: function (relation) {
-            this.$emit('selectrelation', relation);
-        },
         toggleSelection({ relation, selected }) {
             if (selected) {
                 this.selectedQuadruples.push(relation.id);
@@ -127,35 +141,27 @@ RelationList = {
                     alert(`Failed to submit ${failures.length} quadruple(s):\n${errorMessages.join('\n')}`);
                 }
 
-                // Refresh the list or update relations as needed
                 this.fetchRelations();
             });
         },
-
         submitQuadruple(quadrupleId) {
             const csrfToken = getCookie('csrftoken');
-            const param = {
-                'pk':quadrupleId,
-            }
+            const param = { 'pk': quadrupleId };
 
             return axios.post(`/rest/relationset/submit`, param, {
                 headers: {
                     'X-CSRFToken': csrfToken,
                     'Content-type': 'application/json'
                 },
-
                 withCredentials: true,
             })
             .then(() => {
-                    console.log(`Quadruple submitted successfully`);
-                    this.selectedQuadruples = this.selectedQuadruples.filter(id => id !== quadrupleId);
-                })
-                .catch((error) => {
-                    console.error(`Failed to submit quadruple ${quadrupleId}:`, error);
-                    throw error.response ? error.response.data.error : 'Unknown error';
-                });
+                this.selectedQuadruples = this.selectedQuadruples.filter(id => id !== quadrupleId);
+            })
+            .catch((error) => {
+                throw error.response ? error.response.data.error : 'Unknown error';
+            });
         },
-
         fetchRelations() {
             axios.get('/rest/relation')
                 .then(response => {
@@ -164,6 +170,9 @@ RelationList = {
                 .catch(error => {
                     console.error('Failed to fetch relations:', error);
                 });
+        },
+        toggleSidebar() {
+            this.sidebarVisible = !this.sidebarVisible;
         }
     }
-}
+};
