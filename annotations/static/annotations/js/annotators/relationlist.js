@@ -133,13 +133,34 @@ RelationList = {
         },
 
         submitQuadruple(quadrupleId) {
-            return axios.post(`/rest/relation/${quadrupleId}/submit/`)
-                .then(() => {
-                    console.log(`Quadruple ${quadrupleId} submitted successfully`);
+            const csrfToken = getCookie('csrftoken');
+            
+            // axios.get('/rest/relation')
+            // .then(response => {
+            //   console.log(response.data);
+            // })
+            // .catch(error => {
+            //   console.error('Error:', error);
+            // });
+
+            const param = {
+                'pk':quadrupleId,
+            }
+
+            return axios.post(`/rest/relation/submit`, param, {
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-type': 'application/json'
+                },
+
+                withCredentials: true,
+            })
+            .then(() => {
+                    console.log(`Quadruple submitted successfully`);
                     // Optionally update the relation's status locally
                     let relation = this.relations.find(r => r.id === quadrupleId);
                     if (relation) {
-                        relation.relationset_status = 'submitted';
+                        relation.status = 'submitted';
                     }
                     // Remove from selectedQuadruples
                     this.selectedQuadruples = this.selectedQuadruples.filter(id => id !== quadrupleId);

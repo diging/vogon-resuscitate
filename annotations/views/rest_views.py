@@ -31,6 +31,7 @@ import xml.etree.ElementTree as ET
 
 import requests
 from django.conf import settings
+from django.utils import timezone 
 
 import logging
 logging.basicConfig()
@@ -377,10 +378,20 @@ class RelationViewSet(viewsets.ModelViewSet):
 
         return queryset
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
-    def submit(self, request, pk=None):
-        relation = self.get_object()
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_name='submit')
+    def submit(self, request):
         user = request.user
+
+        pk = request.data.get('pk')
+        if not pk:
+            return Response({'error': 'No pk provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            relation = Relation.objects.filter(pk=pk)
+            print(relation)
+        except Relation.DoesNotExist:
+            return Response({'error': 'Relation not found.'}, status=status.HTTP_404_NOT_FOUND)
+
 
         # Check if the user is the creator
         if relation.createdBy != user:
@@ -400,6 +411,7 @@ class RelationViewSet(viewsets.ModelViewSet):
         try:
             # Generate graph data for the relation
             graph_data = generate_graph_data_for_relation(relation, user)
+            print(graph_data)
 
             # Send the data to the external API
             citesphere_account = CitesphereAccount.objects.get(user=user, repository=relationset.occursIn.repository)
