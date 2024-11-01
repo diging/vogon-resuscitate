@@ -65,6 +65,69 @@ RelationListItem = {
     }
 }
 
+// RelationListItem Component
+RelationListItem = {
+    props: ['relation'],
+    template: `
+        <li v-bind:class="{
+                'list-group-item': true,
+                'relation-list-item': true,
+                'relation-disabled': !isReadyToSubmit || isAlreadySubmitted
+            }"
+            :title="tooltipText">
+            <div>
+                <input type="checkbox"
+                       v-model="isChecked"
+                       @change="toggleSelection"
+                       :disabled="!isReadyToSubmit || isAlreadySubmitted"
+                       :checked="isAlreadySubmitted" />
+                {{ getRepresentation(relation) }}
+            </div>
+            <div class="text-warning">
+                Created by <strong>{{ getCreatorName(relation.createdBy) }}</strong> on {{ getFormattedDate(relation.created) }}
+            </div>
+        </li>
+    `,
+    data() {
+        return {
+            isChecked: false
+        };
+    },
+    computed: {
+        isReadyToSubmit() {
+            return this.relation.status === 'ready_to_submit';
+        },
+        isAlreadySubmitted() {
+            return this.relation.status === 'submitted';
+        },
+        tooltipText() {
+            if (this.isAlreadySubmitted) return 'Already submitted';
+            if (!this.isReadyToSubmit) return 'RelationSet is not ready to submit';
+            return '';
+        }
+    },
+    methods: {
+        toggleSelection() {
+            if (!this.isAlreadySubmitted) {
+                this.$emit('toggleSelection', { relation: this.relation, selected: this.isChecked });
+            }
+        },
+        getRepresentation: function (relation) {
+            if (relation.representation) {
+                return relation.representation;
+            } else {
+                return relation.appellations.map(appellation => appellation.interpretation.label).join('; ');
+            }
+        },
+        getCreatorName: function (creator) {
+            return creator.id == USER_ID ? 'you' : creator.username;
+        },
+        getFormattedDate: function (isodate) {
+            return moment(isodate).format('dddd LL [at] LT');
+        }
+    }
+};
+
 // RelationList Component
 RelationList = {
     props: ['relations'],
@@ -78,28 +141,22 @@ RelationList = {
                             <i class="glyphicon glyphicon-send"></i>    
                             Submit Selected Quadruples
                         </button>
-                        <button class="btn btn-secondary" @click="toggleSidebar">
-                            <span :class="sidebarVisible ? 'glyphicon glyphicon-chevron-left' : 'glyphicon glyphicon-chevron-right'"></span>
-                        </button>
                     </div>
-                    <div v-show="sidebarVisible">
-                        <ul class="list-group relation-list">
-                            <relation-list-item
-                                v-for="relation in relations"
-                                :key="relation.id"
-                                :relation="relation"
-                                @toggleSelection="toggleSelection">
-                            </relation-list-item>
-                        </ul>
-                    </div>
+                    <ul class="list-group relation-list">
+                        <relation-list-item
+                            v-for="relation in relations"
+                            :key="relation.id"
+                            :relation="relation"
+                            @toggleSelection="toggleSelection">
+                        </relation-list-item>
+                    </ul>
                 </div>`,
     components: {
         'relation-list-item': RelationListItem
     },
     data() {
         return {
-            selectedQuadruples: [],
-            sidebarVisible: false
+            selectedQuadruples: []
         };
     },
     computed: {
@@ -170,9 +227,6 @@ RelationList = {
                 .catch(error => {
                     console.error('Failed to fetch relations:', error);
                 });
-        },
-        toggleSidebar() {
-            this.sidebarVisible = !this.sidebarVisible;
         }
     }
 };
