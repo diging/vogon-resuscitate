@@ -166,7 +166,7 @@ ConceptCreator = {
                    </div>
                    <div v-if="ready()" class="clearfix">
                        <div class="pull-right btn-group">
-                           <a v-if="ready" class="btn btn-success btn-xs" v-on:click="createConcept">
+                           <a v-if="ready" class="btn btn-success btn-xs" v-on:click="createConcept" data-tooltip="Create a concept">
                                 Create <span class="glyphicon glyphicon-grain"></span>
                            </a>
                            <span v-if="submitted" class="btn glyphicon glyphicon-hourglass"></span>
@@ -290,7 +290,7 @@ DateAppellationCreator = {
                         <input v-model="year" type="number" class="form-control input-sm" placeholder="YYYY" min="-9999" max="9999">
                         <input v-model="month" type="number" class="form-control input-sm" placeholder="MM" min="-100" max="12">
                         <input v-model="day" type="number" class="form-control input-sm" placeholder="DD" min="-100" max="31">
-                        <a v-if="ready()" v-on:click="createAppellation" class="btn btn-sm btn-success">Create</a>
+                        <a v-if="ready()" v-on:click="createAppellation" class="btn btn-sm btn-success" data-tooltip="Create a date appellation">Create</a>
                     </div>
                     <div>
                         <a v-on:click="cancel" class="btn btn-xs btn-danger">Cancel</a>
