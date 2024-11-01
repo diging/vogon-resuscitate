@@ -9,14 +9,6 @@ from annotations import quadriga
 from annotations.models import (RelationSet, Appellation, Relation, VogonUser,
                                 Text)
 
-from django.shortcuts import redirect
-from django.http import JsonResponse
-from django.contrib import messages
-from django.conf import settings
-from django.utils import timezone
-import requests
-
-from external_accounts.models import CitesphereAccount
 
 def appellation_xml(request, appellation_id):
     """
@@ -94,48 +86,3 @@ def text_xml(request, text_id, user_id):
     relationsets = RelationSet.objects.filter(occursIn_id=text_id, createdBy_id=user_id)
     text_xml, _ = quadriga.to_quadruples(relationsets, text, user, toString=True)
     return HttpResponse(text_xml, content_type='application/xml')
-
-
-def build_concept_node(concept, user):
-    """
-    Helper function to build a concept node dictionary.
-    """
-    return {
-        "label": concept.label or "",
-        "metadata": {
-            "type": "appellation_event",
-            "interpretation": concept.uri,
-            "termParts": [
-                {
-                    "position": 1,
-                    "expression": concept.label or "",
-                    "normalization": "",
-                    "formattedPointer": "",
-                    "format": ""
-                }
-            ]
-        },
-        "context": {
-            "creator": user.username,
-            "creationTime": timezone.now().strftime('%Y-%m-%d'),
-            "creationPlace": "phoenix",
-            "sourceUri": concept.authority if hasattr(concept, 'authority') else ""
-        }
-    }
-
-def get_relation_node(user):
-    """
-    Helper function to build a relation node.
-    """
-    return {
-        "label": "",
-        "metadata": {
-            "type": "relation_event"
-        },
-        "context": {
-            "creator": user.username,
-            "creationTime": timezone.now().strftime('%Y-%m-%d'),
-            "creationPlace": "phoenix",
-            "sourceUri": ""
-        }
-    }
