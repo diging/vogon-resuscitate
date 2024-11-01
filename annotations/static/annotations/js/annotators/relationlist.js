@@ -147,7 +147,7 @@ RelationList = {
                 'pk':quadrupleId,
             }
 
-            return axios.post(`/rest/relation/submit`, param, {
+            return axios.post(`/rest/relationset/submit`, param, {
                 headers: {
                     'X-CSRFToken': csrfToken,
                     'Content-type': 'application/json'

@@ -143,10 +143,7 @@ def generate_graph_data(relationsets, user):
         }
     }
 
-def generate_graph_data_for_relation(relation, user):
-    # Implement the logic to generate graph data for a single relation
-    # This will be similar to generate_graph_data but for one relation
-
+def generate_graph_data(relationset, user):
     nodes = {}
     edges = []
     node_counter = 0
@@ -157,33 +154,35 @@ def generate_graph_data_for_relation(relation, user):
         node_counter += 1
         return node_id
 
-    subject = getattr(relation.source_content_object, 'interpretation', None)
-    obj = getattr(relation.object_content_object, 'interpretation', None)
-    predicate = getattr(relation.predicate, 'interpretation', None)
+    for relation in relationset.constituents.all():
+        subject = getattr(relation.source_content_object, 'interpretation', None)
+        obj = getattr(relation.object_content_object, 'interpretation', None)
+        predicate = getattr(relation.predicate, 'interpretation', None)
 
-    if not (subject and obj and predicate):
-        raise ValueError('Incomplete relation data.')
+        if subject and subject.uri not in nodes:
+            subject_id = get_node_id()
+            nodes[subject_id] = build_concept_node(subject, user)
 
-    # Build nodes
-    subject_id = get_node_id()
-    nodes[subject_id] = build_concept_node(subject, user)
+        if obj and obj.uri not in nodes:
+            obj_id = get_node_id()
+            nodes[obj_id] = build_concept_node(obj, user)
 
-    obj_id = get_node_id()
-    nodes[obj_id] = build_concept_node(obj, user)
+        if predicate and predicate.uri not in nodes:
+            predicate_id = get_node_id()
+            nodes[predicate_id] = build_concept_node(predicate, user)
 
-    predicate_id = get_node_id()
-    nodes[predicate_id] = build_concept_node(predicate, user)
+        relation_id = get_node_id()
+        nodes[relation_id] = get_relation_node(user)
 
-    relation_id = get_node_id()
-    nodes[relation_id] = get_relation_node(user)
+        if subject and predicate:
+            edges.append({"source": subject_id, "relation": "subject", "target": predicate_id})
 
-    # Build edges
-    edges.append({"source": subject_id, "relation": "subject", "target": predicate_id})
-    edges.append({"source": predicate_id, "relation": "predicate", "target": obj_id})
-    edges.append({"source": relation_id, "relation": "object", "target": obj_id})
+        if predicate and obj:
+            edges.append({"source": predicate_id, "relation": "predicate", "target": obj_id})
 
-    # Construct the graph data
-    graph_data = {
+        edges.append({"source": relation_id, "relation": "object", "target": obj_id})
+
+    return {
         "graph": {
             "metadata": {
                 "defaultMapping": {
@@ -202,5 +201,3 @@ def generate_graph_data_for_relation(relation, user):
             "edges": edges
         }
     }
-
-    return graph_data

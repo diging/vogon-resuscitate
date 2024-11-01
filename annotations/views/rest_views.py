@@ -20,7 +20,7 @@ from rest_framework.pagination import (LimitOffsetPagination,
 
 from annotations.serializers import *
 from annotations.models import *
-from annotations.utils import generate_graph_data_for_relation
+from annotations.utils import generate_graph_data
 from concepts.models import Concept, Type
 from concepts.lifecycle import *
 
@@ -306,6 +306,8 @@ class PredicateViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
     permission_classes = (IsAuthenticatedOrReadOnly, )
 
 
+from django.forms.models import model_to_dict
+
 class RelationSetViewSet(viewsets.ModelViewSet):
     queryset = RelationSet.objects.all()
     serializer_class = RelationSetSerializer
@@ -332,7 +334,67 @@ class RelationSetViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(project_id=project_id)
 
         return queryset.order_by('-created')
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_name='submit')
+    def submit(self, request):
+        user = request.user
 
+        pk = request.data.get('pk')
+        try:
+            relationset = RelationSet.objects.get(pk=pk)
+            print(model_to_dict(relationset))
+        except RelationSet.DoesNotExist:
+            return Response({'error': 'RelationSet not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the user is the creator
+        if relationset.createdBy != user:
+            return Response({'error': 'You are not authorized to submit this RelationSet.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        # Check if the RelationSet is ready to submit
+        if relationset.status != 'ready_to_submit':
+            return Response({'error': 'RelationSet is not ready to submit.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if relationset.submitted:
+            return Response({'error': 'RelationSet has already been submitted.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+
+        try:
+            # Send the data to the external API for each relation
+            citesphere_account = CitesphereAccount.objects.get(user=user, repository=relationset.occursIn.repository)
+            access_token = citesphere_account.access_token
+
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json',
+            }
+
+            collection_id = settings.QUADRIGA_COLLECTION_ID
+            endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
+
+                # Generate graph data for the relation
+            graph_data = generate_graph_data(relationset, user)
+            print(graph_data)
+
+            response = requests.post(endpoint, json=graph_data, headers=headers)
+            response.raise_for_status()
+
+            # Update the status of the RelationSet
+            relationset.status = 'submitted'
+            relationset.submitted = True
+            relationset.submittedOn = timezone.now()
+            relationset.save()
+
+            return Response({'success': 'Quadruples submitted successfully.'}, status=status.HTTP_200_OK)
+
+        except CitesphereAccount.DoesNotExist:
+            return Response({'error': 'No Citesphere account found.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        except requests.RequestException as e:
+            return Response({'error': 'Failed to submit quadruples.'},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RelationViewSet(viewsets.ModelViewSet):
     queryset = Relation.objects.all()
@@ -378,70 +440,7 @@ class RelationViewSet(viewsets.ModelViewSet):
 
         return queryset
 
-    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_name='submit')
-    def submit(self, request):
-        user = request.user
 
-        pk = request.data.get('pk')
-        if not pk:
-            return Response({'error': 'No pk provided.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            relation = Relation.objects.filter(pk=pk)
-            print(relation)
-        except Relation.DoesNotExist:
-            return Response({'error': 'Relation not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-
-        # Check if the user is the creator
-        if relation.createdBy != user:
-            return Response({'error': 'You are not authorized to submit this quadruple.'},
-                            status=status.HTTP_403_FORBIDDEN)
-
-        # Check if the RelationSet is ready to submit
-        relationset = relation.relationset
-        if relationset.status != 'ready_to_submit':
-            return Response({'error': 'RelationSet is not ready to submit.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        if relationset.submitted:
-            return Response({'error': 'RelationSet has already been submitted.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            # Generate graph data for the relation
-            graph_data = generate_graph_data_for_relation(relation, user)
-            print(graph_data)
-
-            # Send the data to the external API
-            citesphere_account = CitesphereAccount.objects.get(user=user, repository=relationset.occursIn.repository)
-            access_token = citesphere_account.access_token
-
-            headers = {
-                'Authorization': f'Bearer {access_token}',
-                'Content-Type': 'application/json',
-            }
-
-            collection_id = settings.QUADRIGA_COLLECTION_ID
-            endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
-
-            response = requests.post(endpoint, json=graph_data, headers=headers)
-            response.raise_for_status()
-
-            # Update the status of the RelationSet
-            relationset.status = 'submitted'
-            relationset.submitted = True
-            relationset.submittedOn = timezone.now()
-            relationset.save()
-
-            return Response({'success': 'Quadruple submitted successfully.'}, status=status.HTTP_200_OK)
-
-        except CitesphereAccount.DoesNotExist:
-            return Response({'error': 'No Citesphere account found.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-        except requests.RequestException as e:
-            return Response({'error': 'Failed to submit quadruple.'},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # TODO: do we need this anymore?
 class TemporalBoundsViewSet(viewsets.ModelViewSet, AnnotationFilterMixin):
