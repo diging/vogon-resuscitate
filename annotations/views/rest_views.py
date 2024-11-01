@@ -305,9 +305,6 @@ class PredicateViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
     serializer_class = AppellationSerializer
     permission_classes = (IsAuthenticatedOrReadOnly, )
 
-
-from django.forms.models import model_to_dict
-
 class RelationSetViewSet(viewsets.ModelViewSet):
     queryset = RelationSet.objects.all()
     serializer_class = RelationSetSerializer
@@ -338,14 +335,11 @@ class RelationSetViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_name='submit')
     def submit(self, request):
 
-        print(request.data)
-
         user = request.user
         pk = request.data.get('pk')
 
         try:
             relationset = RelationSet.objects.get(pk=pk)
-            print(model_to_dict(relationset))
 
         except RelationSet.DoesNotExist:
             return Response({'error': 'RelationSet not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -376,7 +370,6 @@ class RelationSetViewSet(viewsets.ModelViewSet):
             endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
 
             graph_data = generate_graph_data(relationset, user)
-            print(graph_data)
 
             response = requests.post(endpoint, json=graph_data, headers=headers)
             response.raise_for_status()
@@ -395,6 +388,7 @@ class RelationSetViewSet(viewsets.ModelViewSet):
         except requests.RequestException as e:
             return Response({'error': 'Failed to submit quadruples.'},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class RelationViewSet(viewsets.ModelViewSet):
     queryset = Relation.objects.all()

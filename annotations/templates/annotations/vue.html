@@ -165,19 +165,6 @@
                                          </a>
                                                 <div v-if="sidebarIsShown()" style="padding: 0px;">
                                                     <div class="clearfix sidebar-buttons">
-                                                        <div>
-                                                            {% comment %} <!-- Submit Quadruples Button -->
-                                                            <div class="row">
-                                                                <div class="col-xs-12 text-right">
-                                                                    <button id="submit-quadruples" 
-                                                                            class="btn btn-primary btn-sm" 
-                                                                            v-on:click="submitQuadruples"
-                                                                            style="margin: 10px 0;">
-                                                                        <i class="glyphicon glyphicon-send"></i>
-                                                                        Submit Quadruples
-                                                                    </button>
-                                                                </div>
-                                                            </div> {% endcomment %}
                                                             <h6  v-if="massAssignmentFailed" style="color: red;">Assignment Failed!</h6>
                                                             <div class="pull-right btn-group">
                                                                 <a  id="appellation-submit"v-tooltip="'Appellations'"
@@ -478,28 +465,6 @@
             Vue.use(VTooltip);
         </script>
 
-
-        <script>
-            function submitQuadruples() {
-                $.ajax({
-                    url: '{% url "submit_quadruples" text.id %}',
-                    type: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken')
-                    },
-                    success: function(response) {
-                        window.location.reload();
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('quadruple submission failed');
-                        window.location.reload();
-
-                    }
-                });
-            }
-
-            $('#submit-quadruples').click(submitQuadruples);
-        </script>
     </body>
     {% endblock %}
 <!-- </html> -->

@@ -134,15 +134,6 @@ RelationList = {
 
         submitQuadruple(quadrupleId) {
             const csrfToken = getCookie('csrftoken');
-            
-            // axios.get('/rest/relation')
-            // .then(response => {
-            //   console.log(response.data);
-            // })
-            // .catch(error => {
-            //   console.error('Error:', error);
-            // });
-
             const param = {
                 'pk':quadrupleId,
             }
@@ -157,9 +148,6 @@ RelationList = {
             })
             .then(() => {
                     console.log(`Quadruple submitted successfully`);
-                    // Optionally update the relation's status locally
-                    let relation = this.relations.find(r => r.id === quadrupleId);
-                    // Remove from selectedQuadruples
                     this.selectedQuadruples = this.selectedQuadruples.filter(id => id !== quadrupleId);
                 })
                 .catch((error) => {
@@ -169,7 +157,6 @@ RelationList = {
         },
 
         fetchRelations() {
-            // Implement a method to fetch the updated list of relations
             axios.get('/rest/relation')
                 .then(response => {
                     this.relations = response.data;
