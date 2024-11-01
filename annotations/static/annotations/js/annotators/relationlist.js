@@ -159,9 +159,6 @@ RelationList = {
                     console.log(`Quadruple submitted successfully`);
                     // Optionally update the relation's status locally
                     let relation = this.relations.find(r => r.id === quadrupleId);
-                    if (relation) {
-                        relation.status = 'submitted';
-                    }
                     // Remove from selectedQuadruples
                     this.selectedQuadruples = this.selectedQuadruples.filter(id => id !== quadrupleId);
                 })
@@ -173,7 +170,7 @@ RelationList = {
 
         fetchRelations() {
             // Implement a method to fetch the updated list of relations
-            axios.get('/rest/relation/')
+            axios.get('/rest/relation')
                 .then(response => {
                     this.relations = response.data;
                 })

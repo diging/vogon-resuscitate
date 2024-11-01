@@ -337,21 +337,23 @@ class RelationSetViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_name='submit')
     def submit(self, request):
-        user = request.user
 
+        print(request.data)
+
+        user = request.user
         pk = request.data.get('pk')
+
         try:
             relationset = RelationSet.objects.get(pk=pk)
             print(model_to_dict(relationset))
+
         except RelationSet.DoesNotExist:
             return Response({'error': 'RelationSet not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if the user is the creator
         if relationset.createdBy != user:
             return Response({'error': 'You are not authorized to submit this RelationSet.'},
                             status=status.HTTP_403_FORBIDDEN)
 
-        # Check if the RelationSet is ready to submit
         if relationset.status != 'ready_to_submit':
             return Response({'error': 'RelationSet is not ready to submit.'},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -362,7 +364,6 @@ class RelationSetViewSet(viewsets.ModelViewSet):
 
 
         try:
-            # Send the data to the external API for each relation
             citesphere_account = CitesphereAccount.objects.get(user=user, repository=relationset.occursIn.repository)
             access_token = citesphere_account.access_token
 
@@ -374,7 +375,6 @@ class RelationSetViewSet(viewsets.ModelViewSet):
             collection_id = settings.QUADRIGA_COLLECTION_ID
             endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
 
-                # Generate graph data for the relation
             graph_data = generate_graph_data(relationset, user)
             print(graph_data)
 
