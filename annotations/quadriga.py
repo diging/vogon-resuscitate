@@ -245,26 +245,6 @@ def to_quadruples(relationsets, text, user, network_label=None,
     return project, params
 
 
-def submit_relationsets(relationsets, text, user,
-                        userid=settings.QUADRIGA_USERID,
-                        password=settings.QUADRIGA_PASSWORD,
-                        endpoint=settings.QUADRIGA_ENDPOINT, **kwargs):
-    """
-    Submit the :class:`.RelationSet`\s in ``relationsets`` to Quadriga.
-    """
-    payload, params = to_quadruples(relationsets, text, user, toString=True, **kwargs)
-    auth = HTTPBasicAuth(userid, password)
-    headers = {'Accept': 'application/xml'}
-    r = requests.post(endpoint, data=payload, auth=auth, headers=headers)
-
-    if r.status_code == requests.codes.ok:
-        response_data = parse_response(r.text)
-        response_data.update(params)
-        return True, response_data
-
-    return False, r.text
-
-
 def parse_response(raw_response):
     QDNS = '{http://www.digitalhps.org/Quadriga}'
     root = ET.fromstring(raw_response)
