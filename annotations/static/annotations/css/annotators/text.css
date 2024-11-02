@@ -199,3 +199,7 @@
       border: 0;
       background-color: rgb(250, 250, 250);
   }
+
+  .relation-submitted {
+    border-left: 4px solid #7aef7a;
+}

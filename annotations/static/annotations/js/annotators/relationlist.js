@@ -5,7 +5,8 @@ const RelationListItem = {
         <li v-bind:class="{
                 'list-group-item': true,
                 'relation-list-item': true,
-                'relation-disabled': !isReadyToSubmit || isAlreadySubmitted
+                'relation-disabled': !isReadyToSubmit || isAlreadySubmitted,
+                'relation-submitted': isAlreadySubmitted // New class for styling submitted items
             }"
             :title="tooltipText">
             <div>
@@ -71,6 +72,12 @@ const RelationList = {
                             Submit Selected Quadruples
                         </button>
                     </div>
+
+                    <!-- Message Display Section -->
+                    <div v-if="message" class="alert" :class="messageClass" role="alert">
+                        {{ message }}
+                    </div>
+
                     <ul class="list-group relation-list">
                         <relation-list-item
                             v-for="relation in relations"
@@ -86,7 +93,9 @@ const RelationList = {
     },
     data() {
         return {
-            selectedQuadruples: []
+            selectedQuadruples: [],
+            message: '', 
+            messageClass: ''
         };
     },
     computed: {
@@ -110,7 +119,7 @@ const RelationList = {
         },
         submitSelected() {
             if (this.selectedQuadruples.length === 0) {
-                alert("No quadruples selected");
+                this.setMessage("No quadruples selected", "alert-warning");
                 return;
             }
 
@@ -119,16 +128,19 @@ const RelationList = {
             });
 
             Promise.allSettled(submissionPromises).then((results) => {
-                let successes = results.filter(r => r.status === 'fulfilled');
-                let failures = results.filter(r => r.status === 'rejected');
+                let successes = results.filter(r => r.status === 'fulfilled').length;
+                let failures = results.filter(r => r.status === 'rejected').length;
 
-                if (successes.length > 0) {
-                    alert(`${successes.length} quadruple(s) submitted successfully.`);
+                if (successes > 0) {
+                    this.setMessage(`${successes} quadruple(s) submitted successfully.`, "alert-success");
                 }
 
-                if (failures.length > 0) {
-                    let errorMessages = failures.map(r => r.reason.message || r.reason);
-                    alert(`Failed to submit ${failures.length} quadruple(s):\n${errorMessages.join('\n')}`);
+                if (failures > 0) {
+                    let failureReasons = results
+                        .filter(r => r.status === 'rejected')
+                        .map(r => r.reason)
+                        .join(', ');
+                    this.setMessage(`Failed to submit ${failures} quadruple(s). Reasons: ${failureReasons}`, "alert-danger");
                 }
 
                 this.fetchRelations();
@@ -147,7 +159,6 @@ const RelationList = {
                 withCredentials: true,
             })
             .then(() => {
-                console.log(`Quadruple submitted successfully`);
                 this.selectedQuadruples = this.selectedQuadruples.filter(id => id !== quadrupleId);
             })
             .catch((error) => {
@@ -164,6 +175,15 @@ const RelationList = {
                 .catch(error => {
                     console.error('Failed to fetch relations:', error);
                 });
+        },
+
+        setMessage(message, type) {
+            this.message = message;
+            this.messageClass = type;
+            setTimeout(() => {
+                this.message = '';
+                this.messageClass = '';
+            }, 5000);
         }
     }
 };

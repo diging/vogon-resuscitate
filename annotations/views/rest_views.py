@@ -349,11 +349,11 @@ class RelationSetViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_403_FORBIDDEN)
 
         if relationset.status != 'ready_to_submit':
-            return Response({'error': 'RelationSet is not ready to submit.'},
+            return Response({'error': 'Quadruple(s) is not ready to submit.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
         if relationset.submitted:
-            return Response({'error': 'RelationSet has already been submitted.'},
+            return Response({'error': 'Quadruple(s) has already been submitted.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
 
