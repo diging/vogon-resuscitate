@@ -1,73 +1,5 @@
-RelationListItem = {
-    props: ['relation'],
-    template: `
-        <li v-bind:class="{
-                'list-group-item': true,
-                'relation-list-item': true,
-                'relation-selected': isSelected(),
-                'relation-disabled': !isReadyToSubmit
-            }"
-            :title="!isReadyToSubmit ? 'Quadruple is not ready to submit' : ''">
-            <div>
-                <input type="checkbox"
-                       v-model="isChecked"
-                       @change="toggleSelection"
-                       :disabled="!isReadyToSubmit" />
-                {{ getRepresentation(relation) }}
-            </div>
-            <div class="text-warning">
-                Created by <strong>{{ getCreatorName(relation.createdBy) }}</strong> on {{ getFormattedDate(relation.created) }}
-            </div>
-        </li>
-    `,
-    data() {
-        return {
-            isChecked: false
-        };
-    },
-    computed: {
-        isReadyToSubmit() {
-            console.log('relationset_status:', this.relation);
-            return this.relation.status === 'ready_to_submit';
-        }
-    },
-    methods: {
-        toggleSelection() {
-            this.$emit('toggleSelection', { relation: this.relation, selected: this.isChecked });
-        },
-        select: function () {
-            this.$emit('selectrelation', this.relation);
-        },
-        isSelected: function () {
-            return this.relation.selected;
-        },
-        getRepresentation: function (relation) {
-            if (relation.representation) {
-                return relation.representation;
-            } else {
-                return relation.appellations.map(function (appellation) {
-                    return appellation.interpretation.label;
-                }).join('; ');
-            }
-        },
-        getCreatorName: function (creator) {
-            if (creator.id == USER_ID) {
-                return 'you';
-            } else {
-                return creator.username;
-            }
-        },
-        getFormattedDate: function (isodate) {
-            return moment(isodate).format('dddd LL [at] LT');
-        },
-        toggleSelection() {
-            this.$emit('toggleSelection', { relation: this.relation, selected: this.isChecked });
-        }
-    }
-}
-
 // RelationListItem Component
-RelationListItem = {
+const RelationListItem = {
     props: ['relation'],
     template: `
         <li v-bind:class="{
@@ -80,8 +12,7 @@ RelationListItem = {
                 <input type="checkbox"
                        v-model="isChecked"
                        @change="toggleSelection"
-                       :disabled="!isReadyToSubmit || isAlreadySubmitted"
-                       :checked="isAlreadySubmitted" />
+                       :disabled="!isReadyToSubmit || isAlreadySubmitted" />
                 {{ getRepresentation(relation) }}
             </div>
             <div class="text-warning">
@@ -113,43 +44,39 @@ RelationListItem = {
                 this.$emit('toggleSelection', { relation: this.relation, selected: this.isChecked });
             }
         },
-        getRepresentation: function (relation) {
+        getRepresentation(relation) {
             if (relation.representation) {
                 return relation.representation;
             } else {
                 return relation.appellations.map(appellation => appellation.interpretation.label).join('; ');
             }
         },
-        getCreatorName: function (creator) {
+        getCreatorName(creator) {
             return creator.id == USER_ID ? 'you' : creator.username;
         },
-        getFormattedDate: function (isodate) {
+        getFormattedDate(isodate) {
             return moment(isodate).format('dddd LL [at] LT');
         }
     }
 };
 
 // RelationList Component
-RelationList = {
+const RelationList = {
     props: ['relations'],
     template: `<div>
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5>Relations</h5>
-                        <button class="btn btn-primary btn-sm" 
-                                @click="submitSelected" 
-                                style="margin: 5px;"
-                                :disabled="!canSubmit">
+                        <button class="btn btn-primary btn-sm" @click="submitSelected" style="margin: 5px;" :disabled="!canSubmit">
                             <i class="glyphicon glyphicon-send"></i>    
                             Submit Selected Quadruples
                         </button>
                     </div>
                     <ul class="list-group relation-list">
                         <relation-list-item
-                            v-on:selectrelation="selectRelation"
-                            v-bind:relation=relation
                             v-for="relation in relations"
                             :key="relation.id"
                             :relation="relation"
+                            @selectRelation="selectRelation"
                             @toggleSelection="toggleSelection">
                         </relation-list-item>
                     </ul>
@@ -171,8 +98,8 @@ RelationList = {
         }
     },
     methods: {
-        selectRelation: function (relation) {
-            this.$emit('selectrelation', relation);
+        selectRelation(relation) {
+            this.$emit('selectRelation', relation);
         },
         toggleSelection({ relation, selected }) {
             if (selected) {
@@ -207,6 +134,7 @@ RelationList = {
                 this.fetchRelations();
             });
         },
+
         submitQuadruple(quadrupleId) {
             const csrfToken = getCookie('csrftoken');
             const param = { 'pk': quadrupleId };
@@ -219,12 +147,15 @@ RelationList = {
                 withCredentials: true,
             })
             .then(() => {
+                console.log(`Quadruple submitted successfully`);
                 this.selectedQuadruples = this.selectedQuadruples.filter(id => id !== quadrupleId);
             })
             .catch((error) => {
+                console.error(`Failed to submit quadruple ${quadrupleId}:`, error);
                 throw error.response ? error.response.data.error : 'Unknown error';
             });
         },
+
         fetchRelations() {
             axios.get('/rest/relation')
                 .then(response => {
