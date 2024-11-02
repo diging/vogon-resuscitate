@@ -4,9 +4,10 @@ RelationListItem = {
         <li v-bind:class="{
                 'list-group-item': true,
                 'relation-list-item': true,
+                'relation-selected': isSelected(),
                 'relation-disabled': !isReadyToSubmit
             }"
-            :title="!isReadyToSubmit ? 'RelationSet is not ready to submit' : ''">
+            :title="!isReadyToSubmit ? 'Quadruple is not ready to submit' : ''">
             <div>
                 <input type="checkbox"
                        v-model="isChecked"
@@ -102,7 +103,7 @@ RelationListItem = {
         },
         tooltipText() {
             if (this.isAlreadySubmitted) return 'Already submitted';
-            if (!this.isReadyToSubmit) return 'RelationSet is not ready to submit';
+            if (!this.isReadyToSubmit) return 'Quadruple is not ready to submit';
             return '';
         }
     },
@@ -144,6 +145,8 @@ RelationList = {
                     </div>
                     <ul class="list-group relation-list">
                         <relation-list-item
+                            v-on:selectrelation="selectRelation"
+                            v-bind:relation=relation
                             v-for="relation in relations"
                             :key="relation.id"
                             :relation="relation"
@@ -168,6 +171,9 @@ RelationList = {
         }
     },
     methods: {
+        selectRelation: function (relation) {
+            this.$emit('selectrelation', relation);
+        },
         toggleSelection({ relation, selected }) {
             if (selected) {
                 this.selectedQuadruples.push(relation.id);

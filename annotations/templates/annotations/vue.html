@@ -29,17 +29,6 @@
     <!-- </head> -->
     {% block main %}
     <body>
-        <!-- Display Django Messages -->
-        {% if messages %}
-        <div class="alert-container">
-            {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}">
-                {{ message }}
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-        
         <div class="row">
             <div class="col-xs-12" id="tabGraph">
                 <div id="graphContainer" style="height: 100px; padding:5px; resize: vertical; overflow: auto; border: 1px solid #ddd; margin: 5px;">
@@ -165,6 +154,18 @@
                                          </a>
                                                 <div v-if="sidebarIsShown()" style="padding: 0px;">
                                                     <div class="clearfix sidebar-buttons">
+                                                        <div>
+                                                            <!-- <a v-if="submitAppellationClicked == false" v-tooltip="'Submit All Appellations'"
+                                                                    v-bind:class="{btn: true, 'btn-primary':'btn-primary'}"
+                                                                    v-on:click="showSubmitAllAppellationsSidebar">
+                                                                <span class="glyphicon glyphicon-cloud-upload"></span>
+                                                            </a>
+                                                            <a v-if="submitAppellationClicked" v-tooltip="'Submit All Appellations'"
+                                                                    v-bind:class="{btn: true, 'btn-primary':'btn-primary'}"
+                                                                    v-on:click="showSubmitAllAppellationsSidebar(); createRelationsFromText();">
+                                                                    <span>Submit</span>
+                                                                
+                                                            </a> -->
                                                             <h6  v-if="massAssignmentFailed" style="color: red;">Assignment Failed!</h6>
                                                             <div class="pull-right btn-group">
                                                                 <a  id="appellation-submit"v-tooltip="'Appellations'"
@@ -464,7 +465,6 @@
         <script>
             Vue.use(VTooltip);
         </script>
-
     </body>
     {% endblock %}
 <!-- </html> -->
