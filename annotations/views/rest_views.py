@@ -386,7 +386,7 @@ class RelationSetViewSet(viewsets.ModelViewSet):
             return Response({'error': 'No Citesphere account found.'},
                             status=status.HTTP_400_BAD_REQUEST)
         except requests.RequestException as e:
-            return Response({'error': 'Failed to submit quadruples.'},
+            return Response({'error': 'Internal Server Error Occured. Please try again later!'},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

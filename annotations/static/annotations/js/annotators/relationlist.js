@@ -23,7 +23,7 @@ const RelationListItem = {
     `,
     data() {
         return {
-            isChecked: false
+            isChecked: this.isAlreadySubmitted
         };
     },
     computed: {
@@ -159,6 +159,11 @@ const RelationList = {
                 withCredentials: true,
             })
             .then(() => {
+                // Update local status to 'submitted'
+                let relation = this.relations.find(r => r.id === quadrupleId);
+                if (relation) {
+                    relation.status = 'submitted';
+                }
                 this.selectedQuadruples = this.selectedQuadruples.filter(id => id !== quadrupleId);
             })
             .catch((error) => {
