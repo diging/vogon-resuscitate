@@ -525,7 +525,6 @@ def update_template(template, template_data, part_data_list):
         If the provided data is invalid.
     """
     with transaction.atomic():
-        # Update the template fields
         for field, value in template_data.items():
             setattr(template, field, value)
         template.save()
