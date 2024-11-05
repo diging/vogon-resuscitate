@@ -37,7 +37,7 @@ def tokenize(content, delimiter=' '):
     -------
     tokenizedContent : unicode
     """
-    chunks = content.split(delimiter)
+    chunks = content.split(delimiter) if content is not None else []
     pattern = '<word id="{0}">{1}</word>'
     return delimiter.join([pattern.format(i, c) for i, c in enumerate(chunks)])
 
