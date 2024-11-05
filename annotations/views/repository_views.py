@@ -109,7 +109,7 @@ def repository_collection(request, repository_id, group_id):
 
     project_id = request.GET.get('project_id')
     
-    items_per_page = getattr(settings, 'PAGINATION_PAGE_SIZE')
+    items_per_page = settings.PAGINATION_PAGE_SIZE
     pagination = get_pagination_metadata(total_items=group_texts.get('total_items'), page=page, items_per_page=items_per_page)
     
     base_params = {}
@@ -251,7 +251,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
 
     # retrieve items per page from settings and calculate pagination metadata from util function
-    items_per_page = getattr(settings, 'PAGINATION_PAGE_SIZE', 50)
+    items_per_page = settings.PAGINATION_PAGE_SIZE
     pagination = get_pagination_metadata(total_items=texts.get('total_items'), page=page, items_per_page=items_per_page)
 
     project_id = request.GET.get('project_id')
