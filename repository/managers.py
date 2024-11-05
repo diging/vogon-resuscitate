@@ -1,3 +1,4 @@
+from django.conf import settings
 from repository.restable import RESTManager
 from repository import auth
 from external_accounts.utils import get_giles_document_details
@@ -30,6 +31,31 @@ class RepositoryManager(RESTManager):
         else:
             response.raise_for_status()
 
+    def group_items(self, groupId, page=1):
+        """
+        Fetch items from a specific group for a specific page.
+        """
+        headers = auth.citesphere_auth(self.user, self.repository)
+        base_url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/"
+
+        params = {
+            'page': page,
+        }
+
+        group_response = requests.get(base_url, headers=headers, params=params)
+        group_response.raise_for_status()
+
+        response_data = group_response.json()
+        group_data = response_data.get('group', {})
+        items = response_data.get('items', [])
+        total_items = group_data.get('numItems', 0)
+
+        return {
+            "group": group_data,
+            "items": items,
+            "total_items": total_items
+        }
+            
     def collections(self, groupId):
         """Fetch collections from the repository's endpoint"""
         headers = auth.citesphere_auth(self.user, self.repository)
