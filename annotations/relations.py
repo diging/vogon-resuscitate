@@ -499,3 +499,45 @@ def create_relationset(template, raw_data, creator, text, project_id=None):
                              relations, project_id=project_id)
         relationset.save()
     return relationset
+
+
+def update_template(template, template_data, part_data_list):
+    """
+    Update an existing RelationTemplate and its parts.
+
+    Parameters
+    ----------
+    template : RelationTemplate instance
+        The template to update.
+    template_data : dict
+        Data for updating the RelationTemplate.
+    part_data_list : list of dict
+        List of data for updating RelationTemplateParts.
+
+    Returns
+    -------
+    template : RelationTemplate instance
+        The updated RelationTemplate.
+
+    Raises
+    ------
+    InvalidTemplate
+        If the provided data is invalid.
+    """
+    with transaction.atomic():
+        # Update the template fields
+        for field, value in template_data.items():
+            setattr(template, field, value)
+        template.save()
+
+        # Delete existing parts and recreate them
+        RelationTemplatePart.objects.filter(part_of=template).delete()
+
+        # Create new parts
+        for part_data in part_data_list:
+            part_data_copy = part_data.copy()
+            part_data_copy.pop('internal_id', None)
+            part = RelationTemplatePart(part_of=template, **part_data_copy)
+            part.save()
+
+    return template
