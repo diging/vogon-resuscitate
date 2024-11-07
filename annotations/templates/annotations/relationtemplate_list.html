@@ -5,10 +5,77 @@
 <style>
 .clickable-row {
     cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.clickable-row:hover {
+    background-color: #f5f5f5;
+}
+
+.table {
+    box-shadow: none;
+    border-radius: 0;
+}
+
+.table > thead > tr > th {
+    border-bottom: none;
+    padding: 15px;
+    font-weight: 600;
+}
+
+.table > tbody > tr > td {
+    padding: 12px 15px;
+    border-top: none;
+    vertical-align: middle;
+}
+
+.btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background-color: #337ab7;
+    border-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+.action-btn {
+    padding: 6px 12px;
+    border-radius: 4px;
+    text-decoration: none;
+    margin-right: 8px;
+    transition: all 0.2s ease;
+}
+
+.edit-btn {
+    color: #007bff;
+}
+
+.edit-btn:hover {
+    color: #0056b3;
+    text-decoration: none;
+}
+
+.delete-btn {
+    color: #dc3545;
+}
+
+.delete-btn:hover {
+    color: #c82333;
+    text-decoration: none;
+}
+
+.fa {
+    font-size: 1.2em;
 }
 </style>
-
-
 
 <div class="container-fluid" id="main">
 
@@ -20,23 +87,24 @@
     <div class="row">
         <div class="col-sm-12 clearfix">
             <div class="btn-group pull-right">
-                <a class="btn btn-md" href="{% url "add_relationtemplate" %}">
-                    <span class="glyphicon glyphicon-plus"></span> Add
+                <a class="btn btn-primary" href="{% url "add_relationtemplate" %}">
+                    <span class="glyphicon glyphicon-plus"></span> Add Template
                 </a>
             </div>
             <div class="h2">
-                {% if not all_templates %}My {% endif %}Relation Templates {% if all_templates %}<a href="{% url "list_relationtemplate" %}" class="btn"><span class='glyphicon glyphicon-filter'></span> My templates</a>{% else %}<a href="?all=true" class="btn"><span class='glyphicon glyphicon-filter'></span> View all</a>{% endif %}
+                {% if not all_templates %}My {% endif %}Relation Templates {% if all_templates %}<a href="{% url "list_relationtemplate" %}" class="btn btn-outline-secondary"><span class='glyphicon glyphicon-filter'></span> My templates</a>{% else %}<a href="?all=true" class="btn btn-outline-secondary"><span class='glyphicon glyphicon-filter'></span> View all</a>{% endif %}
             </div>
-            <p>
+            <p class="text-muted">
                 Relation templates provide a mechanism for mapping annotations
                 onto complex nested relations (quadruples).
             </p>
-            <table class="table table-condensed table-responsive table-hover">
+            <table class="table table-responsive table-hover">
                 <thead>
                     <tr>
                         <th class="col-sm-1"></th>
                         <th class="col-sm-3">Name</th>
                         <th>Description</th>
+                        <th>Edit/Delete</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -46,28 +114,26 @@
                         <td>{{ template.name }}</td>
                         <td>{{ template.description }}</td>
                         <td>
-                            <!-- Edit Icon -->
                             <a href="{% url 'edit_relationtemplate' template.id %}"
                                title="Edit relation template"
-                               class="fa fa-edit"
-                               aria-hidden="true"
-                               style="margin-right: 10px;">Edit
+                               class="action-btn edit-btn"
+                               aria-hidden="true">
+                               <i class="fa fa-pencil"></i>
                             </a>
-                            <!-- Delete Icon -->
                             <a href="#"
-                               class="fa fa-trash openDeleteTemplateModal"
+                               class="action-btn delete-btn openDeleteTemplateModal"
                                aria-hidden="true"
                                data-toggle="modal"
                                title="Delete relation template"
                                data-url="{% url 'delete_relationtemplate' template.id %}"
                                data-name="{{ template.name }}"
-                               data-description="{{ template.description }}">Delete
+                               data-description="{{ template.description }}">
+                               <i class="fa fa-trash"></i>
                             </a>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
-
             </table>
         </div>
     </div>
@@ -131,4 +197,3 @@ jQuery(document).ready(function($) {
 <!-- Delete Template modal section ends here -->
 
 {% endblock %}
-
