@@ -31,6 +31,7 @@ def annotate_image(request, text_id):
     return render(request, template, context)
 
 
+@login_required
 def relations(request):
     from annotations.filters import RelationSetFilter
 

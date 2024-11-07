@@ -16,19 +16,46 @@
             </div>
             <div id="navbar" class="navbar-collapse collapse">
 				<ul class="nav navbar-nav">
-					<li class="dropdown">
-						<a href="#" class="dropdown-toggle btn btn-lg"
-                            data-toggle="dropdown"
-                            role="button"
-                            aria-haspopup="true"
-                            aria-expanded="false">
-                            <span class="glyphicon glyphicon-book"></span> <span class="caret"></span></a>
-						<ul class="dropdown-menu">
-							<li><a href="{% url "repository_list" %}">Texts</a></li>
-							<li><a href="{% url "list_projects" %}">Projects</a></li>
-						</ul>
-
+					<li>
+						<a href="{% url "repository_list" %}" class="btn btn-lg"
+                            data-toggle="tooltip" title="Texts"
+                            data-container="body"
+                            data-placement="bottom">
+                            <span class="glyphicon glyphicon-book"></span>
+                        </a>
 					</li>
+					{% if user.is_authenticated %}
+					<li class="dropdown">
+						<a href="#" class="btn btn-lg dropdown-toggle"
+							data-toggle="dropdown"
+							role="button"
+							aria-haspopup="true"
+							aria-expanded="false">
+							<span class="glyphicon glyphicon-briefcase"
+								data-toggle="tooltip"
+								title="Projects"
+								data-container="body"
+								data-placement="bottom"></span> <span class="caret"></span>
+						</a>
+						<ul class="dropdown-menu">
+							{% for project in request.user.collections.all %}
+								<li><a href="{% url 'view_project' project.id %}">{{ project.name }}</a></li>
+							{% endfor %}
+							<li role="separator" class="divider" style="height: 0.2px;"></li>
+							<li><a href="{% url "list_projects" %}">All Projects</a></li>
+						</ul>
+					</li>
+					{% else %}
+					<li>
+						<a href="{% url 'list_projects' %}" class="btn btn-lg">
+							<span class="glyphicon glyphicon-briefcase"
+								data-toggle="tooltip"
+								title="Projects"
+								data-container="body"
+								data-placement="bottom"></span>
+						</a>
+					</li>
+					{% endif %}
 					<li >
                         <a href="{% url "users" %}" class="btn btn-lg"
                             data-toggle="tooltip" title="Contributors"
