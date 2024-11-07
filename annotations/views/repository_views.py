@@ -299,6 +299,8 @@ def repository_text_import(request, repository_id, group_id, text_key):
         'originalResource': item_details.get('url'),
     }
 
+    # URI represents the unique location of the text within a specific Citesphere instance.
+    # This allows for multiple Citesphere instances to have items with the same key but different URIs.
     master_text, created = Text.objects.get_or_create(
         uri=f"{repository.endpoint}/auth/group/{group_id}/items/{item_details.get('key')}",
         defaults=defaults

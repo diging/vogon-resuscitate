@@ -49,12 +49,10 @@ def get_giles_document_details(user, file_id, repository):
         if not citesphere_account:
             return None
         token = citesphere_account.access_token
-        print(citesphere_account.repository)
         headers = {'Authorization': f'Bearer {token}'}
-        url = f"{settings.GILES_ENDPOINT}api/v2/resources/files/{file_id}/content/"
+        url = f"{repository.giles_endpoint}/api/v2/resources/files/{file_id}/content/"
 
         response = requests.get(url, headers=headers)
-        print(response.text)
         response.raise_for_status()  # Raises an HTTPError for bad responses
 
         return response.text

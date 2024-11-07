@@ -139,7 +139,6 @@ class RepositoryManager(RESTManager):
             
             # Extract Giles upload details if available
             giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
-            print(giles_uploads)
 
             if giles_uploads:
                 giles_details = []
