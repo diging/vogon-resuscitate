@@ -49,6 +49,7 @@ router.register(r'dateappellation', views.rest_views.DateAppellationViewSet)
 handler403 = 'annotations.exceptions.custom_403_handler'
 
 urlpatterns = [
+    path(settings.APP_ROOT, include([
     re_path(r'^$', views.main_views.home, name='home'),
     re_path(r'^about/$', views.main_views.about, name='about'),
 
@@ -144,6 +145,6 @@ urlpatterns = [
     path('login/citesphere/', externalAccountViews.citesphere_login, name='citesphere_login'),
     path('oauth/callback/citesphere/', externalAccountViews.citesphere_callback, name='citesphere_callback'),
     path('citesphere/refresh/<int:repository_id>/', externalAccountViews.citesphere_refresh_token, name='citesphere_refresh_token'),
-    
+    ])),
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
