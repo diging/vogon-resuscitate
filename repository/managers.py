@@ -2,6 +2,7 @@ from django.conf import settings
 from repository.restable import RESTManager
 from repository import auth
 from external_accounts.utils import get_giles_document_details
+from .exceptions import GilesUploadError, GilesTextExtractionError
 import requests
 
 class RepositoryManager(RESTManager):
@@ -136,34 +137,33 @@ class RepositoryManager(RESTManager):
                 'addedOn': item_data.get('item', {}).get('dateAdded', 'Unknown date'),
                 'url': item_data.get('item', {}).get('url')
             }
-            
-            # Extract Giles upload details if available
+
             giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
 
-            if giles_uploads:
-                giles_details = []
-                extracted_text = giles_uploads[0].get('extractedText', {})
+            if not giles_uploads:
+                raise GilesUploadError("No Giles uploads available for this item.")
+            
+            giles_details = []
+            extracted_text = giles_uploads[0].get('extractedText', {})
 
-                if extracted_text and extracted_text.get('content-type') == 'text/plain':
-                    extracted_text_data = get_giles_document_details(self.user, extracted_text.get('id'), repository)
-                    item_data['item']['text'] = extracted_text_data
-                elif giles_uploads[0].get('pages'):
-                    pages = giles_uploads[0].get('pages')
-                    text = ""
-                    for page in pages:
-                        if page.get('text') and page.get('text').get('content-type') == 'text/plain':
-                            data = get_giles_document_details(self.user, page.get('text').get('id'))
-                            text += data
-                    item_data['item']['text'] = text
-                else:
-                    item_data['item']['text'] = "No valid text/plain content found."
+            if extracted_text and extracted_text.get('content-type') == 'text/plain':
+                extracted_text_data = get_giles_document_details(self.user, extracted_text.get('id'), repository)
+                item_data['item']['text'] = extracted_text_data
+            elif giles_uploads[0].get('pages'):
+                pages = giles_uploads[0].get('pages')
+                text = ""
+                for page in pages:
+                    if page.get('text') and page.get('text').get('content-type') == 'text/plain':
+                        data = get_giles_document_details(self.user, page.get('text').get('id'))
+                        text += data
+                if not text:
+                    raise GilesTextExtractionError("No valid text/plain content found in the Giles uploads.")
+                item_data['item']['text'] = text
             else:
-                print("No Giles uploads available")
-                item_data['item']['text'] = "No Giles uploads available."
+                raise GilesTextExtractionError("No valid text/plain content found for this text!")
 
             item_data['item']['details'] = item_details
 
             return item_data
-
         else:
             response.raise_for_status()

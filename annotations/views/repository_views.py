@@ -279,7 +279,14 @@ def repository_text_import(request, repository_id, group_id, text_key):
     try:
         result = manager.item(group_id, text_key, repository)
     except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+        return render(request, 'annotations/repository_ioerror.html', {'error': "IOError occurred while accessing the repository."}, status=500)
+    except GilesUploadError as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except GilesTextExtractionError as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        # Catch any other exceptions
+        return render(request, 'annotations/repository_ioerror.html', {'error': "An unexpected error occurred: " + str(e)}, status=500)
 
     # Extracting item details and Giles details from the result
     item_details = result.get('item', {}).get('details', {})
