@@ -277,7 +277,7 @@ def repository_text_import(request, repository_id, group_id, text_key):
     manager = RepositoryManager(user=request.user, repository=repository)
 
     try:
-        result = manager.item(group_id, text_key)
+        result = manager.item(group_id, text_key, repository)
     except IOError:
         return render(request, 'annotations/repository_ioerror.html', {}, status=500)
 
@@ -300,7 +300,7 @@ def repository_text_import(request, repository_id, group_id, text_key):
     }
 
     master_text, created = Text.objects.get_or_create(
-        uri=item_details.get('key'),
+        uri=f"{repository.endpoint}/auth/group/{group_id}/items/{item_details.get('key')}",
         defaults=defaults
     )
 

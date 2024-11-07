@@ -33,7 +33,7 @@ def parse_iso_datetimes(datetime_list):
     return parsed_dates
 
 
-def get_giles_document_details(user, file_id):
+def get_giles_document_details(user, file_id, repository):
     """
     Retrieve detailed information about a document from Giles for a given user and document ID.
 
@@ -45,14 +45,16 @@ def get_giles_document_details(user, file_id):
         A dictionary with the document details if successful, None otherwise.
     """
     try:
-        citesphere_account = CitesphereAccount.objects.filter(user=user).first()
+        citesphere_account = CitesphereAccount.objects.get(user=user, repository=repository)
         if not citesphere_account:
             return None
         token = citesphere_account.access_token
+        print(citesphere_account.repository)
         headers = {'Authorization': f'Bearer {token}'}
         url = f"{settings.GILES_ENDPOINT}api/v2/resources/files/{file_id}/content/"
 
         response = requests.get(url, headers=headers)
+        print(response.text)
         response.raise_for_status()  # Raises an HTTPError for bad responses
 
         return response.text

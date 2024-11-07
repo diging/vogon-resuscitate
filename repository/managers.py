@@ -110,7 +110,7 @@ class RepositoryManager(RESTManager):
         }
 
 
-    def item(self, groupId, itemId):
+    def item(self, groupId, itemId, repository):
         """
         Fetch individual item from repository's endpoint and get Giles document details for documents of type 'text/plain'
 
@@ -136,16 +136,17 @@ class RepositoryManager(RESTManager):
                 'addedOn': item_data.get('item', {}).get('dateAdded', 'Unknown date'),
                 'url': item_data.get('item', {}).get('url')
             }
-
+            
             # Extract Giles upload details if available
             giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
+            print(giles_uploads)
 
             if giles_uploads:
                 giles_details = []
                 extracted_text = giles_uploads[0].get('extractedText', {})
 
                 if extracted_text and extracted_text.get('content-type') == 'text/plain':
-                    extracted_text_data = get_giles_document_details(self.user, extracted_text.get('id'))
+                    extracted_text_data = get_giles_document_details(self.user, extracted_text.get('id'), repository)
                     item_data['item']['text'] = extracted_text_data
                 elif giles_uploads[0].get('pages'):
                     pages = giles_uploads[0].get('pages')
