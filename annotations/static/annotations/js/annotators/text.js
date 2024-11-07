@@ -166,7 +166,7 @@ ConceptCreator = {
                    </div>
                    <div v-if="ready()" class="clearfix">
                        <div class="pull-right btn-group">
-                           <a v-if="ready" class="btn btn-success btn-xs" v-on:click="createConcept" data-tooltip="Create a concept">
+                           <a v-if="ready" class="btn btn-success btn-xs" v-on:click="createConcept" data-tooltip="Create concept">
                                 Create <span class="glyphicon glyphicon-grain"></span>
                            </a>
                            <span v-if="submitted" class="btn glyphicon glyphicon-hourglass"></span>
@@ -290,7 +290,7 @@ DateAppellationCreator = {
                         <input v-model="year" type="number" class="form-control input-sm" placeholder="YYYY" min="-9999" max="9999">
                         <input v-model="month" type="number" class="form-control input-sm" placeholder="MM" min="-100" max="12">
                         <input v-model="day" type="number" class="form-control input-sm" placeholder="DD" min="-100" max="31">
-                        <a v-if="ready()" v-on:click="createAppellation" class="btn btn-sm btn-success" data-tooltip="Create a date appellation">Create</a>
+                        <a v-if="ready()" v-on:click="createAppellation" class="btn btn-sm btn-success" data-tooltip="Create date appellation">Create</a>
                     </div>
                     <div>
                         <a v-on:click="cancel" class="btn btn-xs btn-danger">Cancel</a>
@@ -646,7 +646,7 @@ RelationField = {
                                 v-bind:data-tooltip="field.type === 'CO' ? 'Select text. Press ESC to cancel.' : (field.type === 'DT' ? 'Select the date for this relation.' : 'Select text or existing appellation. Press ESC to cancel.')">
 
                                 &nbsp;<span v-if="field.type == 'TP'" class=" glyphicon glyphicon-edit"></span>
-                                <i v-if="field.type == 'CO'" class="fa fa-i-cursor" data-tooltip="Select text. Press ESC to cancel." aria-hidden="true"></i>
+                                <i v-if="field.type == 'CO'" class="fa fa-i-cursor" aria-hidden="true"></i>
                                 <span v-if="field.type == 'DT'" class=" glyphicon glyphicon-calendar"></span>
                             </a>
                             <a

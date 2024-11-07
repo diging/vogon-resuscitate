@@ -103,7 +103,7 @@
                                                     'btn-success': !create_date_appellation,
                                                     'btn-default': create_date_appellation
                                                 }"
-                                                data-tooltip="Create a text appellation"
+                                                data-tooltip="Create text appellation"
                                                 v-on:click="toggleDateAppellation">
                                                 <span class="glyphicon glyphicon-grain"></span>
                                             </a>
@@ -113,7 +113,7 @@
                                                     'btn-success': create_date_appellation,
                                                     'btn-default': !create_date_appellation
                                                 }"
-                                                data-tooltip="Create a date appellation"
+                                                data-tooltip="Create date appellation"
                                                 v-on:click="toggleDateAppellation">
                                                 <span class="glyphicon glyphicon-calendar"></span>
                                             </a>
@@ -144,10 +144,10 @@
                                                 'col-xs-5': sidebarIsShown(),
                                             }"
                                             style="padding-right: 15px;">
-                                         <a v-if="sidebarIsShown()" class="btn" v-on:click="hideSidebar" data-tooltip="Hide Sidebar" style="padding: 2px;">
+                                         <a v-if="sidebarIsShown()" class="btn" v-on:click="hideSidebar" data-tooltip="Hide sidebar" style="padding: 2px;">
                                              <span class="glyphicon glyphicon-chevron-right"></span>
                                          </a>
-                                         <a v-else class="btn" v-on:click="showSidebar" data-tooltip="Show Sidebar" style="padding: 2px;">
+                                         <a v-else class="btn" v-on:click="showSidebar" data-tooltip="Show sidebar" style="padding: 2px;">
                                              <span class="glyphicon glyphicon-chevron-left"></span>
                                          </a>
                                                 <div v-if="sidebarIsShown()" style="padding: 0px;">
