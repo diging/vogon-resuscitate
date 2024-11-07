@@ -377,5 +377,4 @@ def edit_relationtemplate(request, template_id):
         context['formset'] = relationtemplatepart_formset
         context['templateform'] = relationtemplate_form
 
-        print("terminal Nodes " +template.terminal_nodes)
     return render(request, 'annotations/relationtemplate_edit.html', context)
