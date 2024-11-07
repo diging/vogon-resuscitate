@@ -612,7 +612,7 @@ def parse_concept(concept_entry):
     except json.JSONDecodeError:
         concept['description'] = description
     
-    if concept['uri'].startswith(('http://www.digitalhps.org/', 'https://www.digitalhps.org/')):
+    if concept['uri'].startswith(tuple(settings.CONCEPT_URI_PREFIXES)):
         concept['authority'] = {'name': 'Conceptpower'}
     else:
         concept['authority'] = {'name': 'Unknown'}
