@@ -42,29 +42,21 @@
                 <tbody>
                     {% for template in data.templates %}
                     <tr class='clickable-row' data-href='{% url 'get_relationtemplate' template.id %}'>
-                        <td></td>
-                        <td>{{ template.name }}</td>
-                        <td>{{ template.description }}</td>
                         <td>
-                            <!-- Edit Icon -->
-                            <a href="{% url 'edit_relationtemplate' template.id %}"
-                               title="Edit relation template"
-                               class="fa fa-edit"
-                               aria-hidden="true"
-                               style="margin-right: 10px;">Edit
-                            </a>
-                            <!-- Delete Icon -->
-                            <a href="#"
-                               class="fa fa-trash openDeleteTemplateModal"
+                            <a class="fa fa-trash openDeleteTemplateModal"
                                aria-hidden="true"
                                data-toggle="modal"
+                               data-delete-template-tooltip="tooltip"
                                title="Delete relation template"
-                               data-url="{% url 'delete_relationtemplate' template.id %}"
-                               data-name="{{ template.name }}"
-                               data-description="{{ template.description }}">Delete
-                            </a>
+                               data-url="{% url "delete_relationtemplate" template.id %}"
+                               data-name = "{{template.name}}"
+                               data-description = "{{template.description}}"
+                            />
                         </td>
+                        <td>{{ template.name }}</td>
+                        <td>{{ template.description }}</td>
                     </tr>
+
                     {% endfor %}
                 </tbody>
 
@@ -131,4 +123,3 @@ jQuery(document).ready(function($) {
 <!-- Delete Template modal section ends here -->
 
 {% endblock %}
-
