@@ -131,15 +131,6 @@ AUTHENTICATION_BACKENDS = (
 
 ACCOUNT_AUTHENTICATED_LOGIN_REDIRECTS =True
 ANONYMOUS_USER_ID = -1
-BASE_URL = os.environ.get('BASE_URL', '/')
-
-# Allauth Settings
-LOGIN_URL = '/login/'
-LOGOUT_URL = '/logout/'
-LOGIN_REDIRECT_URL = 'home'
-LOGOUT_REDIRECT_URL = 'home'
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_UNIQUE_EMAIL = True
 
 # Allauth Email Settings
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND')
@@ -168,7 +159,7 @@ USE_TZ = True
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOW_CREDENTIALS = False
 
-APPEND_SLASH = False
+APPEND_SLASH = True
 CRISPY_TEMPLATE_PACK = 'bootstrap3'
 
 SUBPATH = '/'
@@ -262,6 +253,17 @@ POST = requests.post
 GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
 GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
 MAX_GILES_UPLOADS = 20
+APP_ROOT = os.getenv('APP_ROOT', 'vogon/')
+
+# Allauth Settings
+LOGIN_URL = f'/{APP_ROOT}login/'
+LOGOUT_URL = f'/{APP_ROOT}logout/'
+LOGIN_REDIRECT_URL = 'home'
+LOGOUT_REDIRECT_URL = 'home'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
+
+BASE_URL = os.path.join(os.getenv('BASE_URL', '/'), APP_ROOT)
 
 # Conceptpower Credentials
 CONCEPTPOWER_USERID = os.environ.get('CONCEPTPOWER_USERID', None)
