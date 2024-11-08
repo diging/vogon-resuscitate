@@ -10,7 +10,7 @@ var AppellationListItem = {
 					<a class="btn btn-xs" v-on:click="select" data-tooltip="Select appellation">
 						<span class="glyphicon glyphicon-hand-down"></span>
 					</a>
-					<a class="btn btn-xs" v-on:click="toggle" data-tooltip="appellation.visible ? 'Hide appellation' : 'Show appellation'">
+					<a class="btn btn-xs" v-on:click="toggle" v-bind:data-tooltip="appellation.visible ? 'Hide appellation' : 'Show appellation'">
 						<span v-if="appellation.visible" class="glyphicon glyphicon glyphicon-eye-open"></span>
 						<span v-else class="glyphicon glyphicon glyphicon-eye-close"></span>
 					</a>

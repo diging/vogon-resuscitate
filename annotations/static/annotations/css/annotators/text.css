@@ -26,7 +26,6 @@
 .relation-list {
     font-size: 0.8em;
     max-height: 80vh;
-    white-space: nowrap;
 }
 .relation-list .btn {
     font-size: 1em;
@@ -202,7 +201,6 @@
 a[data-tooltip] {
     position: relative;
     cursor: pointer;
-    z-index: 1000;
 }
 
 a[data-tooltip]:hover::after {
@@ -217,4 +215,5 @@ a[data-tooltip]:hover::after {
     text-shadow: none;
     font-size: 12px;
     white-space: nowrap;
+    z-index: 1000;
 }
