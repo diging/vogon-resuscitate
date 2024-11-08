@@ -83,6 +83,7 @@
     						<li><a href="{% url "settings" %}">Settings</a></li>
     						<li><a href="{% url "logout" %}">Log Out</a></li>
     						{% if user.is_staff %}
+                                <li><a href="{% url 'user_vogon_admin_list' %}">Vogon Admin Management</a></li>
     							<li><a href="{{ base_url }}/admin/">Admin Site</a></li>
     						{% endif %}
                         </ul>

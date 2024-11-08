@@ -148,6 +148,8 @@ class VogonUser(AbstractBaseUser, PermissionsMixin):
 
     is_admin = models.BooleanField(default=False)
 
+    vogon_admin = models.BooleanField(default=False, help_text="Indicates if the user has admin permissions within the application without Django admin access.")
+
     objects = VogonUserManager()
 
     USERNAME_FIELD = 'username'
@@ -187,6 +189,13 @@ class VogonUser(AbstractBaseUser, PermissionsMixin):
         """
         # Simplest possible answer: All admins are staff
         return self.is_admin
+
+    @property
+    def is_vogon_admin(self):
+        """
+        Indicates if the user has admin permissions within the application without Django admin access.
+        """
+        return self.vogon_admin
 
     @property
     def uri(self):

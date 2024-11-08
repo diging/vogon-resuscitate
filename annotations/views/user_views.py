@@ -3,13 +3,19 @@ Provides user-oriented views, including dashboard, registration, etc.
 """
 
 from django.conf import settings
+from django.views import View
+
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
-from django.urls import reverse
+from django.contrib.admin.views.decorators import staff_member_required
+
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q, Count
-from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, render
+
+from django.http import HttpResponse, HttpResponseRedirect, HttpResponseForbidden
+from django.shortcuts import render, redirect, get_object_or_404, render
+from django.urls import reverse
+
 from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth.forms import AuthenticationForm
 
@@ -385,3 +391,19 @@ def list_user(request):
         'title': 'Contributors'
     }
     return render(request, template, context)
+
+@staff_member_required
+def UserVogonAdminListView(request):
+    users = VogonUser.objects.all()
+    return render(request, 'annotations/user_vogon_admin_list.html', {'users': users})
+
+class ToggleVogonAdminStatusView(View):
+    def post(self, request, user_id):
+        if not request.user.is_admin and not request.user.is_staff:
+            return HttpResponseForbidden("You do not have permission to perform this action.")
+        
+        user = get_object_or_404(VogonUser, id=user_id)
+        user.vogon_admin = not user.vogon_admin
+        user.save()
+        
+        return redirect(reverse('user_vogon_admin_list'))
