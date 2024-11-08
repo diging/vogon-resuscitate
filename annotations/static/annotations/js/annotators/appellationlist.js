@@ -217,6 +217,7 @@ AppellationList = {
             // Replace an array prop wholesale doesn't seem to trigger a
             //  DOM update in the v-for binding, but a push() does; so we'll
             //  just push the appellations that aren't already in the array.
+            this.current_appellations = [];
             var current_ids = this.current_appellations.map(function (elem) {
                 return elem.id;
             });
