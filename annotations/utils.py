@@ -38,7 +38,7 @@ def basepath(request):
     return scheme + request.get_host() + settings.SUBPATH
 
 
-def build_concept_node(concept, user):
+def build_concept_node(concept, user, creation_time, source_uri):
     """
     Helper function to build a concept node dictionary.
     """
@@ -59,13 +59,13 @@ def build_concept_node(concept, user):
         },
         "context": {
             "creator": user.username,
-            "creationTime": timezone.now().strftime('%Y-%m-%d'),
-            "creationPlace": "phoenix",
-            "sourceUri": concept.authority if hasattr(concept, 'authority') else ""
+            "creationTime": creation_time.strftime('%Y-%m-%d'),
+            "creationPlace": "",
+            "sourceUri": source_uri
         }
     }
 
-def get_relation_node(user):
+def get_relation_node(user, creation_time, source_uri):
     """
     Helper function to build a relation node.
     """
@@ -76,9 +76,9 @@ def get_relation_node(user):
         },
         "context": {
             "creator": user.username,
-            "creationTime": timezone.now().strftime('%Y-%m-%d'),
-            "creationPlace": "phoenix",
-            "sourceUri": ""
+            "creationTime": creation_time.strftime('%Y-%m-%d'),
+            "creationPlace": "",
+            "sourceUri": source_uri
         }
     }
 
@@ -86,6 +86,7 @@ def generate_graph_data(relationset, user):
     nodes = {}
     edges = []
     node_counter = 0
+    source_uri = relationset.occursIn.uri
 
     def get_node_id():
         nonlocal node_counter
@@ -97,21 +98,24 @@ def generate_graph_data(relationset, user):
         subject = getattr(relation.source_content_object, 'interpretation', None)
         obj = getattr(relation.object_content_object, 'interpretation', None)
         predicate = getattr(relation.predicate, 'interpretation', None)
+        
+        # Extract the creation time from the appellation
+        creation_time = relationset.occursIn.created
 
         if subject and subject.uri not in nodes:
             subject_id = get_node_id()
-            nodes[subject_id] = build_concept_node(subject, user)
+            nodes[subject_id] = build_concept_node(subject, user, creation_time, source_uri)
 
         if obj and obj.uri not in nodes:
             obj_id = get_node_id()
-            nodes[obj_id] = build_concept_node(obj, user)
+            nodes[obj_id] = build_concept_node(obj, user, creation_time, source_uri)
 
         if predicate and predicate.uri not in nodes:
             predicate_id = get_node_id()
-            nodes[predicate_id] = build_concept_node(predicate, user)
+            nodes[predicate_id] = build_concept_node(predicate, user, creation_time, source_uri)
 
         relation_id = get_node_id()
-        nodes[relation_id] = get_relation_node(user)
+        nodes[relation_id] = get_relation_node(user, creation_time, source_uri)
 
         if subject and predicate:
             edges.append({"source": subject_id, "relation": "subject", "target": predicate_id})
@@ -132,8 +136,8 @@ def generate_graph_data(relationset, user):
                 "context": {
                     "creator": user.username,
                     "creationTime": timezone.now().strftime('%Y-%m-%d'),
-                    "creationPlace": "phoenix",
-                    "sourceUri": ""
+                    "creationPlace": "",
+                    "sourceUri": source_uri
                 }
             },
             "nodes": nodes,
