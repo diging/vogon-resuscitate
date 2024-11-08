@@ -7,6 +7,7 @@ class RepositoryManager:
         """Initialize the manager with the user and repository."""
         self.api = CitesphereAPIv1(user, repository)
         self.user = user
+        self.repository = repository
 
     def get_raw(self, target, **params):
         """Fetch raw data from any API target."""
@@ -18,14 +19,63 @@ class RepositoryManager:
         """Fetch all groups from the repository."""
         return self.api.get_groups()
 
+    def group_items(self, group_id, page=1):
+        """
+        Fetch items from a specific group for a specific page.
+
+        Args:
+            group_id: The ID of the group in the repository.
+            page: The page number to retrieve.
+
+        Returns:
+            A dictionary containing:
+                - "group": Details about the group.
+                - "items": A list of items in the group for the specified page.
+                - "total_items": The total number of items in the group.
+        """
+        response_data = self.api._make_request(f"/groups/{group_id}/items/", params={'page': page})
+        group_data = response_data.get('group', {})
+        items = response_data.get('items', [])
+        total_items = group_data.get('numItems', 0)
+
+        return {
+            "group": group_data,
+            "items": items,
+            "total_items": total_items
+        }
+
     def collections(self, group_id):
         """Fetch all collections within a specific group."""
         return self.api.get_group_collections(group_id)
 
-    def collection_items(self, group_id, collection_id):
-        """Fetch items from a specific collection."""
-        return self.api.get_collection_items(group_id, collection_id)
-    
+    def collection_items(self, group_id, collection_id, page=1):
+        """
+        Fetch items from a specific collection in a group for a specific page.
+
+        Args:
+            group_id: The ID of the group in the repository.
+            collection_id: The ID of the collection within the group.
+            page: The page number to retrieve.
+
+        Returns:
+            A dictionary containing:
+                - "group": Details about the group.
+                - "items": A list of items in the specified collection for the given page.
+                - "total_items": The total number of items in the collection.
+        """
+        # Fetch collection details to get total items count
+        collections_data = self.api.get_group_collections(group_id).get('collections', [])
+        total_items = next((c.get('numberOfItems', 0) for c in collections_data if c.get('key') == collection_id), 0)
+
+        # Fetch paginated items for the collection
+        items = self.api.get_collection_items(group_id, collection_id, params={'page': page}).get('items', [])
+
+        return {
+            "group": collections_data,
+            "items": items,
+            "total_items": total_items
+        }
+
     def item(self, group_id, item_id):
         """
         Fetch individual item details from the repository and extract Giles document text.
