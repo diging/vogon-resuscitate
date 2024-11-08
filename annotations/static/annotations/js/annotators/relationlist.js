@@ -149,9 +149,14 @@ const RelationList = {
 
         submitQuadruple(quadrupleId) {
             const csrfToken = getCookie('csrftoken');
-            const param = { 'pk': quadrupleId };
+            console.log(this);
+            
+            const param = { 
+                'pk': quadrupleId,
+                'project_id': self.project.id
+            };
 
-            return axios.post(`/rest/relationset/submit`, param, {
+            return axios.post(`/vogon/rest/relationset/submit`, param, {
                 headers: {
                     'X-CSRFToken': csrfToken,
                     'Content-type': 'application/json'
@@ -173,7 +178,7 @@ const RelationList = {
         },
 
         fetchRelations() {
-            axios.get('/rest/relation')
+            axios.get('/vogon/rest/relation')
                 .then(response => {
                     this.relations = response.data;
                 })

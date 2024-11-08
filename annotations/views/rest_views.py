@@ -337,7 +337,10 @@ class RelationSetViewSet(viewsets.ModelViewSet):
 
         user = request.user
         pk = request.data.get('pk')
-
+        
+        project_id = request.data.get('project_id')
+        project = TextCollection.objects.get(pk=project_id)
+        
         try:
             relationset = RelationSet.objects.get(pk=pk)
 
@@ -356,6 +359,9 @@ class RelationSetViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Quadruple(s) has already been submitted.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
+        if not project.quadriga_id:
+            return Response({'error': 'Project does not have a Quadriga ID configured. Please configure a Quadriga ID in the project settings.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         try:
             citesphere_account = CitesphereAccount.objects.get(user=user, repository=relationset.occursIn.repository)
@@ -366,7 +372,7 @@ class RelationSetViewSet(viewsets.ModelViewSet):
                 'Content-Type': 'application/json',
             }
 
-            collection_id = settings.QUADRIGA_COLLECTION_ID
+            collection_id = project.quadriga_id
             endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
 
             graph_data = generate_graph_data(relationset, user)
@@ -386,6 +392,7 @@ class RelationSetViewSet(viewsets.ModelViewSet):
             return Response({'error': 'No Citesphere account found.'},
                             status=status.HTTP_400_BAD_REQUEST)
         except requests.RequestException as e:
+            print("ERROR", e)
             return Response({'error': 'Internal Server Error Occured. Please try again later!'},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
