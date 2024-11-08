@@ -2,6 +2,7 @@ from django.utils.deprecation import MiddlewareMixin
 from annotations.models import RelationSet
 from asgiref.sync import async_to_sync, sync_to_async
 from django.utils import timezone
+from django.conf import settings
 from datetime import timedelta
 
 class CheckRelationSetStatusMiddleware(MiddlewareMixin):
@@ -21,7 +22,7 @@ class CheckRelationSetStatusMiddleware(MiddlewareMixin):
 
     # Cache the last check time to reduce query frequency
     last_check_time = None
-    check_interval = timedelta(minutes=5)  # Adjust the interval as needed
+    check_interval = settings.CHECK_RELATIONSET_STATUS_INTERVAL
 
     def process_request(self, request):
         """

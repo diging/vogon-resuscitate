@@ -764,6 +764,10 @@ class RelationSet(models.Model):
     A :class:`.RelationSet` organizes :class:`.Relation`\s into complete
     statements.
     """
+    # RelationSet statuses
+    STATUS_NOT_READY = 'not_ready'
+    STATUS_READY_TO_SUBMIT = 'ready_to_submit'
+    STATUS_SUBMITTED = 'submitted'
 
     project = models.ForeignKey('TextCollection', related_name='relationsets',
                                 null=True, blank=True, on_delete=models.CASCADE)
@@ -788,13 +792,13 @@ class RelationSet(models.Model):
     """The text on which this RelationSet is based."""
 
     STATUS_CHOICES = [
-        ('not_ready', 'Not Ready'),
-        ('ready_to_submit', 'Ready to Submit'),
-        ('submitted', 'Submitted'),
+        (STATUS_NOT_READY, 'Not Ready'),
+        (STATUS_READY_TO_SUBMIT, 'Ready to Submit'),
+        (STATUS_SUBMITTED, 'Submitted'),
     ]
 
     status = models.CharField(
-        max_length=20, choices=STATUS_CHOICES, default='not_ready'
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_NOT_READY
     )
 
     submitted = models.BooleanField(default=False)
@@ -916,10 +920,13 @@ class RelationSet(models.Model):
         Check if the RelationSet is ready and update the status accordingly.
         """
         if self.ready():  # Check readiness based on the concepts
-            if self.status != 'submitted':  # Avoid overriding submitted status
-                self.status = 'ready_to_submit'
+            if self.status != self.STATUS_SUBMITTED:  # Avoid overriding submitted status
+                self.status = self.STATUS_READY_TO_SUBMIT
+                self.submitted = False
         else:
-            self.status = 'not_ready'
+            self.status = self.STATUS_NOT_READY
+            self.submitted = False
+
         self.save()
 
     def appellations(self):

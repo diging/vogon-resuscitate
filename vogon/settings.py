@@ -277,3 +277,6 @@ QUADRIGA_COLLECTION_ID = os.environ.get('QUADRIGA_COLLECTION_ID')
 PAGINATION_PAGE_SIZE = 50
 
 CITESPHERE_ITEM_PAGE = 50
+
+# Adjust the time interval between checks for relation set status updates
+CHECK_RELATIONSET_STATUS_INTERVAL = timedelta(minutes=5)
