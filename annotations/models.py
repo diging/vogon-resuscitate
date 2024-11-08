@@ -148,7 +148,7 @@ class VogonUser(AbstractBaseUser, PermissionsMixin):
 
     is_admin = models.BooleanField(default=False)
 
-    vogon_admin = models.BooleanField(default=False, help_text="Indicates if the user has admin permissions within the application without Django admin access.")
+    vogon_admin = models.BooleanField(default=False, help_text="This field indicates if the user has admin permissions within the application without Django admin access.")
 
     objects = VogonUserManager()
 
