@@ -3,7 +3,6 @@ Provides :class:`.RelationTemplate`\-related views.
 """
 
 from django.conf import settings
-from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.contenttypes.models import ContentType
@@ -19,6 +18,7 @@ from annotations.forms import (RelationTemplatePartFormSet,
                                RelationTemplatePartForm, RelationTemplateForm)
 from annotations.models import *
 from annotations import relations
+from annotations.decorators import vogon_admin_or_staff_required
 from concepts.models import Concept, Type
 
 import copy
@@ -29,7 +29,7 @@ import networkx as nx
 logger = logging.getLogger(__name__)
 logger.setLevel('ERROR')
 
-@staff_member_required
+@vogon_admin_or_staff_required
 def add_relationtemplate(request):
     """
     Staff can use this view to create :class:`.RelationTemplate`\s.
@@ -89,7 +89,7 @@ def add_relationtemplate(request):
     return render(request, 'annotations/relationtemplate.html', context)
 
 
-@login_required
+@vogon_admin_or_staff_required
 def list_relationtemplate(request):
     """
     Returns a list of all :class:`.RelationTemplate`\s.
@@ -273,7 +273,7 @@ def create_from_text(request, template_id):
     return JsonResponse(response_data)
 
 
-@staff_member_required
+@vogon_admin_or_staff_required
 def delete_relationtemplate(request, template_id):
     if request.method == 'POST':
 
