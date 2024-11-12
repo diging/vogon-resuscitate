@@ -15,6 +15,8 @@ from django.db.models import Q, Count
 from annotations.models import TextCollection, RelationSet, VogonUser
 from annotations.forms import ProjectForm
 
+from django.contrib import messages
+from django.http import Http404
 
 def view_project(request, project_id):
     """
@@ -201,13 +203,70 @@ def list_projects(request):
 
 @login_required
 def add_collaborator(request, project_id):
+    """
+    Add a collaborator to a project. Only the project owner can add collaborators.
+    
+    Parameters
+    ----------
+    project_id : int
+        ID of the project to add collaborator to
+    request : django.http.requests.HttpRequest
+        The request object containing the username of collaborator to add
+        
+    Returns
+    -------
+    django.http.response.HttpResponseRedirect
+        Redirects back to project detail page after adding collaborator
+        
+    Raises
+    ------
+    PermissionDenied
+        If user is not the project owner
+    Http404
+        If project or collaborator username not found
+    """
     project = get_object_or_404(TextCollection, pk=project_id)
     if project.ownedBy != request.user:
         raise PermissionDenied("You do not have permission to add participants.")
     
     if request.method == 'POST':
         collaborator_username = request.POST.get('username')
-        collaborator = get_object_or_404(VogonUser, username=collaborator_username)
-        project.collaborators.add(collaborator)
-        project.save()
+        try:
+            collaborator = get_object_or_404(VogonUser, username=collaborator_username)
+            project.collaborators.add(collaborator)
+            project.save()
+            messages.success(request, f'Successfully added {collaborator_username} as a collaborator.')
+        except Http404:
+            messages.error(request, f'User {collaborator_username} not found.')
+        return HttpResponseRedirect(reverse('view_project', args=[project_id]))
+    
+
+@login_required
+def remove_collaborator(request, project_id):
+    """
+    Remove a collaborator from a project.
+
+    Parameters
+    ----------
+    project_id : int
+        ID of the project
+    request : `django.http.requests.HttpRequest`
+
+    Returns
+    ----------
+    :class:`django.http.response.HttpResponseRedirect`
+    """
+    project = get_object_or_404(TextCollection, pk=project_id)
+    if project.ownedBy != request.user:
+        raise PermissionDenied("You do not have permission to remove collaborators.")
+
+    if request.method == 'POST':
+        collaborator_username = request.POST.get('username')
+        try:
+            collaborator = get_object_or_404(VogonUser, username=collaborator_username)
+            project.collaborators.remove(collaborator)
+            project.save()
+            messages.success(request, f'Successfully removed {collaborator_username} from the project.')
+        except Http404:
+            messages.error(request, f'User {collaborator_username} not found.')
         return HttpResponseRedirect(reverse('view_project', args=[project_id]))

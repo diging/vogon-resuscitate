@@ -98,6 +98,7 @@ urlpatterns = [
     re_path(r'^project/create/$', views.project_views.create_project, name='create_project'),
     re_path(r'^project/$', views.project_views.list_projects, name='list_projects'),
     re_path(r'^project/(?P<project_id>[0-9]+)/add-collaborator/$', views.project_views.add_collaborator, name='add_collaborator'),
+    re_path(r'^project/(?P<project_id>[0-9]+)/remove-collaborator/$', views.project_views.remove_collaborator, name='remove_collaborator'),
 
     re_path(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     #re_path(r'^autocomplete/', include('autocomplete_light.urls')),    # TODO: are we still using this?

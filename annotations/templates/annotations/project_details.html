@@ -2,12 +2,38 @@
 {% load staticfiles %}
 
 {% block extrahead %}
-<script src="{% static "annotations/js/spin.min.js" %}"></script>
-<script src="{% static "annotations/js/jquery.spin.js" %}"></script>
-<script src="{% static "annotations/js/cytoscape.min.js" %}"></script>
+<script>
+$(document).ready(function() {
+    // Disable submit button if username field is empty
+    $('.add-collaborator-form input[name="username"]').on('input', function() {
+        var submitBtn = $(this).closest('form').find('button[type="submit"]');
+        submitBtn.prop('disabled', !$(this).val());
+    });
+    
+    // Initially disable submit button
+    $('.add-collaborator-form button[type="submit"]').prop('disabled', true);
+});
+</script>
 {% endblock %}
 
 {% block main %}
+
+{% if messages %}
+<div class="row">
+    <div class="col-md-12">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %} alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+
 <div class="container-fluid">
     <!-- Project Details Header Section -->
     <div class="row">
@@ -130,7 +156,7 @@
                 </div>
                 <div class="panel-body">
                     {% if user.id == project.ownedBy.id %}
-                    <form method="POST" action="{% url 'add_collaborator' project.id %}" class="form-inline" style="margin-bottom: 15px;">
+                    <form method="POST" action="{% url 'add_collaborator' project.id %}" class="form-inline add-collaborator-form" style="margin-bottom: 15px;">
                         {% csrf_token %}
                         <div class="input-group">
                             <input type="text" name="username" class="form-control" placeholder="Username">
@@ -168,9 +194,13 @@
                                 </div>
                                 {% if user.id == project.ownedBy.id %}
                                 <div class="media-right">
-                                    <a href="#" class="text-danger" onclick="if(confirm('Remove {{ collaborator.username }} from project?')){window.location.href='{% url 'add_collaborator' project.id %}'}">
-                                        <span class="glyphicon glyphicon-remove"></span>
-                                    </a>
+                                    <form method="POST" action="{% url 'remove_collaborator' project.id %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="username" value="{{ collaborator.username }}">
+                                        <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('Remove {{ collaborator.username }} from project?');">
+                                            <span class="glyphicon glyphicon-remove"></span>
+                                        </button>
+                                    </form>
                                 </div>
                                 {% endif %}
                             </div>
