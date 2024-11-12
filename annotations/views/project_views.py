@@ -12,7 +12,7 @@ from django.contrib.auth import login, authenticate
 from django.conf import settings
 from django.db.models import Q, Count
 
-from annotations.models import TextCollection, RelationSet
+from annotations.models import TextCollection, RelationSet, VogonUser
 from annotations.forms import ProjectForm
 
 
@@ -60,6 +60,7 @@ def view_project(request, project_id):
         'user': request.user,
         'title': project.name,
         'project': project,
+        'collaborators': project.collaborators.all(),
         'texts': texts,
         # 'relations': relations,
     }
@@ -180,3 +181,17 @@ def list_projects(request):
         'projects': qs,
     }
     return render(request, template, context)
+
+
+@login_required
+def add_collaborator(request, project_id):
+    project = get_object_or_404(TextCollection, pk=project_id)
+    if project.ownedBy != request.user:
+        raise PermissionDenied("You do not have permission to add participants.")
+    
+    if request.method == 'POST':
+        collaborator_username = request.POST.get('username')
+        collaborator = get_object_or_404(VogonUser, username=collaborator_username)
+        project.collaborators.add(collaborator)
+        project.save()
+        return HttpResponseRedirect(reverse('view_project', args=[project_id]))

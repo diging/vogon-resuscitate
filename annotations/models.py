@@ -296,6 +296,8 @@ class TextCollection(models.Model):
     description = models.TextField()
 
     ownedBy = models.ForeignKey(VogonUser, related_name='collections', on_delete=models.CASCADE)
+    collaborators = models.ManyToManyField(VogonUser, related_name='collaborations', blank=True)
+
     texts = models.ManyToManyField('Text', related_name='partOf',
                                    blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True)
