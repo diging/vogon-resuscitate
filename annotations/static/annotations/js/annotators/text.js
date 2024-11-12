@@ -42,16 +42,6 @@ var ConceptSearch = {
                         </div>
                       </div>
                   </div>
-                  <div>
-                    <div class="form-group">
-                        <div class="checkbox">
-                            <label>
-                                <input type="checkbox" class="checkbox"  style="width: 100%;" v-model="force">
-                                Force fresh search
-                            </label>
-                        </div>
-                    </div>
-                  </div>
                   <div class="list-group concept-search-list-group">
                       <concept-list-item
                             v-on:selectconcept="selectConcept"
@@ -67,7 +57,6 @@ var ConceptSearch = {
             searching: false,
             error: false,
             pos: "",
-            force: false
         }
     },
     methods: {
@@ -91,9 +80,6 @@ var ConceptSearch = {
             };
             if (this.pos != "") {
                 payload['pos'] = this.pos;
-            }
-            if (this.force) {
-                payload['force'] = 'force';
             }
             Concept.search(payload).then(function (response) {
                 self.concepts = response.body.results;
