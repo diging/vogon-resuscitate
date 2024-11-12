@@ -36,7 +36,6 @@ def view_project(request, project_id):
     order_by = request.GET.get('order_by', 'title')
     texts = project.texts.all().order_by(order_by)\
                          .values('id', 'title', 'added', 'repository_source_id')
-    print(texts)
 
     
     paginator = Paginator(texts, 15)
