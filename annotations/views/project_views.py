@@ -33,11 +33,26 @@ def view_project(request, project_id):
     project = get_object_or_404(TextCollection, pk=project_id)
     template = "annotations/project_details.html"
 
+    # Handle ordering
     order_by = request.GET.get('order_by', 'title')
-    texts = project.texts.all().order_by(order_by)\
+    if order_by.startswith('-'):
+        order_field = order_by[1:]
+        order_direction = '-'
+    else:
+        order_field = order_by
+        order_direction = ''
+
+    # Validate order field is allowed
+    allowed_order_fields = ['title', 'added']
+    if order_field not in allowed_order_fields:
+        order_field = 'title'
+        order_direction = ''
+
+    # Apply ordering
+    order_param = f"{order_direction}{order_field}"
+    texts = project.texts.all().order_by(order_param)\
                          .values('id', 'title', 'added', 'repository_source_id')
 
-    
     paginator = Paginator(texts, 15)
     page = request.GET.get('page')
     try:
@@ -62,6 +77,7 @@ def view_project(request, project_id):
         'project': project,
         'collaborators': project.collaborators.all(),
         'texts': texts,
+        'order_by': order_by,
         # 'relations': relations,
     }
 
