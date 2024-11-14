@@ -220,11 +220,12 @@ class RepositoryManager:
                         if page_text is not None:
                             text_content += page_text
                         else:
-                            raise CitesphereAPIError(message="Page text fetch failed", error_code="GILES_PAGE_ERROR", details=f"Failed to fetch text for page {page.get('number', 'unknown')}")
+                            raise CitesphereAPIError(message="Failed to fetch document text from Giles, please try again later.", error_code="GILES_PAGE_ERROR", details=f"Failed to fetch text for page {page.get('number', 'unknown')}")
 
             return text_content or "No valid text/plain content found."
             
         except Exception as e:
+            # If the exception is already a CitesphereAPIError, re-raise it directly to preserve the original error details.
             if isinstance(e, CitesphereAPIError):
                 raise
-            raise CitesphereAPIError(message="Giles text extraction failed", error_code="GILES_EXTRACTION_ERROR", details=str(e))
+            raise CitesphereAPIError(message="Giles text extraction has failed", error_code="GILES_EXTRACTION_ERROR", details=str(e))
