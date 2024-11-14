@@ -7,7 +7,7 @@ class CitesphereAPIError(Exception):
     """Base exception class for Citesphere API errors"""
     def __init__(self, message, error_code=None, details=None):
         self.message = message
-        self.error_code = error_code
+        self.error_code = error_code 
         self.details = details
         super().__init__(self.message)
 
@@ -22,11 +22,7 @@ class CitesphereAPIv1:
         try:
             return auth.citesphere_auth(self.user, self.repository)
         except Exception as e:
-            raise CitesphereAPIError(
-                message="Authentication failed, please try again.",
-                error_code="AUTH_ERROR",
-                details=str(e)
-            )
+            raise CitesphereAPIError(message="Authentication failed, please try again.", error_code="AUTH_ERROR", details=str(e))
 
     def _make_request(self, endpoint, params=None):
         """Helper function to handle GET requests with optional parameters."""            
@@ -36,17 +32,9 @@ class CitesphereAPIv1:
             response.raise_for_status()
             return response.json()
         except RequestException as e:
-            raise CitesphereAPIError(
-                message="API request failed",
-                error_code="REQUEST_ERROR", 
-                details=str(e)
-            )
+            raise CitesphereAPIError(message="API request failed", error_code="REQUEST_ERROR", details=str(e))
         except ValueError as e:
-            raise CitesphereAPIError(
-                message="Invalid JSON response",
-                error_code="RESPONSE_ERROR",
-                details=str(e)
-            )
+            raise CitesphereAPIError(message="Invalid JSON response", error_code="RESPONSE_ERROR", details=str(e))
 
     def get_groups(self, params=None):
         """Fetch all groups with optional parameters."""
@@ -79,11 +67,7 @@ class RepositoryManager:
             response.raise_for_status()
             return response.content
         except RequestException as e:
-            raise CitesphereAPIError(
-                message="Failed to fetch data",
-                error_code="RAW_DATA_ERROR",
-                details=str(e)
-            )
+            raise CitesphereAPIError(message="Failed to fetch data", error_code="RAW_DATA_ERROR", details=str(e))
 
     def groups(self):
         """Fetch all groups from the repository."""
@@ -107,11 +91,7 @@ class RepositoryManager:
             CitesphereAPIError
         """
         if not isinstance(page, int) or page < 1:
-            raise CitesphereAPIError(
-                message="Invalid page number",
-                error_code="INVALID_PAGE",
-                details="Page must be a positive integer"
-            )
+            raise CitesphereAPIError(message="Invalid page number", error_code="INVALID_PAGE", details="Page must be a positive integer")
 
         response_data = self.api._make_request(f"/groups/{group_id}/items/", params={'page': page})
         group_data = response_data.get('group', {})
@@ -147,11 +127,7 @@ class RepositoryManager:
             CitesphereAPIError
         """
         if not isinstance(page, int) or page < 1:
-            raise CitesphereAPIError(
-                message="Invalid page number",
-                error_code="INVALID_PAGE",
-                details="Page must be a positive integer"
-            )
+            raise CitesphereAPIError(message="Invalid page number", error_code="INVALID_PAGE", details="Page must be a positive integer")
 
         try:
             collections_data = self.api.get_group_collections(group_id).get('collections', [])
@@ -168,11 +144,7 @@ class RepositoryManager:
         
         # TODO: Once there is a collection information endpoint, this will no longer be needed, this will be an Exception error
         except StopIteration:
-            raise CitesphereAPIError(
-                message="Collection not found",
-                error_code="COLLECTION_NOT_FOUND",
-                details=f"Collection {collection_id} not found in group {group_id}"
-            )
+            raise CitesphereAPIError(message="Collection not found", error_code="COLLECTION_NOT_FOUND", details=f"Collection {collection_id} not found in group {group_id}")
 
     def item(self, group_id, item_id):
         """
@@ -192,11 +164,7 @@ class RepositoryManager:
         item_data = self.api.get_item_details(group_id, item_id)
         
         if not item_data or 'item' not in item_data:
-            raise CitesphereAPIError(
-                message="Invalid item data",
-                error_code="INVALID_ITEM_DATA",
-                details="Response missing item data"
-            )
+            raise CitesphereAPIError(message="Invalid item data", error_code="INVALID_ITEM_DATA", details="Response missing item data")
 
         # Extract core item details
         item = item_data.get('item', {})
@@ -241,11 +209,7 @@ class RepositoryManager:
             if extracted_text and extracted_text.get('content-type') == 'text/plain':
                 text_content = get_giles_document_details(self.user, extracted_text['id'])
                 if text_content is None:
-                    raise CitesphereAPIError(
-                        message="Failed to fetch document text from Giles, please try again later.",
-                        error_code="GILES_TEXT_ERROR",
-                        details="Failed to fetch document text from Giles"
-                    )
+                    raise CitesphereAPIError(message="Failed to fetch document text from Giles, please try again later.", error_code="GILES_TEXT_ERROR", details="Failed to fetch document text from Giles")
 
             # Fallback to extracting text from pages
             elif 'pages' in upload:
@@ -256,19 +220,11 @@ class RepositoryManager:
                         if page_text is not None:
                             text_content += page_text
                         else:
-                            raise CitesphereAPIError(
-                                message="Page text fetch failed",
-                                error_code="GILES_PAGE_ERROR",
-                                details=f"Failed to fetch text for page {page.get('number', 'unknown')}"
-                            )
+                            raise CitesphereAPIError(message="Page text fetch failed", error_code="GILES_PAGE_ERROR", details=f"Failed to fetch text for page {page.get('number', 'unknown')}")
 
             return text_content or "No valid text/plain content found."
             
         except Exception as e:
             if isinstance(e, CitesphereAPIError):
                 raise
-            raise CitesphereAPIError(
-                message="Giles text extraction failed",
-                error_code="GILES_EXTRACTION_ERROR",
-                details=str(e)
-            )
+            raise CitesphereAPIError(message="Giles text extraction failed", error_code="GILES_EXTRACTION_ERROR", details=str(e))
