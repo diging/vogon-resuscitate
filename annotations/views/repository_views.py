@@ -106,7 +106,7 @@ def repository_collection(request, repository_id, group_id):
         response_data = manager.collections(group_id=group_id)
         group_info = response_data.get('group')
         collections = response_data.get('collections', [])
-        group_texts =  manager.group_items(groupId=group_id, page=page)
+        group_texts =  manager.group_items(group_id=group_id, page=page)
     except IOError:
         return render(request, 'annotations/repository_ioerror.html', {}, status=500)
 
