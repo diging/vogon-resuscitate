@@ -24,19 +24,26 @@
     {% endblock %}
 
     <div class="list-group">
-        {% for project in projects %}
-        <a class="list-group-item"
-            href="{% url "view_project" project.id %}">
-            <span class="h4">{{ project.name }}</span>
-            <span class="text text-muted">{{ project.description }}</span>
-            <div class="text-warning">
-                Created by <strong>{{ project.ownedBy__username }}</strong> on {{ project.created }}
+        {% if projects %}
+            {% for project in projects %}
+            <a class="list-group-item"
+                href="{% url "view_project" project.id %}">
+                <span class="h4">{{ project.name }}</span>
+                <span class="text text-muted">{{ project.description }}</span>
+                <div class="text-warning">
+                    Created by <strong>{{ project.ownedBy__username }}</strong> on {{ project.created }}
+                </div>
+                <div>
+                    {{ project.num_texts }} texts, {{ project.num_relations }} relations, {{ project.num_collaborators }} collaborators.
+                </div>
+            </a>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-info">
+                You haven't been added to or created any projects yet. 
+                Click <a href="{% url "create_project" %}" class="alert-link">here</a> to create your first project.
             </div>
-            <div>
-                {{ project.num_texts }} texts, {{ project.num_relations }} relations, {{ project.num_collaborators }} collaborators.
-            </div>
-        </a>
-        {% endfor %}
+        {% endif %}
     </div>
 </div>
 {% endblock %}
