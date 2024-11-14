@@ -127,10 +127,15 @@ $(document).ready(function() {
                 </div>
             </div>
             {% else %}
-            <div class="alert alert-info">
-                <p class="h4 text-center">
-                    This project has no texts. {% if user.id == project.ownedBy.id %}Perhaps you should add one?{% endif %}
-                </p>
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Project Texts</h3>
+                </div>
+                <div class="panel-body">
+                    <p>
+                        This project has no texts. Perhaps you should add <a href="{% url "repository_list" %}?project_id={{ project.id }}">one</a>?
+                    </p>
+                </div>
             </div>
             {% endif %}
 
