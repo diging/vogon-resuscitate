@@ -287,12 +287,18 @@ def repository_text_import(request, repository_id, group_id, text_key):
 
     tokenized_content = tokenize(giles_text)
 
+    project_id = request.GET.get('project_id')
+    if not project_id:
+        # Get user's default project if no project_id provided
+        project = request.user.get_default_project()
+        project_id = project.id
+
     defaults = {
         'title': item_details.get('title', 'Unknown Title'),
         'content_type': 'text/plain',  # Explicitly set to 'text/plain'
         'tokenizedContent': tokenized_content,
         'repository': repository,
-        'repository_source_id':repository_id,
+        'repository_source_id': project_id,
         'addedBy': request.user,
         #Parse date provides a list however we only provide one date, hence will provide only one date
         'created': parse_iso_datetimes([item_details.get('addedOn')])[0],
@@ -306,15 +312,11 @@ def repository_text_import(request, repository_id, group_id, text_key):
 
     master_text.save()
 
-    project_id = request.GET.get('project_id')
-    if project_id and master_text:
-        project = TextCollection.objects.get(pk=project_id)
-        project.texts.add(master_text)
-        # Directly redirect to annotation page, skip repository_text view
-        return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + f'?project_id={project_id}')
-
-    # Directly redirect to annotation page, no need to redirect to repository_text
-    return HttpResponseRedirect(reverse('annotate', args=[master_text.id]))
+    # Add text to the project's collection
+    project = TextCollection.objects.get(pk=project_id)
+    project.texts.add(master_text)
+    
+    return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + f'?project_id={project_id}')
 
 
 @login_required
