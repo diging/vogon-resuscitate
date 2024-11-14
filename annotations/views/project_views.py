@@ -33,6 +33,11 @@ def view_project(request, project_id):
     """
 
     project = get_object_or_404(TextCollection, pk=project_id)
+
+    # Check if user is owner or collaborator
+    if not (request.user == project.ownedBy or request.user in project.collaborators.all()):
+        return HttpResponse('Sorry, you are not allowed to view this project.', status=403)
+
     template = "annotations/project_details.html"
 
     # Handle ordering
@@ -179,17 +184,27 @@ def list_projects(request):
 
     fields = [
         'id',
-        'name',
+        'name', 
         'created',
         'ownedBy__id',
         'ownedBy__username',
         'description',
         'num_texts',
         'num_relations',
+        'num_collaborators',
     ]
-    qs = TextCollection.objects.all()
-    qs = qs.annotate(num_texts=Count('texts'),
-                     num_relations=Count('texts__relationsets'))
+    
+    # Get projects where user is owner or collaborator, and distinct to avoid duplicates
+    qs = TextCollection.objects.filter(
+        Q(ownedBy=request.user) | Q(collaborators=request.user)
+    ).distinct()
+    
+    qs = qs.annotate(
+        num_texts=Count('texts'),
+        num_relations=Count('texts__relationsets'),
+        # Use distinct=True to avoid counting duplicate collaborators
+        num_collaborators=Count('collaborators', distinct=True)
+    )
     qs = qs.values(*fields)
 
     template = "annotations/project_list.html"
