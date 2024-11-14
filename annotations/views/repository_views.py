@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, render
 from django.db.models import Q
 from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
+
 from annotations.forms import RepositorySearchForm
 from annotations.tasks import tokenize
 from repository.models import Repository
@@ -17,6 +18,7 @@ from repository.managers import *
 from annotations.models import Text, TextCollection
 from annotations.annotators import supported_content_types
 from annotations.tasks import tokenize
+from annotations.utils import get_pagination_metadata
 
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
@@ -25,6 +27,7 @@ from urllib.parse import urlencode
 from external_accounts.utils import parse_iso_datetimes
 
 from external_accounts.decorators import citesphere_authenticated
+from annotations.utils import get_pagination_metadata
 
 def _get_params(request):
     # The request may include parameters that should be passed along to the
@@ -68,7 +71,7 @@ def _get_pagination(response, base_url, base_params):
     return previous_page, next_page
 
 
-
+# Since in citesphere_authenticated we already have a login_required decorator, we don't need to add another one here
 @citesphere_authenticated
 def repository_collections(request, repository_id):
     """View to fetch and display Citesphere Groups"""
@@ -87,26 +90,29 @@ def repository_collections(request, repository_id):
     return render(request, "annotations/repository_collections.html", context)
 
 
-# Since in citesphere_authenticated we already have a login_required decorator, we don't need to add another one here
 @citesphere_authenticated
 def repository_collection(request, repository_id, group_id):
-    """View to fetch and display collections within Citesphere Groups"""
+    """View to fetch and display collections and group texts within Citesphere Groups"""
     params = _get_params(request)
 
     repository = get_object_or_404(Repository, pk=repository_id)
     
     manager = RepositoryManager(user=request.user, repository=repository)
+
+    page = int(request.GET.get('page', 1))
     
     try:
         response_data = manager.collections(groupId=group_id)
         group_info = response_data.get('group')
         collections = response_data.get('collections', [])
+        group_texts =  manager.group_items(groupId=group_id, page=page)
     except IOError:
         return render(request, 'annotations/repository_ioerror.html', {}, status=500)
 
     project_id = request.GET.get('project_id')
     
-    base_url = reverse('repository_collection', args=(repository_id, group_id))
+    items_per_page = settings.PAGINATION_PAGE_SIZE
+    pagination = get_pagination_metadata(total_items=group_texts.get('total_items'), page=page, items_per_page=items_per_page)
     
     base_params = {}
     if project_id:
@@ -119,7 +125,11 @@ def repository_collection(request, repository_id, group_id):
         'group_id': group_id,
         'collections': collections,
         'title': f'Browse collections in {group_id}',
-        'project_id': project_id
+        'project_id': project_id,
+        'group_texts': group_texts['items'],
+        'current_page': pagination['current_page'],
+        'total_pages': pagination['total_pages'],
+        'page_range': pagination['page_range'],
     }
 
     return render(request, 'annotations/repository_collection.html', context)
@@ -248,28 +258,38 @@ def repository_details(request, repository_id):
 
 @citesphere_authenticated
 def repository_collection_texts(request, repository_id, group_id, group_collection_id):
-    """View to fetch and display texts within a collection from Citesphere"""
+    """View to fetch and display paginated texts within a collection from Citesphere."""
     user = request.user
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=user, repository=repository)
 
+    page = int(request.GET.get('page', 1))
+
     try:
-        texts = manager.collection_items(group_id, group_collection_id)
+        texts = manager.collection_items(group_id, group_collection_id, page=page)
     except Exception as e:
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
 
-    project_id = request.GET.get('project_id', None)
+    # retrieve items per page from settings and calculate pagination metadata from util function
+    items_per_page = settings.PAGINATION_PAGE_SIZE
+    pagination = get_pagination_metadata(total_items=texts.get('total_items'), page=page, items_per_page=items_per_page)
+
+    project_id = request.GET.get('project_id')
     context = {
         'user': user,
         'repository': repository,
         'texts': texts['items'],
-        'title': f'Texts in Collection: ', # Collection name is rendered from frontend
-        'group_info':texts['group'],
-        'group_id':group_id,
+        'title': 'Texts in Collection:',
+        'group_info': texts['group'],
+        'group_id': group_id,
         'project_id': project_id,
+        'current_page': pagination['current_page'],
+        'total_pages': pagination['total_pages'],
+        'page_range': pagination['page_range'],
     }
 
     return render(request, 'annotations/repository_collections_text_list.html', context)
+
 
 @citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key):
