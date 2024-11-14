@@ -27,7 +27,7 @@
         {% for project in projects %}
             {% if next_url %}
                 <a class="list-group-item"
-                href="{{ next_url }}?project_id={{ project.id }}">
+                href="{{ next_url }}">
             {% else %}
                 <a class="list-group-item"
                 href="{% url "view_project" project.id %}">

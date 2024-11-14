@@ -70,10 +70,13 @@ class Annotator(object):
 
     def __init__(self, request, text):
         project_id = request.GET.get('project_id')
-        if project_id:
-            project = TextCollection.objects.get(pk=project_id)
+        if text.repository_source_id:
+            project = TextCollection.objects.get(pk=text.repository_source_id)
         else:
-            project = request.user.get_default_project()
+            if project_id:
+                project = TextCollection.objects.get(pk=project_id)
+            else:
+                project = request.user.get_default_project()
 
         self.project = project;
         self.context = {

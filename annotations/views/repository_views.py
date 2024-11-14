@@ -211,7 +211,6 @@ def repository_details(request, repository_id):
     template = "annotations/repository_details.html"
     repository = get_object_or_404(Repository, pk=repository_id)
     user = None if isinstance(request.user, AnonymousUser) else request.user
-    project_id = request.GET.get('project_id')
 
     # Fetch text collections (projects) owned by the current user
     user_owned_collections = TextCollection.objects.filter(ownedBy=user)
@@ -231,7 +230,7 @@ def repository_details(request, repository_id):
         'manager': manager,
         'title': f'Repository details: {repository.name}',
         'texts_by_project': texts_by_project,
-        'project_id': project_id,
+        'project_id': request.GET.get('project_id'),
     }
 
     return render(request, template, context)
