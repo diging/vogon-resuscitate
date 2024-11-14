@@ -79,8 +79,10 @@ def repository_collections(request, repository_id):
 
     try:
         collections = manager.groups()  # Fetch collections
-    except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+    except CitesphereAPIError as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     context = {
         'collections': collections,
@@ -106,9 +108,12 @@ def repository_collection(request, repository_id, group_id):
         response_data = manager.collections(group_id=group_id)
         group_info = response_data.get('group')
         collections = response_data.get('collections', [])
-        group_texts =  manager.group_items(group_id=group_id, page=page)
-    except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+        group_texts = manager.group_items(group_id=group_id, page=page)
+    except CitesphereAPIError as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        print(e)
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     project_id = request.GET.get('project_id')
     
@@ -136,7 +141,6 @@ def repository_collection(request, repository_id, group_id):
     return render(request, 'annotations/repository_collection.html', context)
 
 
-
 @citesphere_authenticated
 def repository_browse(request, repository_id):
     params = _get_params(request)
@@ -146,8 +150,10 @@ def repository_browse(request, repository_id):
     project_id = request.GET.get('project_id')
     try:
         resources = manager.list(**params)
-    except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+    except CitesphereAPIError as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     base_url = reverse('repository_browse', args=(repository_id,))
     base_params = {}
@@ -170,7 +176,6 @@ def repository_browse(request, repository_id):
         context.update({'previous_page': previous_page})
 
     return render(request, 'annotations/repository_browse.html', context)
-
 
 
 @citesphere_authenticated
@@ -249,8 +254,10 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
     try:
         texts = manager.collection_items(group_id, group_collection_id, page=page)
-    except Exception as e:
+    except CitesphereAPIError as e:
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     # retrieve items per page from settings and calculate pagination metadata from util function
     items_per_page = settings.PAGINATION_PAGE_SIZE
@@ -280,8 +287,10 @@ def repository_text_import(request, repository_id, group_id, text_key):
 
     try:
         result = manager.item(group_id, text_key)
-    except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+    except CitesphereAPIError as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     # Extracting item details and Giles details from the result
     item_details = result.get('item', {}).get('details', {})
@@ -330,8 +339,10 @@ def repository_text_content(request, repository_id, text_id, content_id):
     try:
         content = manager.content(id=int(content_id))
         resource = manager.resource(id=int(text_id))
-    except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+    except CitesphereAPIError as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     content_type = content.get('content_type', None)
     from annotations import annotators
@@ -348,8 +359,10 @@ def repository_text_content(request, repository_id, text_id, content_id):
     if part_of_id:
         try:
             master = manager.resource(id=int(part_of_id))
-        except IOError:
-            return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+        except CitesphereAPIError as e:
+            return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+        except Exception as e:
+            return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
         master_resource, _ = Text.objects.get_or_create(uri=master['uri'],
                                                         defaults={
             'title': master.get('title'),
