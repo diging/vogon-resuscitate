@@ -8,7 +8,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.db.models import Q
 from django.contrib.auth.models import AnonymousUser
-
+from django.conf import settings
 from annotations.forms import RepositorySearchForm
 from annotations.tasks import tokenize
 from repository.models import Repository
@@ -17,6 +17,8 @@ from repository.managers import *
 from annotations.models import Text, TextCollection
 from annotations.annotators import supported_content_types
 from annotations.tasks import tokenize
+
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
 from urllib.parse import urlparse, parse_qs
 from urllib.parse import urlencode
@@ -220,7 +222,14 @@ def repository_details(request, repository_id):
         # Filter texts within each collection that belong to the repository
         collection_texts = collection.texts.filter(repository=repository).order_by('-added')
         if collection_texts.exists():
-            texts_by_project[collection] = list(collection_texts)
+            paginator = Paginator(collection_texts, settings.REPOSITORY_TEXT_PAGINATION_PAGE_SIZE)
+            try:
+                paginated_texts = paginator.page(request.GET.get('page', 1))
+            except PageNotAnInteger:
+                paginated_texts = paginator.page(1)
+            except EmptyPage:
+                paginated_texts = paginator.page(paginator.num_pages)
+            texts_by_project[collection] = paginated_texts
 
     manager = RepositoryManager(user=user, repository=repository)
 
@@ -231,6 +240,7 @@ def repository_details(request, repository_id):
         'title': f'Repository details: {repository.name}',
         'texts_by_project': texts_by_project,
         'project_id': request.GET.get('project_id'),
+        'page': request.GET.get('page', 1),
     }
 
     return render(request, template, context)
