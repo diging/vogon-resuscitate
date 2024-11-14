@@ -18,21 +18,20 @@ from annotations.forms import ProjectForm
 from django.contrib import messages
 from django.http import Http404
 
+from annotations.utils import get_ordering_metadata
+
 def view_project(request, project_id):
     """
     Shows details about a specific project owned by the current user.
-
-    Parameters
-    ----------
-    request : `django.http.requests.HttpRequest`
-    project_id : int
-
-    Returns
-    ----------
-    :class:`django.http.response.HttpResponse`
     """
-
-    project = get_object_or_404(TextCollection, pk=project_id)
+    project = get_object_or_404(
+        TextCollection.objects.annotate(
+            num_texts=Count('texts'),
+            num_relations=Count('texts__relationsets'), 
+            num_collaborators=Count('collaborators', distinct=True)
+        ),
+        pk=project_id
+    )
 
     # Check if user is owner or collaborator
     if not (request.user == project.ownedBy or request.user in project.collaborators.all()):
@@ -40,24 +39,11 @@ def view_project(request, project_id):
 
     template = "annotations/project_details.html"
 
-    # Handle ordering
-    order_by = request.GET.get('order_by', 'title')
-    if order_by.startswith('-'):
-        order_field = order_by[1:]
-        order_direction = '-'
-    else:
-        order_field = order_by
-        order_direction = ''
-
-    # Validate order field is allowed
-    allowed_order_fields = ['title', 'added']
-    if order_field not in allowed_order_fields:
-        order_field = 'title'
-        order_direction = ''
+    # Get ordering metadata
+    ordering = get_ordering_metadata(request, default_field='title', allowed_fields=['title', 'added'])
 
     # Apply ordering
-    order_param = f"{order_direction}{order_field}"
-    texts = project.texts.all().order_by(order_param)\
+    texts = project.texts.all().order_by(ordering['order_param'])\
                          .values('id', 'title', 'added', 'repository_source_id')
 
     paginator = Paginator(texts, 15)
@@ -65,18 +51,9 @@ def view_project(request, project_id):
     try:
         texts = paginator.page(page)
     except PageNotAnInteger:
-        # If page is not an integer, deliver first page.
         texts = paginator.page(1)
     except EmptyPage:
-        # If page is out of range (e.g. 9999), deliver last page of results.
         texts = paginator.page(paginator.num_pages)
-
-    from annotations.filters import RelationSetFilter
-
-    # for now let's remove this; it takes long to load the pages and there is a bug somewhere
-    # that throws an error sometimes [VGNWB-215]
-    #filtered = RelationSetFilter({'project': project.id}, queryset=RelationSet.objects.all())
-    #relations = filtered.qs
 
     context = {
         'user': request.user,
@@ -84,8 +61,7 @@ def view_project(request, project_id):
         'project': project,
         'collaborators': project.collaborators.all(),
         'texts': texts,
-        'order_by': order_by,
-        # 'relations': relations,
+        'order_by': ordering['order_by'],
     }
 
     return render(request, template, context)
@@ -202,8 +178,7 @@ def list_projects(request):
     qs = qs.annotate(
         num_texts=Count('texts'),
         num_relations=Count('texts__relationsets'),
-        # Use distinct=True to avoid counting duplicate collaborators
-        num_collaborators=Count('collaborators', distinct=True)
+        num_collaborators=Count('collaborators', distinct=True) # Use distinct=True to avoid counting duplicate collaborators
     )
     qs = qs.values(*fields)
 

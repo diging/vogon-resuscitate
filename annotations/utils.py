@@ -65,3 +65,48 @@ def get_pagination_metadata(total_items, page, items_per_page):
         'current_page': page,
         'page_range': page_range,
     }
+
+def get_ordering_metadata(request, default_field='title', allowed_fields=None):
+    """
+    Get ordering metadata from request parameters.
+    
+    Parameters
+    ----------
+    request : HttpRequest
+        The request object containing GET parameters
+    default_field : str
+        Default field to order by if none specified
+    allowed_fields : list
+        List of fields that are allowed for ordering
+        
+    Returns
+    -------
+    dict
+        Dictionary containing order_by parameter and order_field to use in query
+    """
+    if allowed_fields is None:
+        allowed_fields = [default_field]
+        
+    # Get order_by from request, default to default_field
+    order_by = request.GET.get('order_by', default_field)
+    
+    # Parse direction and field
+    if order_by.startswith('-'):
+        order_field = order_by[1:]
+        order_direction = '-'
+    else:
+        order_field = order_by
+        order_direction = ''
+    
+    # Validate order field
+    if order_field not in allowed_fields:
+        order_field = default_field
+        order_direction = ''
+        order_by = default_field
+        
+    order_param = f"{order_direction}{order_field}"
+    
+    return {
+        'order_by': order_by,
+        'order_param': order_param
+    }
