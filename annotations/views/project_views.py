@@ -12,13 +12,13 @@ from django.contrib.auth import login, authenticate
 from django.conf import settings
 from django.db.models import Q, Count
 
-from annotations.models import TextCollection, RelationSet, VogonUser
+from annotations.models import TextCollection, VogonUser
 from annotations.forms import ProjectForm
 
 from django.contrib import messages
 from django.http import Http404
 
-from annotations.utils import get_ordering_metadata
+from annotations.utils import get_ordering_metadata, get_user_project_stats
 
 def view_project(request, project_id):
     """
@@ -27,7 +27,7 @@ def view_project(request, project_id):
     project = get_object_or_404(
         TextCollection.objects.annotate(
             num_texts=Count('texts'),
-            num_relations=Count('texts__relationsets'), 
+            num_relations=Count('texts__relationsets'),
             num_collaborators=Count('collaborators', distinct=True)
         ),
         pk=project_id
@@ -35,7 +35,7 @@ def view_project(request, project_id):
 
     # Check if user is owner or collaborator
     if not (request.user == project.ownedBy or request.user in project.collaborators.all()):
-        return HttpResponse('Sorry, you are not allowed to view this project.', status=403)
+        return HttpResponse("Oops! Looks like you're trying to sneak a peek into someone else's project.", status=403)
 
     template = "annotations/project_details.html"
 
@@ -55,11 +55,16 @@ def view_project(request, project_id):
     except EmptyPage:
         texts = paginator.page(paginator.num_pages)
 
+    # Get owner and collaborator stats
+    owner_stats = get_user_project_stats(project.ownedBy, project)
+    collaborator_stats = [get_user_project_stats(collaborator, project) for collaborator in project.collaborators.all()]
+
     context = {
         'user': request.user,
         'title': project.name,
         'project': project,
-        'collaborators': project.collaborators.all(),
+        'owner_stats': owner_stats,
+        'collaborator_stats': collaborator_stats,
         'texts': texts,
         'order_by': ordering['order_by'],
     }

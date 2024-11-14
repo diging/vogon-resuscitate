@@ -8,6 +8,8 @@ from itertools import chain, combinations, groupby
 import re
 import math
 
+from annotations import models
+
 def help_text(text):
     """
     Remove excess whitespace from a string. Intended for use in model and form
@@ -110,3 +112,41 @@ def get_ordering_metadata(request, default_field='title', allowed_fields=None):
         'order_by': order_by,
         'order_param': order_param
     }
+
+def get_user_project_stats(user, project):
+    """
+    Get statistics for a user's contributions to a project.
+    
+    Parameters
+    ----------
+    user : VogonUser
+        The user to get stats for
+    project : TextCollection
+        The project to get stats from
+        
+    Returns
+    -------
+    dict
+        Dictionary containing user stats including:
+        - number of texts added
+        - number of appellations
+        - number of relations
+        - user object reference
+    """
+    stats = {
+        'user': user,
+        'num_texts_added': models.Text.objects.filter(
+            addedBy=user,
+            partOf=project
+        ).count(),
+        'num_appellations': models.Appellation.objects.filter(
+            createdBy=user,
+            occursIn__partOf=project
+        ).count(),
+        'num_relations': models.RelationSet.objects.filter(
+            createdBy=user,
+            occursIn__partOf=project,
+        ).count(),
+    }
+    
+    return stats

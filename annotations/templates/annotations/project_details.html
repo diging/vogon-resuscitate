@@ -10,10 +10,23 @@ $(document).ready(function() {
         submitBtn.prop('disabled', !$(this).val());
     });
     
-    // Initially disable submit button
     $('.add-collaborator-form button[type="submit"]').prop('disabled', true);
+
+    $('[data-toggle="tooltip"]').tooltip({
+        html: true,
+        placement: 'bottom',
+        trigger: 'hover'
+    });
 });
 </script>
+
+<style>
+.tooltip-inner {
+    max-width: 300px;
+    padding: 10px;
+    text-align: left;
+}
+</style>
 {% endblock %}
 
 {% block main %}
@@ -174,35 +187,34 @@ $(document).ready(function() {
 
                     <div class="list-group">
                         <!-- Project Owner -->
-                        <div class="list-group-item">
+                        <div class="list-group-item" data-toggle="tooltip" title="Texts Added: {{ owner_stats.num_texts_added }}<br>Appellations: {{ owner_stats.num_appellations }}<br>Relations: {{ owner_stats.num_relations }}">
                             <div class="media">
                                 <div class="media-left">
-                                    <img class="media-object img-circle" src="{% if project.ownedBy.imagefile %}{{ project.ownedBy.imagefile }}{% else %}https://s3-us-west-2.amazonaws.com/vogonweb-test/defaultprofile.png{% endif %}" style="width: 50px; height: 50px;">
+                                    <img class="media-object img-circle" src="{% if owner_stats.user.imagefile %}{{ owner_stats.user.imagefile }}{% else %}https://s3-us-west-2.amazonaws.com/vogonweb-test/defaultprofile.png{% endif %}" style="width: 50px; height: 50px;">
                                 </div>
                                 <div class="media-body">
-                                    <h4 class="media-heading">{{ project.ownedBy.username }}</h4>
+                                    <h4 class="media-heading">{{ owner_stats.user.username }}</h4>
                                     <small class="text-muted">Owner</small>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Collaborators -->
-                        {% for collaborator in collaborators %}
-                        <div class="list-group-item">
+                        {% for collaborator in collaborator_stats %}
+                        <div class="list-group-item" data-toggle="tooltip" title="Texts Added: {{ collaborator.num_texts_added }}<br>Appellations: {{ collaborator.num_appellations }}<br>Relations: {{ collaborator.num_relations }}">
                             <div class="media">
                                 <div class="media-left">
-                                    <img class="media-object img-circle" src="{% if user.imagefile %}{{ user.imagefile }}{% else %}https://s3-us-west-2.amazonaws.com/vogonweb-test/defaultprofile.png{% endif %}" style="width: 50px; height: 50px;">
+                                    <img class="media-object img-circle" src="{% if collaborator.user.imagefile %}{{ collaborator.user.imagefile }}{% else %}https://s3-us-west-2.amazonaws.com/vogonweb-test/defaultprofile.png{% endif %}" style="width: 50px; height: 50px;">
                                 </div>
                                 <div class="media-body">
-                                    <h4 class="media-heading">{{ collaborator.username }}</h4>
+                                    <h4 class="media-heading">{{ collaborator.user.username }}</h4>
                                     <small class="text-muted">Collaborator</small>
                                 </div>
                                 {% if user.id == project.ownedBy.id %}
                                 <div class="media-right">
                                     <form method="POST" action="{% url 'remove_collaborator' project.id %}" style="display: inline;">
                                         {% csrf_token %}
-                                        <input type="hidden" name="username" value="{{ collaborator.username }}">
-                                        <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('Remove {{ collaborator.username }} from project?');">
+                                        <input type="hidden" name="username" value="{{ collaborator.user.username }}">
+                                        <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('Remove {{ collaborator.user.username }} from project?');">
                                             <span class="glyphicon glyphicon-remove"></span>
                                         </button>
                                     </form>
