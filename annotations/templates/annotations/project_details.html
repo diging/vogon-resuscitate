@@ -43,12 +43,12 @@ $(document).ready(function() {
             <div style="margin-bottom: 30px;">
                 <div class="h2">
                     {{ project.name }}
-                    {% if user.id == project.ownedBy.id %}
                     <span class="btn-group pull-right">
                         <a class="btn btn-success"
                             href="{% url "repository_list" %}?project_id={{ project.id }}">
                             <span class="gylphicon glyphicon-plus"></span> Add Text
                         </a>
+                    {% if user.id == project.ownedBy.id%}
                         <a class="btn btn-primary"
                             href="{% url "edit_project" project.id %}">
                             <span class="gylphicon glyphicon-pencil"></span> Edit Project
@@ -172,7 +172,7 @@ $(document).ready(function() {
                         <div class="list-group-item">
                             <div class="media">
                                 <div class="media-left">
-                                    <img class="media-object img-circle" src="{{ project.ownedBy.imagefile }}" style="width: 50px; height: 50px;">
+                                    <img class="media-object img-circle" src="{% if project.ownedBy.imagefile %}{{ project.ownedBy.imagefile }}{% else %}https://s3-us-west-2.amazonaws.com/vogonweb-test/defaultprofile.png{% endif %}" style="width: 50px; height: 50px;">
                                 </div>
                                 <div class="media-body">
                                     <h4 class="media-heading">{{ project.ownedBy.username }}</h4>
@@ -186,7 +186,7 @@ $(document).ready(function() {
                         <div class="list-group-item">
                             <div class="media">
                                 <div class="media-left">
-                                    <img class="media-object img-circle" src="{{ collaborator.imagefile }}" style="width: 50px; height: 50px;">
+                                    <img class="media-object img-circle" src="{% if user.imagefile %}{{ user.imagefile }}{% else %}https://s3-us-west-2.amazonaws.com/vogonweb-test/defaultprofile.png{% endif %}" style="width: 50px; height: 50px;">
                                 </div>
                                 <div class="media-body">
                                     <h4 class="media-heading">{{ collaborator.username }}</h4>
