@@ -2,15 +2,14 @@
 Provides project (:class:`.TextCollection`) -related views.
 """
 
-from django.shortcuts import get_object_or_404, render, redirect
+from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, HttpResponseRedirect
-from django.contrib.auth import login, authenticate
 from django.conf import settings
-from django.db.models import Q, Count, F
+from django.db.models import Q
 
 from annotations.models import TextCollection, VogonUser
 from annotations.forms import ProjectForm
@@ -18,36 +17,7 @@ from annotations.forms import ProjectForm
 from django.contrib import messages
 from django.http import Http404
 
-from annotations.utils import get_ordering_metadata, get_user_project_stats
-
-
-def _annotate_project_counts(queryset):
-    """
-    Helper function to annotate project queryset with counts of texts, relations and collaborators.
-    
-    Parameters
-    ----------
-    queryset : QuerySet
-        Base queryset of TextCollection objects
-        
-    Returns
-    -------
-    QuerySet
-        Annotated queryset with num_texts, num_relations, and num_collaborators
-    """
-    return queryset.annotate(
-        num_texts=Count('texts', distinct=True),
-        # Count relations created by either collaborators or project owner
-        # texts__relationsets: Access relationsets through texts
-        # filter: Only count relations where creator is either:
-        #   - One of the project collaborators (createdBy__in=collaborators)
-        #   - The project owner (createdBy=ownedBy)
-        num_relations=Count('texts__relationsets', 
-                          filter=Q(texts__relationsets__createdBy__in=F('collaborators')) | 
-                                Q(texts__relationsets__createdBy=F('ownedBy')),
-                          distinct=True),
-        num_collaborators=Count('collaborators', distinct=True)
-    )
+from annotations.utils import get_ordering_metadata, get_user_project_stats, _annotate_project_counts
 
 @login_required
 def view_project(request, project_id):

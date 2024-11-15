@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOGLEVEL)
 
 
-# Custom permission class to check if user is collaborator
+# Custom permission class to check if user is collaborator or owner
 class IsCollaboratorOrOwner(IsAuthenticatedOrReadOnly):
     def has_permission(self, request, view):
         if not super().has_permission(request, view):

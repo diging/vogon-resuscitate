@@ -5,6 +5,7 @@ General-purpose helper functions.
 from django.conf import settings
 
 from itertools import chain, combinations, groupby
+from django.db.models import Q, Count, F
 import re
 import math
 
@@ -150,3 +151,31 @@ def get_user_project_stats(user, project):
     }
     
     return stats
+
+def _annotate_project_counts(queryset):
+    """
+    Helper function to annotate project queryset with counts of texts, relations and collaborators.
+    
+    Parameters
+    ----------
+    queryset : QuerySet
+        Base queryset of TextCollection objects
+        
+    Returns
+    -------
+    QuerySet
+        Annotated queryset with num_texts, num_relations, and num_collaborators
+    """
+    return queryset.annotate(
+        num_texts=Count('texts', distinct=True),
+        # Count relations created by either collaborators or project owner
+        # texts__relationsets: Access relationsets through texts
+        # filter: Only count relations where creator is either:
+        #   - One of the project collaborators (createdBy__in=collaborators)
+        #   - The project owner (createdBy=ownedBy)
+        num_relations=Count('texts__relationsets', 
+                          filter=Q(texts__relationsets__createdBy__in=F('collaborators')) | 
+                                Q(texts__relationsets__createdBy=F('ownedBy')),
+                          distinct=True),
+        num_collaborators=Count('collaborators', distinct=True)
+    )
