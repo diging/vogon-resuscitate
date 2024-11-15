@@ -9,7 +9,7 @@ from django.http import HttpResponse, JsonResponse
 
 from annotations.utils import basepath
 from annotations.display_helpers import filter_relationset
-from annotations.models import RelationSet, Relation, Appellation, Text
+from annotations.models import RelationSet, Relation, Appellation, Text, TextCollection
 from concepts.models import Concept, Type
 
 from itertools import combinations
@@ -43,21 +43,33 @@ def network(request):
 def network_for_text(request, text_id):
     """
     Provides network data for the graph tab in the text annotation view.
+    Shows network for both project owner and collaborators.
     """
     relationsets = RelationSet.objects.filter(occursIn_id=text_id)
     appellations = Appellation.objects.filter(asPredicate=False,
-                                              occursIn_id=text_id)
+                                            occursIn_id=text_id)
 
-    # We may want to show this graph on the public (non-annotation) text view,
-    #  and thus want to load appellations created by everyone.
-    user_id = request.GET.get('user')
-    if user_id:
-        relationsets = relationsets.filter(createdBy_id=user_id)
-        appellations = appellations.filter(createdBy_id=user_id)
+    # Project comes from the annotation view
     project_id = request.GET.get('project')
     if project_id:
-        relationsets = relationsets.filter(project_id=project_id)
-        appellations = appellations.filter(project_id=project_id)
+        # Get the project
+        project = TextCollection.objects.get(id=project_id)
+        
+        # Get owner and collaborator IDs
+        owner_id = project.ownedBy.id
+        collaborator_ids = list(project.collaborators.values_list('id', flat=True))
+        
+        # Filter for relations/appellations by owner and collaborators
+        user_ids = [owner_id] + collaborator_ids
+        relationsets = relationsets.filter(createdBy_id__in=user_ids, project_id=project_id)
+        appellations = appellations.filter(createdBy_id__in=user_ids, project_id=project_id)
+    else:
+        # If no project specified, filter by requesting user
+        user_id = request.GET.get('user')
+        if user_id:
+            relationsets = relationsets.filter(createdBy_id=user_id)
+            appellations = appellations.filter(createdBy_id=user_id)
+
     nodes, edges = generate_network_data_fast(relationsets, text_id=text_id, appellation_queryset=appellations)
     return JsonResponse({'elements': list(nodes.values()) + list(edges.values())})
 

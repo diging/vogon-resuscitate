@@ -35,6 +35,55 @@ logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOGLEVEL)
 
 
+# Custom permission class to check if user is collaborator
+class IsCollaboratorOrOwner(IsAuthenticatedOrReadOnly):
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+            
+        # Allow GET requests for authenticated users
+        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+            return True
+
+        # check if user is owner or collaborator For POST/PUT/DELETE 
+        text_id = None
+        if request.method == 'POST':
+            text_id = request.data.get('occursIn')
+        elif request.method in ['PUT', 'DELETE']:
+            text_id = request.query_params.get('text')
+            
+        if text_id:
+            try:
+                text = Text.objects.get(id=text_id)
+                collections = text.partOf.all()
+                for collection in collections:
+                    if (request.user == collection.ownedBy or 
+                        request.user in collection.collaborators.all()):
+                        return True
+            except Text.DoesNotExist:
+                return False
+                
+        return False
+
+    def has_object_permission(self, request, view, obj):
+        # Allow GET requests for authenticated users
+        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+            return True
+            
+        # Check if user is owner or collaborator of the text's collection
+        text = None
+        if hasattr(obj, 'occursIn'):
+            text = obj.occursIn
+        
+        if text:
+            collections = text.partOf.all()
+            for collection in collections:
+                if (request.user == collection.ownedBy or 
+                    request.user in collection.collaborators.all()):
+                    return True
+                    
+        return False
+
 
 # http://stackoverflow.com/questions/17769814/django-rest-framework-model-serializers-read-nested-write-flat
 class SwappableSerializerMixin(object):
@@ -100,7 +149,7 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 class DateAppellationViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
     queryset = DateAppellation.objects.all()
     serializer_class = DateAppellationSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, )
+    permission_classes = (IsCollaboratorOrOwner, )
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -123,7 +172,6 @@ class DateAppellationViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
             print((serializer.errors))
             raise E
 
-        # raise AttributeError('asdf')
         try:
             instance = serializer.save()
         except Exception as E:
@@ -153,16 +201,14 @@ class DateAppellationViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
                         headers=headers)
 
 
-
 class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewsets.ModelViewSet):
     queryset = Appellation.objects.filter(asPredicate=False)
     serializer_class = AppellationSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, )
+    permission_classes = (IsCollaboratorOrOwner, )
     serializer_classes = {
         'GET': AppellationSerializer,
         'POST': AppellationPOSTSerializer
     }
-    # pagination_class = LimitOffsetPagination
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -273,9 +319,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
         headers = self.get_success_headers(serializer.data)
         return Response(reserializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    # TODO: implement some real filters!
     def get_queryset(self, *args, **kwargs):
-
         queryset = AnnotationFilterMixin.get_queryset(self, *args, **kwargs)
 
         concept = self.request.query_params.get('concept', None)
@@ -299,13 +343,13 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
 class PredicateViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
     queryset = Appellation.objects.filter(asPredicate=True)
     serializer_class = AppellationSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, )
+    permission_classes = (IsCollaboratorOrOwner, )
 
 
 class RelationSetViewSet(viewsets.ModelViewSet):
     queryset = RelationSet.objects.all()
     serializer_class = RelationSetSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, )
+    permission_classes = (IsCollaboratorOrOwner, )
 
     def get_queryset(self, *args, **kwargs):
         queryset = super(RelationSetViewSet, self).get_queryset(*args, **kwargs)
@@ -333,7 +377,7 @@ class RelationSetViewSet(viewsets.ModelViewSet):
 class RelationViewSet(viewsets.ModelViewSet):
     queryset = Relation.objects.all()
     serializer_class = RelationSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, )
+    permission_classes = (IsCollaboratorOrOwner, )
 
     def get_queryset(self, *args, **kwargs):
         """
