@@ -178,11 +178,21 @@ def list_projects(request):
         'user': request.user,
         'title': 'Projects',
         'projects': qs,
-        }
-    
-    # Preserve the original action URL to return after project selection, if list_project is being called by repository_views, else it will simply open project details in template
-    if request.GET.get('next'):
-        context['next_url'] = request.GET.get('next')
-        context['title'] = 'Select a Project you want to add this text to:'
+        'redirect_to_text_import': False,
+    }
+
+    # Check if the user is redirected from the repository text import view, this will be used to select the project for the text import
+    if request.GET.get('redirect_to_text_import'):
+        repository_id = request.GET.get('repository_id')
+        group_id = request.GET.get('group_id')
+        text_key = request.GET.get('text_key')
+
+        context.update({
+            'redirect_to_text_import': True,
+            'repository_id': repository_id,
+            'group_id': group_id,
+            'title': 'Select a Project for to import this text:',
+            'text_key': text_key
+        })
 
     return render(request, template, context)

@@ -11,9 +11,9 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from urllib.parse import urlencode
 @login_required
 @ensure_csrf_cookie
-def annotate(request, text_id):
+def annotate(request, text_id, project_id):
     text = get_object_or_404(Text, pk=text_id)
-    annotator = annotator_factory(request, text)
+    annotator = annotator_factory(request, text, project_id)
     return annotator.render()
 
 

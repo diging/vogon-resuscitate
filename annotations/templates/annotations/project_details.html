@@ -56,7 +56,7 @@
         {% for text in texts %}
         <tbody>
             <tr>
-                <td><a href="{% url "annotate" text.id %}?project_id={{ project.id }}">{{ text.title }}</a></td>
+                <td><a href="{% url "annotate" text.id project.id %}">{{ text.title }}</a></td>
                 <td>{{ text.added }}</td>
             </tr>
         </tbody>

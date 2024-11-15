@@ -68,15 +68,8 @@ class Annotator(object):
     template = ''
     content_types = []
 
-    def __init__(self, request, text):
-        project_id = request.GET.get('project_id')
-        if text.repository_source_id:
-            project = TextCollection.objects.get(pk=text.repository_source_id)
-        else:
-            if project_id:
-                project = TextCollection.objects.get(pk=project_id)
-            else:
-                project = request.user.get_default_project()
+    def __init__(self, request, text, project_id):
+        project = TextCollection.objects.get(pk=project_id)
 
         self.project = project;
         self.context = {
@@ -248,7 +241,7 @@ ANNOTATORS = (
 )
 
 
-def annotator_factory(request, text):
+def annotator_factory(request, text, project_id):
     """
     Find and instantiate an annotator for a :class:`.Text` instance.
 
@@ -264,7 +257,7 @@ def annotator_factory(request, text):
     """
     for annotator in ANNOTATORS:
         if text.content_type in annotator.content_types:
-            return annotator(request, text)
+            return annotator(request, text, project_id)
     return
 
 

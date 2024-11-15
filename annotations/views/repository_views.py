@@ -292,12 +292,13 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
 
 @citesphere_authenticated
-def repository_text_import(request, repository_id, group_id, text_key):
-    project_id = request.GET.get('project_id')
-    # Redirect to project selection if no project is provided
+def repository_text_import(request, repository_id, group_id, text_key, project_id=None):
+
     if not project_id:
-        # Redirect to 'list_projects' with the next URL to come back after selection
-        return redirect(f"{reverse('list_projects')}?next={request.get_full_path()}")
+        return redirect(f"{reverse('list_projects')}?redirect_to_text_import=True&repository_id={repository_id}&group_id={group_id}&text_key={text_key}")
+
+    # Retrieve the project directly using project_id from the URL
+    project = get_object_or_404(TextCollection, pk=project_id)
     
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=request.user, repository=repository)
@@ -307,10 +308,8 @@ def repository_text_import(request, repository_id, group_id, text_key):
     except IOError:
         return render(request, 'annotations/repository_ioerror.html', {}, status=500)
 
-    # Extracting item details and Giles details from the result
     item_details = result.get('item', {}).get('details', {})
     giles_text = result.get('item', {}).get('text', [])
-
     tokenized_content = tokenize(giles_text)
 
     defaults = {
@@ -332,15 +331,12 @@ def repository_text_import(request, repository_id, group_id, text_key):
 
     master_text.save()
 
-    # Check if the text is already in the project before adding it
-    if project_id:
-        project = TextCollection.objects.get(pk=project_id)
-        if not project.texts.filter(pk=master_text.pk).exists():
-            project.texts.add(master_text)  # Add text to the project if not already there
+    # Add text to project only if it's not already present
+    if not project.texts.filter(pk=master_text.pk).exists():
+        project.texts.add(master_text)
 
     # Redirect to the annotation page
-    return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + (f'?project_id={project_id}' if project_id else ''))
-
+    return HttpResponseRedirect(reverse('annotate', args=[master_text.id, project.id]))
 
 @login_required
 def repository_text_content(request, repository_id, text_id, content_id):

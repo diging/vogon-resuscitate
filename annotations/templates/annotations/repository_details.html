@@ -63,7 +63,7 @@
                                     <tbody>
                                         {% for text in texts %}
                                             <tr>
-                                                <td><a href="{% url "annotate" text.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="text-primary">{{ text.title }}</a></td>
+                                                <td><a href="{% url "annotate" text.id project.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="text-primary">{{ text.title }}</a></td>
                                                 <td>{{ text.addedBy }}</td>
                                                 <td style="width: 120px;">{{ text.created|date:"Y-m-d" }}</td>
                                                 <td style="width: 120px;">{{ text.added|date:"Y-m-d" }}</td>
