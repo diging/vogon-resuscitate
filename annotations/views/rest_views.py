@@ -496,7 +496,7 @@ class ConceptViewSet(viewsets.ModelViewSet):
         url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
         parameters = {
             'word': q,
-            'pos': pos if pos else '',
+            'pos': pos if pos else None,
         }
         headers = {
             'Accept': 'application/json',
