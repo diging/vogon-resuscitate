@@ -366,7 +366,7 @@ def repository_text_content(request, repository_id, text_id, content_id):
         'title': resource.get('title'),
         'created': resource.get('created'),
         'repository': repository,
-        'repository_source_id': text_id,
+        'repository_source_id': repository_id,
         'addedBy': request.user,
     }
     part_of_id = request.GET.get('part_of')

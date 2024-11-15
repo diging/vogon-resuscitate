@@ -537,7 +537,7 @@ class ConceptViewSet(viewsets.ModelViewSet):
             return Response({'results': []})
         pos = request.GET.get('pos', None)
         url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{q}/{pos if pos else ''}"
-        response = requests.get(url)
+        response = requests.get(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
         if response.status_code == 200:
             try:
                 # Parse the XML response
@@ -654,7 +654,7 @@ def fetch_concept_data(label, pos=None):
         pos = None
 
     url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{label}/{pos}"
-    response = requests.get(url)
+    response = requests.get(url,auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
 
     if response.status_code == 200:
         try:
