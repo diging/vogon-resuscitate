@@ -20,6 +20,7 @@ from django.http import Http404
 
 from annotations.utils import get_ordering_metadata, get_user_project_stats
 
+@login_required
 def view_project(request, project_id):
     """
     Shows details about a specific project owned by the current user.
@@ -148,7 +149,7 @@ def create_project(request):
     }
     return render(request, template, context)
 
-
+@login_required
 def list_projects(request):
     """
     All known projects.
