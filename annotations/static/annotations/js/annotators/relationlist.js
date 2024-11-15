@@ -149,7 +149,6 @@ const RelationList = {
 
         submitQuadruple(quadrupleId) {
             const csrfToken = getCookie('csrftoken');
-            console.log(this);
             
             const param = { 
                 'pk': quadrupleId,
