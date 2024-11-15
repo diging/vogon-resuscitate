@@ -1,17 +1,15 @@
 FROM python:3.7
-
-RUN apt-get update && apt-get install -y \
-    supervisor \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY . /vogon
-
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-COPY startup.sh /vogon/startup.sh
-
-RUN chmod +x /vogon/startup.sh
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /vogon
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+RUN apt-get update && apt-get install -y supervisor && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+COPY startup-prod.sh /vogon/startup-prod.sh
+RUN ["chmod", "+x", "/vogon/startup-prod.sh"]
+
+ENTRYPOINT ["/vogon/startup-prod.sh"]
