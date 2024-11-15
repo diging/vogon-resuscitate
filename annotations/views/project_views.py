@@ -12,56 +12,61 @@ from django.contrib.auth import login, authenticate
 from django.conf import settings
 from django.db.models import Q, Count
 
-from annotations.models import TextCollection, RelationSet
+from annotations.models import TextCollection, VogonUser
 from annotations.forms import ProjectForm
 
+from django.contrib import messages
+from django.http import Http404
+
+from annotations.utils import get_ordering_metadata, get_user_project_stats
 
 def view_project(request, project_id):
     """
     Shows details about a specific project owned by the current user.
-
-    Parameters
-    ----------
-    request : `django.http.requests.HttpRequest`
-    project_id : int
-
-    Returns
-    ----------
-    :class:`django.http.response.HttpResponse`
     """
+    project = get_object_or_404(
+        TextCollection.objects.annotate(
+            num_texts=Count('texts'),
+            num_relations=Count('texts__relationsets'),
+            num_collaborators=Count('collaborators', distinct=True)
+        ),
+        pk=project_id
+    )
 
-    project = get_object_or_404(TextCollection, pk=project_id)
+    # Check if user is owner or collaborator
+    if not (request.user == project.ownedBy or request.user in project.collaborators.all()):
+        return HttpResponse("Oops! Looks like you're trying to sneak a peek into someone else's project.", status=403)
+
     template = "annotations/project_details.html"
 
-    order_by = request.GET.get('order_by', 'title')
-    texts = project.texts.all().order_by(order_by)\
+    # Get ordering metadata
+    ordering = get_ordering_metadata(request, default_field='title', allowed_fields=['title', 'added'])
+
+    # Apply ordering
+    texts = project.texts.all().order_by(ordering['order_param'])\
                          .values('id', 'title', 'added', 'repository_source_id')
 
-    
     paginator = Paginator(texts, 15)
     page = request.GET.get('page')
     try:
         texts = paginator.page(page)
     except PageNotAnInteger:
-        # If page is not an integer, deliver first page.
         texts = paginator.page(1)
     except EmptyPage:
-        # If page is out of range (e.g. 9999), deliver last page of results.
         texts = paginator.page(paginator.num_pages)
 
-    from annotations.filters import RelationSetFilter
-
-    # for now let's remove this; it takes long to load the pages and there is a bug somewhere
-    # that throws an error sometimes [VGNWB-215]
-    #filtered = RelationSetFilter({'project': project.id}, queryset=RelationSet.objects.all())
-    #relations = filtered.qs
+    # Get owner and collaborator stats
+    owner_stats = get_user_project_stats(project.ownedBy, project)
+    collaborator_stats = [get_user_project_stats(collaborator, project) for collaborator in project.collaborators.all()]
 
     context = {
         'user': request.user,
         'title': project.name,
         'project': project,
+        'owner_stats': owner_stats,
+        'collaborator_stats': collaborator_stats,
         'texts': texts,
-        # 'relations': relations,
+        'order_by': ordering['order_by'],
     }
 
     return render(request, template, context)
@@ -160,23 +165,35 @@ def list_projects(request):
 
     fields = [
         'id',
-        'name',
+        'name', 
         'created',
         'ownedBy__id',
         'ownedBy__username',
         'description',
         'num_texts',
         'num_relations',
+        'num_collaborators',
     ]
-    # Get only projects (TextCollections) owned by current user
-    qs = TextCollection.objects.filter(ownedBy=request.user)
     
-    # Add computed fields to each project:
-    # - num_texts: Count of distinct texts in the project
-    # - num_relations: Count of relationsets across all texts in project,
-    #                 but only those created by current user
-    qs = qs.annotate(num_texts=Count('texts', distinct=True),
-                     num_relations=Count('texts__relationsets', filter=Q(texts__relationsets__createdBy=request.user)))
+    # Get projects where user is owner or collaborator, and distinct to avoid duplicates
+    qs = TextCollection.objects.filter(
+        Q(ownedBy=request.user) | Q(collaborators=request.user)
+    ).distinct()
+    
+    qs = qs.annotate(
+        # Count total texts in project by doing a simple Count aggregation on the texts field
+        num_texts=Count('texts'),
+        # Count relations by owner and collaborators:
+        # 1. First counts relations where user is owner using Q(ownedBy=request.user)
+        # 2. Then counts relations where user is collaborator using Q(collaborators=request.user)
+        # 3. Both counts are done on texts__relationsets which follows the foreign key from texts to relationsets
+        # 4. The counts are added together to get total relations for that user's role
+        num_relations=(
+            Count('texts__relationsets', filter=Q(ownedBy=request.user)) + 
+            Count('texts__relationsets', filter=Q(collaborators=request.user))
+        ),
+        num_collaborators=Count('collaborators', distinct=True) # Use distinct=True to avoid counting duplicate collaborators
+    )
     qs = qs.values(*fields)
 
     template = "annotations/project_list.html"
@@ -202,3 +219,74 @@ def list_projects(request):
         })
 
     return render(request, template, context)
+
+
+@login_required
+def add_collaborator(request, project_id):
+    """
+    Add a collaborator to a project. Only the project owner can add collaborators.
+    
+    Parameters
+    ----------
+    project_id : int
+        ID of the project to add collaborator to
+    request : django.http.requests.HttpRequest
+        The request object containing the username of collaborator to add
+        
+    Returns
+    -------
+    django.http.response.HttpResponseRedirect
+        Redirects back to project detail page after adding collaborator
+        
+    Raises
+    ------
+    PermissionDenied
+        If user is not the project owner
+    Http404
+        If project or collaborator username not found
+    """
+    project = get_object_or_404(TextCollection, pk=project_id)
+    if project.ownedBy != request.user:
+        raise PermissionDenied("You do not have permission to add participants.")
+    
+    if request.method == 'POST':
+        collaborator_username = request.POST.get('username')
+        try:
+            collaborator = get_object_or_404(VogonUser, username=collaborator_username)
+            project.collaborators.add(collaborator)
+            project.save()
+            messages.success(request, f'Successfully added {collaborator_username} as a collaborator.')
+        except Http404:
+            messages.error(request, f'User {collaborator_username} not found.')
+        return HttpResponseRedirect(reverse('view_project', args=[project_id]))
+    
+
+@login_required
+def remove_collaborator(request, project_id):
+    """
+    Remove a collaborator from a project.
+
+    Parameters
+    ----------
+    project_id : int
+        ID of the project
+    request : `django.http.requests.HttpRequest`
+
+    Returns
+    ----------
+    :class:`django.http.response.HttpResponseRedirect`
+    """
+    project = get_object_or_404(TextCollection, pk=project_id)
+    if project.ownedBy != request.user:
+        raise PermissionDenied("You do not have permission to remove collaborators.")
+
+    if request.method == 'POST':
+        collaborator_username = request.POST.get('username')
+        try:
+            collaborator = get_object_or_404(VogonUser, username=collaborator_username)
+            project.collaborators.remove(collaborator)
+            project.save()
+            messages.success(request, f'Successfully removed {collaborator_username} from the project.')
+        except Http404:
+            messages.error(request, f'User {collaborator_username} not found.')
+        return HttpResponseRedirect(reverse('view_project', args=[project_id]))

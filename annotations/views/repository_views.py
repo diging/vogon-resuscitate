@@ -312,12 +312,18 @@ def repository_text_import(request, repository_id, group_id, text_key, project_i
     giles_text = result.get('item', {}).get('text', [])
     tokenized_content = tokenize(giles_text)
 
+    project_id = request.GET.get('project_id')
+    if not project_id:
+        # Get user's default project if no project_id provided
+        project = request.user.get_default_project()
+        project_id = project.id
+
     defaults = {
         'title': item_details.get('title', 'Unknown Title'),
         'content_type': 'text/plain',  # Explicitly set to 'text/plain'
         'tokenizedContent': tokenized_content,
         'repository': repository,
-        'repository_source_id':repository_id,
+        'repository_source_id': project_id,
         'addedBy': request.user,
         #Parse date provides a list however we only provide one date, hence will provide only one date
         'created': parse_iso_datetimes([item_details.get('addedOn')])[0],

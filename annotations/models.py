@@ -296,6 +296,8 @@ class TextCollection(models.Model):
     description = models.TextField()
 
     ownedBy = models.ForeignKey(VogonUser, related_name='collections', on_delete=models.CASCADE)
+    collaborators = models.ManyToManyField(VogonUser, related_name='collaborations', blank=True)
+
     texts = models.ManyToManyField('Text', related_name='partOf',
                                    blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True)
@@ -389,6 +391,7 @@ class Text(models.Model):
 
     repository = models.ForeignKey("repository.Repository", blank=True, null=True, related_name='texts', on_delete=models.CASCADE)
     repository_source_id = models.IntegerField(default=-1, blank=True, null=True)
+    """ Project Id stored here """
     content_type = models.CharField(max_length=255)
     """MIME type"""
 
