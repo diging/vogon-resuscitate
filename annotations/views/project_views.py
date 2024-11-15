@@ -168,9 +168,15 @@ def list_projects(request):
         'num_texts',
         'num_relations',
     ]
+    # Get only projects (TextCollections) owned by current user
     qs = TextCollection.objects.filter(ownedBy=request.user)
-    qs = qs.annotate(num_texts=Count('texts'),
-                     num_relations=Count('texts__relationsets'))
+    
+    # Add computed fields to each project:
+    # - num_texts: Count of distinct texts in the project
+    # - num_relations: Count of relationsets across all texts in project,
+    #                 but only those created by current user
+    qs = qs.annotate(num_texts=Count('texts', distinct=True),
+                     num_relations=Count('texts__relationsets', filter=Q(texts__relationsets__createdBy=request.user)))
     qs = qs.values(*fields)
 
     template = "annotations/project_list.html"
