@@ -414,7 +414,11 @@ class Text(models.Model):
     """
 
     def get_absolute_url(self):
-        return reverse('annotate', args=[self.id])
+        """Get the absolute URL for viewing/annotating this text."""
+        # Get the first project this text belongs to
+        project = self.partOf.first()
+        return reverse('annotate', kwargs={'text_id': self.id, 'project_id': project.id})
+
 
 
     @property

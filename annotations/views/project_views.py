@@ -10,7 +10,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, HttpResponseRedirect
 from django.contrib.auth import login, authenticate
 from django.conf import settings
-from django.db.models import Q, Count
+from django.db.models import Q, Count, F
 
 from annotations.models import TextCollection, VogonUser
 from annotations.forms import ProjectForm
@@ -20,17 +20,42 @@ from django.http import Http404
 
 from annotations.utils import get_ordering_metadata, get_user_project_stats
 
+
+def _annotate_project_counts(queryset):
+    """
+    Helper function to annotate project queryset with counts of texts, relations and collaborators.
+    
+    Parameters
+    ----------
+    queryset : QuerySet
+        Base queryset of TextCollection objects
+        
+    Returns
+    -------
+    QuerySet
+        Annotated queryset with num_texts, num_relations, and num_collaborators
+    """
+    return queryset.annotate(
+        num_texts=Count('texts', distinct=True),
+        # Count relations created by either collaborators or project owner
+        # texts__relationsets: Access relationsets through texts
+        # filter: Only count relations where creator is either:
+        #   - One of the project collaborators (createdBy__in=collaborators)
+        #   - The project owner (createdBy=ownedBy)
+        num_relations=Count('texts__relationsets', 
+                          filter=Q(texts__relationsets__createdBy__in=F('collaborators')) | 
+                                Q(texts__relationsets__createdBy=F('ownedBy')),
+                          distinct=True),
+        num_collaborators=Count('collaborators', distinct=True)
+    )
+
 @login_required
 def view_project(request, project_id):
     """
     Shows details about a specific project owned by the current user.
     """
     project = get_object_or_404(
-        TextCollection.objects.annotate(
-            num_texts=Count('texts'),
-            num_relations=Count('texts__relationsets'),
-            num_collaborators=Count('collaborators', distinct=True)
-        ),
+        _annotate_project_counts(TextCollection.objects),
         pk=project_id
     )
 
@@ -181,20 +206,7 @@ def list_projects(request):
         Q(ownedBy=request.user) | Q(collaborators=request.user)
     ).distinct()
     
-    qs = qs.annotate(
-        # Count total texts in project by doing a simple Count aggregation on the texts field
-        num_texts=Count('texts'),
-        # Count relations by owner and collaborators:
-        # 1. First counts relations where user is owner using Q(ownedBy=request.user)
-        # 2. Then counts relations where user is collaborator using Q(collaborators=request.user)
-        # 3. Both counts are done on texts__relationsets which follows the foreign key from texts to relationsets
-        # 4. The counts are added together to get total relations for that user's role
-        num_relations=(
-            Count('texts__relationsets', filter=Q(ownedBy=request.user)) + 
-            Count('texts__relationsets', filter=Q(collaborators=request.user))
-        ),
-        num_collaborators=Count('collaborators', distinct=True) # Use distinct=True to avoid counting duplicate collaborators
-    )
+    qs = _annotate_project_counts(qs)
     qs = qs.values(*fields)
 
     template = "annotations/project_list.html"
