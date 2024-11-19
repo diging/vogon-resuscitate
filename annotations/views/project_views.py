@@ -31,7 +31,7 @@ def view_project(request, project_id):
 
     # Check if user is owner or collaborator
     if not (request.user == project.ownedBy or request.user in project.collaborators.all()):
-        return HttpResponse("Oops! Looks like you're trying to sneak a peek into someone else's project.", status=403)
+        raise PermissionDenied("Oops! Looks like you're trying to sneak a peek into someone else's project.")
 
     template = "annotations/project_details.html"
 
