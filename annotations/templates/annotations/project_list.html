@@ -26,8 +26,13 @@
     <div class="list-group">
         {% if projects %}
             {% for project in projects %}
-            <a class="list-group-item"
-                href="{% url "view_project" project.id %}">
+            {% if redirect_to_text_import %}
+                <a class="list-group-item"
+                    href="{% url 'repository_text_import' repository_id group_id text_key project.id %}">
+            {% else %}
+                <a class="list-group-item"
+                    href="{% url "view_project" project.id %}">
+            {% endif %}
                 <span class="h4">{{ project.name }}</span>
                 <span class="text text-muted">{{ project.description }}</span>
                 <div class="text-warning">

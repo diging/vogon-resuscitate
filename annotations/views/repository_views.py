@@ -296,6 +296,8 @@ def repository_text_import(request, repository_id, group_id, text_key, project_i
 
     if not project_id:
         return redirect(f"{reverse('list_projects')}?redirect_to_text_import=True&repository_id={repository_id}&group_id={group_id}&text_key={text_key}")
+    
+    print("project_id", project_id)
 
     # Retrieve the project directly using project_id from the URL
     project = get_object_or_404(TextCollection, pk=project_id)
@@ -311,12 +313,6 @@ def repository_text_import(request, repository_id, group_id, text_key, project_i
     item_details = result.get('item', {}).get('details', {})
     giles_text = result.get('item', {}).get('text', [])
     tokenized_content = tokenize(giles_text)
-
-    project_id = request.GET.get('project_id')
-    if not project_id:
-        # Get user's default project if no project_id provided
-        project = request.user.get_default_project()
-        project_id = project.id
 
     defaults = {
         'title': item_details.get('title', 'Unknown Title'),
