@@ -40,7 +40,7 @@ def view_project(request, project_id):
 
     # Apply ordering
     texts = project.texts.all().order_by(ordering['order_param'])\
-                         .values('id', 'title', 'added', 'repository_source_id')
+                         .values('id', 'title', 'added')
 
     paginator = Paginator(texts, 15)
     page = request.GET.get('page')
@@ -238,11 +238,10 @@ def add_collaborator(request, project_id):
             collaborator = get_object_or_404(VogonUser, username=collaborator_username)
             project.collaborators.add(collaborator)
             project.save()
-            messages.success(request, f'Successfully added {collaborator_username} as a collaborator.')
+            messages.success(request, f'Successfully added {collaborator_username} as a collaborator.', extra_tags='success')
         except Http404:
-            messages.error(request, f'User {collaborator_username} not found.')
+            messages.error(request, f'User {collaborator_username} not found.', extra_tags='danger')
         return HttpResponseRedirect(reverse('view_project', args=[project_id]))
-    
 
 @login_required
 def remove_collaborator(request, project_id):

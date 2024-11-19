@@ -324,7 +324,7 @@ def repository_text_import(request, repository_id, group_id, text_key, project_i
         'content_type': 'text/plain',  # Explicitly set to 'text/plain'
         'tokenizedContent': tokenized_content,
         'repository': repository,
-        'repository_source_id': project_id,
+        'repository_source_id': repository_id,
         'addedBy': request.user,
         #Parse date provides a list however we only provide one date, hence will provide only one date
         'created': parse_iso_datetimes([item_details.get('addedOn')])[0],
