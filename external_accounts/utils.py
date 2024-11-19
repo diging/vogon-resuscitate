@@ -53,7 +53,6 @@ def get_giles_document_details(user, file_id, repository):
         url = f"{repository.giles_endpoint}/api/v2/resources/files/{file_id}/content/"
 
         response = requests.get(url, headers=headers)
-        print(response)
         response.raise_for_status()  # Raises an HTTPError for bad responses
 
         return response.text
