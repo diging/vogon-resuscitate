@@ -43,7 +43,8 @@ def network(request):
 def network_for_text(request, text_id):
     """
     Provides network data for the graph tab in the text annotation view.
-    Shows network for both project owner and collaborators.
+    Shows network for both project owner and collaborators, including annotations
+    from users who were previously part of the project.
     """
     relationsets = RelationSet.objects.filter(occursIn_id=text_id)
     appellations = Appellation.objects.filter(asPredicate=False,
@@ -55,14 +56,10 @@ def network_for_text(request, text_id):
         # Get the project
         project = TextCollection.objects.get(id=project_id)
         
-        # Get owner and collaborator IDs
-        owner_id = project.ownedBy.id
-        collaborator_ids = list(project.collaborators.values_list('id', flat=True))
-        
-        # Filter for relations/appellations by owner and collaborators
-        user_ids = [owner_id] + collaborator_ids
-        relationsets = relationsets.filter(createdBy_id__in=user_ids, project_id=project_id)
-        appellations = appellations.filter(createdBy_id__in=user_ids, project_id=project_id)
+        # Filter for relations/appellations by project only, not by users
+        # This ensures we see annotations from users who were removed
+        relationsets = relationsets.filter(project_id=project_id)
+        appellations = appellations.filter(project_id=project_id)
     else:
         # If no project specified, filter by requesting user
         user_id = request.GET.get('user')
