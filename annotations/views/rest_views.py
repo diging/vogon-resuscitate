@@ -24,10 +24,11 @@ from concepts.models import Concept, Type
 from concepts.lifecycle import *
 
 import uuid
-import xml.etree.ElementTree as ET
 
 import requests
 from django.conf import settings
+
+import json
 
 import logging
 logging.basicConfig()
@@ -223,21 +224,21 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                 try:
                     concept = Concept.objects.get(uri=interpretation)
                 except Concept.DoesNotExist:
-                    concept_data = fetch_concept_data(label, pos)
+                    concept_data = fetch_concept_data(interpretation, pos)
                     type_data = concept_data.get('concept_type')
                     type_instance = None
                     
                     # Handle concept type creation if necessary
                     if type_data:
                         try:
-                            type_instance = Type.objects.get(uri=type_data.get('identifier'))
+                            type_instance = Type.objects.get(uri=type_data.get('type_uri'))
                         except Type.DoesNotExist:
                             # Create a new Type instance if it doesn't exist
                             type_instance = Type.objects.create(
-                                uri=type_data.get('identifier'),
-                                label=label,
-                                description=type_data.get('description'),
-                                authority=concept_data.data.get('authority', {}),
+                                uri=type_data.get('type_uri'),
+                                label=type_data.get('type_name'),
+                                description=type_data.get('description',''),
+                                authority=concept_data.get('authority', {}),
                             )
 
                     # Create a new concept instance
@@ -536,59 +537,23 @@ class ConceptViewSet(viewsets.ModelViewSet):
         if not q:
             return Response({'results': []})
         pos = request.GET.get('pos', None)
-        url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{q}/{pos if pos else ''}"
-        response = requests.get(url, auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
+        url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
+        parameters = {
+            'word': q,
+            'pos': pos if pos else None,
+        }
+        headers = {
+            'Accept': 'application/json',
+        }
+        response = requests.get(url, headers=headers, params=parameters)
+        
         if response.status_code == 200:
             try:
-                # Parse the XML response
-                root = ET.fromstring(response.content)
-                # Define the namespaces used in the XML
-                ns = {
-                    'madsrdf': 'http://www.loc.gov/mads/rdf/v1#',
-                    'schema': 'http://schema.org/',
-                    'skos': 'http://www.w3.org/2004/02/skos/core#',
-                    'owl': 'http://www.w3.org/2002/07/owl#',
-                    'dcterms': 'http://purl.org/dc/terms/',
-                    'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
-                }
+                # Parse the JSON response
+                data = response.json()
                 concepts = []
-                for concept_entry in root.findall('.//madsrdf:Authority', ns) + root.findall('.//skos:Concept', ns):
-                    concept = {}
-                    # Extract the rdf:about attribute as the 'uri'
-                    concept['uri'] = concept_entry.get('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about')
-                    # Extract the 'name'
-                    name_elem = concept_entry.find('schema:name', ns)
-                    if name_elem is not None:
-                        concept['label'] = name_elem.text.strip()
-                    else:
-                        # Fallback to 'madsrdf:authoritativeLabel' or 'skos:prefLabel'
-                        label_elem = concept_entry.find('madsrdf:authoritativeLabel', ns) or concept_entry.find('skos:prefLabel', ns)
-                        if label_elem is not None:
-                            concept['label'] = label_elem.text.strip()
-                    # Extract 'description'
-                    desc_elem = concept_entry.find('schema:description', ns)
-                    if desc_elem is not None:
-                        concept['description'] = desc_elem.text.strip()
-                    # Extract 'id' from 'dcterms:identifiers'
-                    id_elem = concept_entry.find('dcterms:identifiers', ns)
-                    if id_elem is not None:
-                        concept['id'] = id_elem.text.strip()
-                    # Extract 'pos' from the id if possible
-                    if 'id' in concept:
-                        parts = concept['id'].split('-')
-                        if len(parts) > 2:
-                            concept['pos'] = parts[2]
-                    # Extract 'authority'
-                    authority_elem = concept_entry.find('madsrdf:isMemberOfMADSCollection', ns)
-                    if authority_elem is not None:
-                        authority_uri = authority_elem.text.strip()
-                        # Map the authority URI to a name
-                        if 'wordnet' in authority_uri.lower():
-                            concept['authority'] = {'name': 'WordNet'}
-                        else:
-                            concept['authority'] = {'name': authority_uri}
-                    else:
-                        concept['authority'] = {'name': 'Unknown'}
+                for concept_entry in data['conceptEntries']:
+                    concept = parse_concept(concept_entry)
                     # Now relabel the fields
                     concept = _relabel(concept)
                     concepts.append(concept)
@@ -640,67 +605,23 @@ class ConceptViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-def fetch_concept_data(label, pos=None):
+def fetch_concept_data(concept_uri, pos=None):
     """
     Fetch concept data from ConceptPower based on the given URI (unique identifier) and part of speech (pos).
     Returns the concept data in a suitable format for the create function.
     """
 
-    if pos is 'N':
-        pos = 'noun'
-    elif pos is 'V':
-        pos = 'verb'
-    else:
-        pos = None
-
-    url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptLookup/{label}/{pos}"
-    response = requests.get(url,auth=(settings.CONCEPTPOWER_USERID, settings.CONCEPTPOWER_PASSWORD))
+    url = f"{settings.CONCEPTPOWER_ENDPOINT}Concept?id={concept_uri}"
+    headers = {
+        'Accept': 'application/json',
+    }
+    response = requests.get(url, headers=headers)
 
     if response.status_code == 200:
         try:
-            root = ET.fromstring(response.content)
-            namespace = {
-                'madsrdf': 'http://www.loc.gov/mads/rdf/v1#',
-                'schema': 'http://schema.org/',
-                'skos': 'http://www.w3.org/2004/02/skos/core#',
-                'owl': 'http://www.w3.org/2002/07/owl#',
-                'dcterms': 'http://purl.org/dc/terms/',
-                'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
-            }
-            concept_entry = root.find('.//madsrdf:Authority', namespace) or root.find('.//skos:Concept', namespace)
-
-            if concept_entry is not None:
-                concept = {}
-
-                # Extract fields
-                concept['uri'] = concept_entry.get('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about')
-
-                # Extract name
-                name_elem = concept_entry.find('schema:name', namespace) or \
-                            concept_entry.find('madsrdf:authoritativeLabel', namespace) or \
-                            concept_entry.find('skos:prefLabel', namespace)
-                if name_elem is not None:
-                    concept['label'] = name_elem.text.strip()
-                else:
-                    concept['label'] = " "
-
-                # Extract description
-                desc_elem = concept_entry.find('schema:description', namespace)
-                if desc_elem is not None:
-                    concept['description'] = desc_elem.text.strip()
-
-                # Extract authority
-                authority_elem = concept_entry.find('madsrdf:isMemberOfMADSCollection', namespace)
-                if authority_elem is not None:
-                    concept['authority'] = authority_elem.text.strip()
-
-                # Extract pos (if available)
-                pos_elem = concept_entry.find('skos:note', namespace)
-                if pos_elem is not None:
-                    concept['concept_type'] = pos_elem.text.strip()
-
-                return concept
-
+            data = response.json()
+            concept_entry = data.get('conceptEntries', [None])[0]
+            return parse_concept(concept_entry) if concept_entry else {}
         except Exception as e:
             raise ValueError(f"Error parsing ConceptPower response: {str(e)}")
     else:
@@ -717,3 +638,27 @@ def _relabel(datum):
         'concept_uri': 'uri'
     }
     return {_fields.get(k, k): v for k, v in datum.items()}
+
+def parse_concept(concept_entry):
+    """
+    Parse a concept and return a dictionary with the required fields.
+    """
+    concept = {}
+    concept['uri'] = concept_entry.get('concept_uri', '')
+    concept['label'] = concept_entry.get('lemma', '')
+    concept['id'] = concept_entry.get('id', '')
+    concept['pos'] = concept_entry.get('pos', '')
+    concept['concept_type'] = concept_entry.get('type','')
+
+    description = concept_entry.get('description', '')
+    try:
+        concept['description'] = json.loads(f'"{description}"')
+    except json.JSONDecodeError:
+        concept['description'] = description
+    
+    if concept['uri'].startswith(tuple(settings.CONCEPT_URI_PREFIXES)):
+        concept['authority'] = {'name': 'Conceptpower'}
+    else:
+        concept['authority'] = {'name': 'Unknown'}
+    
+    return concept
