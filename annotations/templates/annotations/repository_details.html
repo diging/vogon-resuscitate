@@ -43,7 +43,10 @@
                                         style="text-decoration: none; color: #2c3e50; font-size: 1.5rem; font-weight: 500;">
                                     <div class="d-flex align-items-center w-100">
                                         <span>📁 {{ project.name|title }}</span>
-                                        <i class="fas fa-chevron-down ml-auto arrow-icon"></i>
+                                        <span class="ml-auto mr-3" style="font-size: 0.9rem; color: #666;">
+                                            {% if project.ownedBy == user %}[Owner]{% else %}[Collaborator]{% endif %}
+                                        </span>
+                                        <i class="fas fa-chevron-down arrow-icon"></i>
                                     </div>
                                 </button>
                             </h2>

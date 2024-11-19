@@ -228,7 +228,12 @@ def repository_details(request, repository_id):
     user_owned_collections = TextCollection.objects.filter(ownedBy=user)
     texts_by_project = {}
 
-    for collection in user_owned_collections:
+    # Get projects where user is owner or collaborator
+    user_collections = TextCollection.objects.filter(
+        Q(ownedBy=user) | Q(collaborators=user)
+    ).distinct()
+
+    for collection in user_collections:
         # Filter texts within each collection that belong to the repository
         collection_texts = collection.texts.filter(repository=repository).order_by('-added')
         if collection_texts.exists():
