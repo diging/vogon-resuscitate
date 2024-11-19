@@ -20,43 +20,38 @@
                         <div class="col-md-3">
                             <div class="card">
                                 <div class="card-body">
-                                    <div class="flex-container">
-                                        <!-- Logo on the left -->
-                                        <div class="logo-container">
-                                            <img src="{% static 'annotations/img/citesphere-logo.png' %}" alt="Citesphere Logo" style="height: 100px; width: 100px;">
-                                        </div>
-                                
-                                        <!-- Title and button on the right -->
-                                        <div class="info-container">
-                                            <h2 class="card-title">Citesphere</h2>
+                                    <div class="d-flex align-items-center">
+                                        <img src="{% static 'annotations/img/citesphere-logo.png' %}" alt="Citesphere" class="img-fluid me-2" style="max-width: 50px;">
+                                        <div>
+                                            <h4 class="mb-2">Citesphere</h4>
                                             {% if has_citesphere_account %}
-                                                <button class="btn btn-success btn-margin-bottom" disabled>Connected</button><br>
-                                                
-                                                <!-- Display connected repositories -->
-                                                <ul class="list-unstyled">
+                                                <button class="btn btn-success btn-sm" disabled>Connected</button>
+                                                <small class="d-block text-muted mt-1">
+                                                    {{ connected_repositories|length }} repository linked
+                                                </small>
+                                                <a href="#" class="btn btn-link btn-sm p-0 mb-3" data-toggle="collapse" data-target="#repoDetails">
+                                                    View details
+                                                </a>
+                                                <div id="repoDetails" class="collapse mt-4">
                                                     {% for repo in connected_repositories %}
-                                                        <li>
-                                                            <h5>Repository: {{ repo.repository_name }}</h5>
-                                                            <p>Connected as: {{ repo.user_id }}</p>
-                                                            <p>{{ repo.repository_description }}</p>
-                                                        </li>
+                                                    <div class="border-top pt-2">
+                                                        <strong>{{ repo.repository_name }}</strong> <small class="text-muted">(connected as {{ repo.user_id }})</small>
+                                                    </div>
                                                     {% endfor %}
-                                                </ul>
+                                                </div>
                                             {% else %}
-                                                <a href="{% url 'citesphere_login' %}" class="btn btn-primary">Connect</a>
+                                                <a href="{% url 'citesphere_login' %}" class="btn btn-sm btn-primary">Connect</a>
                                             {% endif %}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <!-- Future Account Cards -->
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
     <div class="row">
         <div class="col-md-4">
@@ -97,6 +92,25 @@
                     <a class="list-group-item" href="{% url "view_project" project.id %}">
                         <strong>{{ project.name }}</strong>
                         <p class="text-muted">{{ project.description }}</p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="panel">
+                <div class="panel-heading clearfix">
+                    <span class="h4">Projects I Collaborate On</span>
+                </div>
+                <div class="list-group">
+                    {% for project in collaborator_projects %}
+                    <a class="list-group-item" href="{% url "view_project" project.id %}">
+                        <strong>{{ project.name }}</strong>
+                        <p class="text-muted">{{ project.description }}</p>
+                        <small>Owned by: {{ project.ownedBy__username }}</small>
                     </a>
                     {% endfor %}
                 </div>

@@ -215,9 +215,12 @@ def dashboard(request):
     added_texts = Text.objects.filter(addedBy_id=request.user.id, part_of__isnull=True)\
                                 .order_by('-added')
 
-    flds = ['id', 'name', 'description']
+    # Get projects owned by user
+    flds = ['id', 'name', 'description', 'ownedBy__username']
     projects_owned = request.user.collections.all().values(*flds)
-    projects_contributed = request.user.contributes_to.all().values(*flds)
+
+    # Get projects where user is a collaborator
+    collaborator_projects = TextCollection.objects.filter(collaborators=request.user).values(*flds)
 
     appellation_qs = Appellation.objects.filter(createdBy__pk=request.user.id)\
                                         .filter(asPredicate=False)\
@@ -245,7 +248,7 @@ def dashboard(request):
         'recent_texts': recent_texts[:5],
         'added_texts': added_texts[:5],
         'projects_owned': projects_owned[:5],
-        'projects_contributed': projects_contributed[:5],
+        'collaborator_projects': collaborator_projects[:5],
         'appellationCount': appellation_qs,
         'relation_count': relationset_qs,
         'relations': RelationSet.objects.filter(createdBy=request.user).order_by('-created')[:10],
