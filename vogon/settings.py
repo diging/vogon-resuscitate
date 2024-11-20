@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 """
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-import os, requests
+import os
 from urllib.parse  import urlparse
 from dotenv import load_dotenv
 
@@ -239,12 +239,7 @@ CONCEPT_TYPES = {
 
 # Giles Credentials
 GILES_ENDPOINT = os.environ.get('GILES_ENDPOINT')
-IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
-GET = requests.get
-POST = requests.post
-GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
-GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
-MAX_GILES_UPLOADS = 20
+
 
 CONCEPT_URI_PREFIXES = [
     'http://www.digitalhps.org/',
