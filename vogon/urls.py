@@ -87,7 +87,6 @@ urlpatterns = [
     re_path(r'^relationtemplate/(?P<template_id>[0-9]+)/create/$', views.relationtemplate_views.create_from_relationtemplate, name="create_from_relationtemplate"),
     re_path(r'^relationtemplate[/]?$', views.relationtemplate_views.list_relationtemplate, name='list_relationtemplate'),
     re_path(r'^relationtemplate/(?P<template_id>[0-9]+)/delete/$', views.relationtemplate_views.delete_relationtemplate, name='delete_relationtemplate'),
-    # url(r'^text/add/upload/$', views.text_views.upload_file, name="file_upload"),
     # url(r'^text/(?P<textid>[0-9]+)/$', views.text_views.text, name="text"),
     re_path(r'^annotate/(?P<text_id>[0-9]+)/$', views.annotation_views.annotate, name="annotate"),
     re_path(r'^display/(?P<text_id>[0-9]+)/$', views.annotation_views.annotation_display, name="annotation-display"),
@@ -117,12 +116,7 @@ urlpatterns = [
     re_path(r'^concept/(?P<source_concept_id>[0-9]+)/merge/$', conceptViews.merge_concepts, name='merge_concepts'),
 
     # url(r'^concept_autocomplete/', views.search_views.concept_autocomplete, name='concept_autocomplete'),
-
-    re_path(r'^quadruples/appellation/(?P<appellation_id>[0-9]+).xml$', views.quadruple_views.appellation_xml, name='appellation_xml'),
-    re_path(r'^quadruples/relation/(?P<relation_id>[0-9]+).xml$', views.quadruple_views.relation_xml, name='relation_xml'),
-    re_path(r'^quadruples/relationset/(?P<relationset_id>[0-9]+).xml$', views.quadruple_views.relationset_xml, name='relationset_xml'),
-    re_path(r'^quadruples/text/(?P<text_id>[0-9]+)/(?P<user_id>[0-9]+).xml$', views.quadruple_views.text_xml, name='text_xml'),
-
+    
     re_path(r'^repository/(?P<repository_id>[0-9]+)/collections/$', views.repository_views.repository_collections, name='repository_collections'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/browse/$', views.repository_views.repository_browse, name='repository_browse'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/search/$', views.repository_views.repository_search, name='repository_search'),

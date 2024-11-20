@@ -11,7 +11,6 @@ from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
 
 from annotations.forms import RepositorySearchForm
-from annotations.tasks import tokenize
 from repository.models import Repository
 from repository.auth import *
 from repository.managers import *
