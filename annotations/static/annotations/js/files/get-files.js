@@ -1,7 +1,6 @@
 function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
     const fileListDiv = document.getElementById(`file-list-${itemKey}`);
     const fileRow = document.getElementById(`file-row-${itemKey}`);
-    console.log("Fetching files for itemKey:", itemKey);
 
     // Clear any existing file information
     fileListDiv.innerHTML = 'Loading files...';
@@ -17,8 +16,6 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
     })
     .then(response => response.json())
     .then(data => {
-        console.log(data);
-
         // Display files
         if (data.files && data.files.length > 0) {
             let fileListHtml = '<ul style="list-style-type: none; padding: 0;">';
