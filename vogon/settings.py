@@ -13,7 +13,6 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os, requests
 from urllib.parse  import urlparse
-import dj_database_url
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -102,11 +101,6 @@ REST_FRAMEWORK = {
 
 WSGI_APPLICATION = 'vogon.wsgi.application'
 
-# Database
-# https://docs.djangoproject.com/en/1.8/ref/settings/#databases
-
-# DATABASES = {'default': dj_database_url.config()}
-# DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql_psycopg2'
 
 DATABASES = {
     'default': {
@@ -119,8 +113,6 @@ DATABASES = {
     }
 }
 
-
-# print DATABASES
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend', # default
