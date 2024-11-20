@@ -169,16 +169,12 @@ STATIC_URL = BASE_DIR + 'static/'
 
 STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'), )
 
-JARS_KEY = '050814a54ac5c81b990140c3c43278031d391676'
 AUTH_USER_MODEL = 'annotations.VogonUser'
 
 es = urlparse(os.environ.get('SEARCHBOX_URL') or 'http://127.0.0.1:9200/')
 port = es.port or 80
 
-# AWS Access Key and Secret Key credentials
-AWS_ACCESS_KEY = os.environ.get('AWS_ACCESS_KEY', None)
-AWS_SECRET_KEY = os.environ.get('AWS_SECRET_KEY', None)
-S3_BUCKET = 'vogonweb-test'
+# User profile default image
 DEFAULT_USER_IMAGE = 'https://s3-us-west-2.amazonaws.com/vogonweb-test/defaultprofile.png'
 
 TEMPORAL_PREDICATES = {
