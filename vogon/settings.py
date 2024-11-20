@@ -11,12 +11,9 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 """
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-import os, sys, requests
+import os, requests
 from urllib.parse  import urlparse
-import socket
 import dj_database_url
-# import djcelery
-from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
