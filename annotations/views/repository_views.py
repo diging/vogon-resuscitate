@@ -310,8 +310,11 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id):
 
     tokenized_content = tokenize(giles_text)
 
-    # Include the file_id in the URI to make it unique per file import
-    unique_uri = f"{item_details.get('key')}-{file_id}"
+    # - urn:repository: prefix to identify this as a repository resource
+    # - repository_id: to scope within a specific repository
+    # - item_details.get('key'): the unique key for this item in the repository
+    # - file_id: to identify the specific file, since an item can have multiple files
+    unique_uri = f"urn:repository:{repository_id}:item:{item_details.get('key')}:file:{file_id}"
 
     defaults = {
         'title': item_details.get('title', 'Unknown Title'),
