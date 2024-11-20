@@ -143,22 +143,11 @@ class RepositoryManager(RESTManager):
             if not giles_uploads:
                 raise GilesUploadError("No Giles uploads available for this item.")
             
-            giles_details = []
             extracted_text = giles_uploads[0].get('extractedText', {})
 
             if extracted_text and extracted_text.get('content-type') == 'text/plain':
                 extracted_text_data = get_giles_document_details(self.user, extracted_text.get('id'), repository)
                 item_data['item']['text'] = extracted_text_data
-            elif giles_uploads[0].get('pages'):
-                pages = giles_uploads[0].get('pages')
-                text = ""
-                for page in pages:
-                    if page.get('text') and page.get('text').get('content-type') == 'text/plain':
-                        data = get_giles_document_details(self.user, page.get('text').get('id'))
-                        text += data
-                if not text:
-                    raise GilesTextExtractionError("No valid text/plain content found in the Giles uploads.")
-                item_data['item']['text'] = text
             else:
                 raise GilesTextExtractionError("No valid text/plain content found for this text!")
 
