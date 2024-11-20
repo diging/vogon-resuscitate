@@ -51,7 +51,6 @@ INSTALLED_APPS = (
     'external_accounts',
     'rest_framework',
     'corsheaders',
-    'djcelery',
     'repository',
     'oauth2_provider',
 )
@@ -211,18 +210,6 @@ QUADRIGA_CLIENTID = os.environ.get('QUADRIGA_CLIENTID', 'vogonweb')
 QUADRIGA_PROJECT = os.environ.get('QUADRIGA_PROJECT', 'vogonweb')
 
 BASE_URI_NAMESPACE = u'http://www.vogonweb.net'
-
-# Celery config.
-
-# djcelery.setup_loader()
-# CELERYBEAT_SCHEDULE = {
-#     'accession_ready_relationsets': {
-#         'task': 'annotations.tasks.accession_ready_relationsets',
-#         'schedule': timedelta(minutes=10, seconds=0),
-#     },
-# }
-
-CELERY_TIMEZONE = 'UTC'
 
 GOOGLE_ANALYTICS_ID = os.environ.get('GOOGLE_ANALYTICS_ID', None)
 
