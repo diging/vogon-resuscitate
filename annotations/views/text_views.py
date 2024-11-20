@@ -15,7 +15,6 @@ from annotations.display_helpers import get_snippet_relation
 from annotations.forms import UploadFileForm
 from annotations.models import Text, Appellation, RelationSet
 from annotations.utils import basepath
-from annotations.tasks import handle_file_upload
 from annotations.display_helpers import get_appellation_summaries
 
 
