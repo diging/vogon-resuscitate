@@ -45,7 +45,13 @@
                 <td>{{ text.itemType }}</td>
                 <td>{{ text.volume|default:"N/A" }}</td>
                 <td>{{ text.pages|default:"N/A" }}</td>
-                <td><a href="{{ text.url|default:"#" }}" target="_blank">{{ text.url|default:"No URL" }}</a></td>
+                <td><small><a href="{{ text.url|default:"#" }}" target="_blank">
+                    {% if text.url %}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-globe" viewBox="0 0 16 16">
+                        <path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.674a6.958 6.958 0 0 0-.656 2.5h2.49zM4.847 5a12.5 12.5 0 0 0-.338 2.5H7.5V5H4.847zM8.5 5v2.5h2.99a12.495 12.495 0 0 0-.337-2.5H8.5zM4.51 8.5a12.5 12.5 0 0 0 .337 2.5H7.5V8.5H4.51zm3.99 0V11h2.653c.187-.765.306-1.608.338-2.5H8.5zM5.145 12c.138.386.295.744.468 1.068.552 1.035 1.218 1.65 1.887 1.855V12H5.145zm.182 2.472a6.696 6.696 0 0 1-.597-.933A9.268 9.268 0 0 1 4.09 12H2.255a7.024 7.024 0 0 0 3.072 2.472zM3.82 11a13.652 13.652 0 0 1-.312-2.5h-2.49c.062.89.291 1.733.656 2.5H3.82zm6.853 3.472A7.024 7.024 0 0 0 13.745 12H11.91a9.27 9.27 0 0 1-.64 1.539 6.688 6.688 0 0 1-.597.933zM8.5 12v2.923c.67-.204 1.335-.82 1.887-1.855.173-.324.33-.682.468-1.068H8.5zm3.68-1h2.146c.365-.767.594-1.61.656-2.5h-2.49a13.65 13.65 0 0 1-.312 2.5zm2.802-3.5a6.959 6.959 0 0 0-.656-2.5H12.18c.174.782.282 1.623.312 2.5h2.49zM11.27 2.461c.247.464.462.98.64 1.539h1.835a7.024 7.024 0 0 0-3.072-2.472c.218.284.418.598.597.933zM10.855 4a7.966 7.966 0 0 0-.468-1.068C9.835 1.897 9.17 1.282 8.5 1.077V4h2.355z"/>
+                    </svg>
+                    {% else %}{% endif %}
+                </a></small></td>
                 <td>{{ text.dateAdded }}</td>
                 <td>
                     {% if text.gilesUploads and text.gilesUploads|length > 0 %}
@@ -54,7 +60,7 @@
                     </svg>{% else %}{% endif %}
                 </td>
                 <td>
-                    <button class="btn btn-primary btn-sm" onclick="fetchFiles('{{ text.key }}')">
+                    <button class="btn btn-primary btn-sm" onclick="fetchFiles('{{ text.key }}', {{ repository.id }}, {{ group_id }}, '{{ csrf_token }}')">
                         View Files
                     </button>
                 </td>
@@ -71,90 +77,43 @@
             {% endfor %}
         </tbody>
     </table>
+
+    <!-- Pagination -->
+    <nav aria-label="Page navigation">
+        <ul class="pagination">
+            {% if current_page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ current_page|add:-1 }}{% if project_id %}&project_id={{ project_id }}{% endif %}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+            {% endif %}
+
+            {% for i in page_range %}
+                {% if current_page == i %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ i }} <span class="sr-only">(current)</span></span>
+                    </li>
+                {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ i }}{% if project_id %}&project_id={{ project_id }}{% endif %}">{{ i }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if current_page < total_pages %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ current_page|add:1 }}{% if project_id %}&project_id={{ project_id }}{% endif %}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
 </div>
 
-<script>
-    function fetchFiles(itemKey) {
-        const fileListDiv = document.getElementById(`file-list-${itemKey}`);
-        const fileRow = document.getElementById(`file-row-${itemKey}`);
-        console.log("Fetching files for itemKey:", itemKey);
-
-        // Clear any existing file information
-        fileListDiv.innerHTML = 'Loading files...';
-        fileRow.style.display = 'table-row';
-
-        const repositoryId = {{ repository.id }};
-        const groupId = {{ group_id }};
-        const url = `/repository/files/${repositoryId}/groups/${groupId}/items/${itemKey}/`;
-
-        fetch(url, {
-            method: 'GET',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log(data);
-
-            // Display files
-            if (data.files && data.files.length > 0) {
-                let fileListHtml = '<ul style="list-style-type: none; padding: 0;">';
-                data.files.forEach(file => {
-                    fileListHtml += `
-                    <li style="display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 5px; border: 1px solid #ddd; border-radius: 4px;">
-                        <span style="font-size: 14px;">${file.filename}</span>
-                        <button class="btn btn-primary btn-sm" onclick="importFile('${itemKey}', '${file.id}')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle;">
-                                <path fill-rule="evenodd" d="M8 0a5.53 5.53 0 0 0-3.594 1.342c-.766.66-1.321 1.52-1.464 2.383C1.266 4.095 0 5.555 0 7.318 0 9.366 1.708 11 3.781 11H7.5V5.5a.5.5 0 0 1 1 0V11h4.188C14.502 11 16 9.57 16 7.773c0-1.636-1.242-2.969-2.834-3.194C12.923 1.999 10.69 0 8 0m-.354 15.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 14.293V11h-1v3.293l-2.146-2.147a.5.5 0 0 0-.708.708z"/>
-                            </svg>
-                        </button>
-                    </li>`;
-                });
-                fileListHtml += '</ul>';
-                fileListDiv.innerHTML = fileListHtml;
-            } else {
-                fileListDiv.innerHTML = '<div class="alert alert-warning">No files available for this item.</div>';
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching files:', error);
-            fileListDiv.innerHTML = '<div class="alert alert-danger">Failed to load files.</div>';
-        });
-    }
-
-    function importFile(itemKey, fileId) {
-        const repositoryId = {{ repository.id }};
-        const groupId = {{ group_id }};
-        const url = `/repository/${repositoryId}/group/${groupId}/text/${itemKey}/files/${fileId}/`;
-    
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Content-Type': 'application/json'
-            },
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(data => {
-                    throw new Error(data.error || 'Unexpected error occurred');
-                });
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                window.location.href = data.redirect_url;
-            } else {
-                console.error('Failed to import the file');
-            }
-        })
-        .catch(error => {
-            console.error('Error importing file:', error);
-        });
-    }
-    
-</script>
+{% block scripts %}
+<script src="{% static 'annotations/js/files/get-files.js' %}"></script>
+{% endblock %}
 
 {% endblock %}
