@@ -15,7 +15,7 @@ from django.db.models import Q, Count
 from annotations.models import TextCollection, RelationSet
 from annotations.forms import ProjectForm
 
-
+@login_required
 def view_project(request, project_id):
     """
     Shows details about a specific project owned by the current user.
@@ -143,7 +143,7 @@ def create_project(request):
     }
     return render(request, template, context)
 
-
+@login_required
 def list_projects(request):
     """
     All known projects.

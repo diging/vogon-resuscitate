@@ -253,6 +253,11 @@ POST = requests.post
 GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
 GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
 MAX_GILES_UPLOADS = 20
+
+CONCEPT_URI_PREFIXES = [
+    'http://www.digitalhps.org/',
+    'https://www.digitalhps.org/'
+]
 APP_ROOT = os.getenv('APP_ROOT', 'vogon/')
 
 # Allauth Settings

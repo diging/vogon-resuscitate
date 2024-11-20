@@ -87,7 +87,6 @@ urlpatterns = [
     re_path(r'^relationtemplate/(?P<template_id>[0-9]+)/create/$', views.relationtemplate_views.create_from_relationtemplate, name="create_from_relationtemplate"),
     re_path(r'^relationtemplate[/]?$', views.relationtemplate_views.list_relationtemplate, name='list_relationtemplate'),
     re_path(r'^relationtemplate/(?P<template_id>[0-9]+)/delete/$', views.relationtemplate_views.delete_relationtemplate, name='delete_relationtemplate'),
-
     # url(r'^text/add/upload/$', views.text_views.upload_file, name="file_upload"),
     # url(r'^text/(?P<textid>[0-9]+)/$', views.text_views.text, name="text"),
     re_path(r'^annotate/(?P<text_id>[0-9]+)/$', views.annotation_views.annotate, name="annotate"),
