@@ -17,6 +17,8 @@ from collections import defaultdict
 from annotations.models import *
 from annotations import quadriga
 
+from celery import shared_task
+
 from django.conf import settings
 import logging
 logging.basicConfig()

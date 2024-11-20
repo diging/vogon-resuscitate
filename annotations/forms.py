@@ -169,34 +169,6 @@ class ConceptField(forms.CharField):
         """
         return obj.uri
 
-    def to_python(self, value):
-        if value in self.empty_values:
-            return None
-        try:
-            key = 'uri'
-            py_value = self.queryset.get(**{key: value})
-        except self.queryset.model.DoesNotExist:
-            import goat
-            goat.GOAT = settings.GOAT
-            goat.GOAT_APP_TOKEN = settings.GOAT_APP_TOKEN
-            concept = goat.Concept.retrieve(identifier=value)
-
-            data = dict(
-                uri=value,
-                label=concept.data['name'],
-                description=concept.data['description'],
-            )
-            ctype_data = concept.data['concept_type']#
-            if ctype_data:
-                data.update({'typed': Type.objects.get_or_create(uri=ctype_data['identifier'])[0]})
-
-            py_value = Concept.objects.create(**data)
-
-            return py_value
-        except (ValueError, TypeError):
-            raise ValidationError(self.error_messages['invalid_choice'], code='invalid_choice')
-        return py_value
-
 
 class TemplateChoiceField(forms.ChoiceField):
     def label_from_instance(self, obj):

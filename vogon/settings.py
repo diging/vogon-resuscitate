@@ -215,9 +215,6 @@ GOOGLE_ANALYTICS_ID = os.environ.get('GOOGLE_ANALYTICS_ID', None)
 
 VERSION = '0.4'
 
-GOAT = os.environ.get('GOAT', 'http://127.0.0.1:8000')
-GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN')
-
 LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
 
 
@@ -239,8 +236,6 @@ CONCEPT_TYPES = {
     'viaf:corporate': CORPORATE_CONCEPT_TYPE,  # E40 Legal Body
     'viaf:geographic': GEOGRAPHIC_CONCEPT_TYPE,  # E53 Place
 }
-
-SUBMIT_WAIT_TIME = {'days': 3, 'hours': 0, 'minutes': 0}
 
 # Giles Credentials
 GILES_ENDPOINT = os.environ.get('GILES_ENDPOINT')
