@@ -117,7 +117,7 @@ AUTHENTICATION_BACKENDS = (
     'allauth.account.auth_backends.AuthenticationBackend', #Allauth
 )
 
-ACCOUNT_AUTHENTICATED_LOGIN_REDIRECTS =True
+ACCOUNT_AUTHENTICATED_LOGIN_REDIRECTS = True
 ANONYMOUS_USER_ID = -1
 
 # Allauth Email Settings
@@ -153,9 +153,6 @@ CRISPY_TEMPLATE_PACK = 'bootstrap3'
 SUBPATH = '/'
 # Honor the 'X-Forwarded-Proto' header for request.is_secure()
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-# Allow all host headers
-ALLOWED_HOSTS = ['*']
 
 # Static asset configuration
 BASE_PATH = os.environ.get('BASE_PATH', '/')
