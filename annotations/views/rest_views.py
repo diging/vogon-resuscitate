@@ -36,8 +36,10 @@ logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOGLEVEL)
 
 
-# Custom permission class to check if user is collaborator or owner
-class IsCollaboratorOrOwner(IsAuthenticatedOrReadOnly):
+# Custom permission class that restricts write access (POST/PUT/DELETE) to only project owners and collaborators,
+# while allowing read access (GET) to any authenticated user. This is used to ensure that only authorized users
+# can modify annotations within their projects.
+class ProjectOwnerOrCollaboratorAccessOrReadOnly(IsAuthenticatedOrReadOnly):
     def has_permission(self, request, view):
         if not super().has_permission(request, view):
             return False
@@ -66,15 +68,15 @@ class IsCollaboratorOrOwner(IsAuthenticatedOrReadOnly):
                 
         return False
 
-    def has_object_permission(self, request, view, obj):
+    def has_object_permission(self, request, view, annotation):
         # Allow GET requests for authenticated users
         if request.method in ['GET', 'HEAD', 'OPTIONS']:
             return True
             
         # Check if user is owner or collaborator of the text's collection
         text = None
-        if hasattr(obj, 'occursIn'):
-            text = obj.occursIn
+        if hasattr(annotation, 'occursIn'):
+            text = annotation.occursIn
         
         if text:
             collections = text.partOf.all()
@@ -84,7 +86,6 @@ class IsCollaboratorOrOwner(IsAuthenticatedOrReadOnly):
                     return True
                     
         return False
-
 
 # http://stackoverflow.com/questions/17769814/django-rest-framework-model-serializers-read-nested-write-flat
 class SwappableSerializerMixin(object):
@@ -150,7 +151,7 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 class DateAppellationViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
     queryset = DateAppellation.objects.all()
     serializer_class = DateAppellationSerializer
-    permission_classes = (IsCollaboratorOrOwner, )
+    permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -205,7 +206,7 @@ class DateAppellationViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
 class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewsets.ModelViewSet):
     queryset = Appellation.objects.filter(asPredicate=False)
     serializer_class = AppellationSerializer
-    permission_classes = (IsCollaboratorOrOwner, )
+    permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
     serializer_classes = {
         'GET': AppellationSerializer,
         'POST': AppellationPOSTSerializer
@@ -344,13 +345,13 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
 class PredicateViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
     queryset = Appellation.objects.filter(asPredicate=True)
     serializer_class = AppellationSerializer
-    permission_classes = (IsCollaboratorOrOwner, )
+    permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
 
 
 class RelationSetViewSet(viewsets.ModelViewSet):
     queryset = RelationSet.objects.all()
     serializer_class = RelationSetSerializer
-    permission_classes = (IsCollaboratorOrOwner, )
+    permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
 
     def get_queryset(self, *args, **kwargs):
         queryset = super(RelationSetViewSet, self).get_queryset(*args, **kwargs)
@@ -378,7 +379,7 @@ class RelationSetViewSet(viewsets.ModelViewSet):
 class RelationViewSet(viewsets.ModelViewSet):
     queryset = Relation.objects.all()
     serializer_class = RelationSerializer
-    permission_classes = (IsCollaboratorOrOwner, )
+    permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
 
     def get_queryset(self, *args, **kwargs):
         """
