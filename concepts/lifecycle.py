@@ -48,6 +48,8 @@ class ConceptLifecycle(object):
 
         self.conceptpower.endpoint = settings.CONCEPTPOWER_ENDPOINT
         self.conceptpower.namespace = settings.CONCEPTPOWER_NAMESPACE
+        self.user = settings.CONCEPTPOWER_USERID
+        self.password = settings.CONCEPTPOWER_PASSWORD
 
     @staticmethod
     def get_namespace(uri):
@@ -259,7 +261,8 @@ class ConceptLifecycle(object):
         if not pos:
             pos = 'noun'
         try:
-            data = self.conceptpower.create(self.instance.label, pos,
+            data = self.conceptpower.create(self.user, self.password,
+                                            self.instance.label, pos,
                                             self.DEFAULT_LIST,
                                             self.instance.description,
                                             concept_type,
