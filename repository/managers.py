@@ -119,7 +119,7 @@ class RepositoryManager(RESTManager):
             itemId: The item ID in the repository
 
         Returns:
-            A dictionary containing a list of files with their respective details.
+            A dictionary containing a list of files with their respective details and processing status.
         """
         headers = auth.citesphere_auth(self.user, self.repository)
         url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"
@@ -129,12 +129,15 @@ class RepositoryManager(RESTManager):
             item_data = response.json()
 
             files = []
+            processing = False
             
             # Extract Giles upload file details if available
             giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
-
+            print(giles_uploads)
             if giles_uploads:
                 for giles_upload in giles_uploads:
+                    print(giles_upload) # DEBUG
+                    print("here",giles_upload.get('progressId')) # DEBUG
                     extracted_text = giles_upload.get('extractedText', {})
                     if extracted_text.get('content-type') == 'text/plain':
                         files.append({
@@ -142,9 +145,14 @@ class RepositoryManager(RESTManager):
                             'filename': extracted_text.get('filename'),
                             'url': extracted_text.get('url')
                         })
-                    
+                    # Check if progressId exists and is not None
+                    if not extracted_text.get('content-type') == 'text/plain' and giles_upload.get('progressId'):
+                        print('Processing') # DEBUG
+                        processing = True
+
             return {
                 "files": files,
+                "processing": processing
             }
         else:
             response.raise_for_status()

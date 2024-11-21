@@ -16,6 +16,12 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
     })
     .then(response => response.json())
     .then(data => {
+        // Check if files are still being processed
+        if (data.processing) {
+            fileListDiv.innerHTML = '<div class="alert alert-info">Files are still being processed. Please check back later.</div>';
+            return;
+        }
+
         // Display files
         if (data.files && data.files.length > 0) {
             let fileListHtml = '<ul style="list-style-type: none; padding: 0;">';
