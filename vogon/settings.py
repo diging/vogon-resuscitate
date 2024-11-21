@@ -46,7 +46,6 @@ INSTALLED_APPS = (
     'allauth.socialaccount',
     'django_inlinecss',
     'concepts',
-    'giles',
     'annotations',
     'external_accounts',
     'rest_framework',
