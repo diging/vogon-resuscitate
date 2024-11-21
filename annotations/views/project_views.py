@@ -42,7 +42,7 @@ def view_project(request, project_id):
     texts = project.texts.all().order_by(ordering['order_param'])\
                          .values('id', 'title', 'added')
 
-    paginator = Paginator(texts, 15)
+    paginator = Paginator(texts, settings.PROJECT_TEXT_PAGINATION_PAGE_SIZE)
     page = request.GET.get('page')
     try:
         texts = paginator.page(page)
