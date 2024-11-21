@@ -224,8 +224,6 @@ def repository_details(request, repository_id):
     repository = get_object_or_404(Repository, pk=repository_id)
     user = None if isinstance(request.user, AnonymousUser) else request.user
 
-    # Fetch text collections (projects) owned by the current user
-    user_owned_collections = TextCollection.objects.filter(ownedBy=user)
     texts_by_project = {}
 
     # Get projects where user is owner or collaborator
