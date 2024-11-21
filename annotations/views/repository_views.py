@@ -301,8 +301,6 @@ def repository_text_import(request, repository_id, group_id, text_key, project_i
 
     if not project_id:
         return redirect(f"{reverse('list_projects')}?redirect_to_text_import=True&repository_id={repository_id}&group_id={group_id}&text_key={text_key}")
-    
-    print("project_id", project_id)
 
     # Retrieve the project directly using project_id from the URL
     project = get_object_or_404(TextCollection, pk=project_id)
