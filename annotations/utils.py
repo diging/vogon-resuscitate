@@ -68,8 +68,7 @@ def get_pagination_metadata(total_items, page, items_per_page):
         'current_page': page,
         'page_range': page_range,
     }
-
-def get_ordering_metadata(request, default_field='title', allowed_fields=None):
+def get_ordering_metadata(request, default_field='title', allowed_fields=None, order_by_param='order_by'):
     """
     Get ordering metadata from request parameters.
     
@@ -81,37 +80,35 @@ def get_ordering_metadata(request, default_field='title', allowed_fields=None):
         Default field to order by if none specified
     allowed_fields : list
         List of fields that are allowed for ordering
+    order_by_param : str
+        Name of the request parameter used for ordering (default: 'order_by')
         
     Returns
     -------
     dict
-        Dictionary containing order_by parameter and order_field to use in query
+        Dictionary containing:
+        - order_param: String to use in queryset order_by() with optional '-' prefix
+        - order_by: Original request parameter for template rendering
     """
     if allowed_fields is None:
         allowed_fields = [default_field]
         
     # Get order_by from request, default to default_field
-    order_by = request.GET.get('order_by', default_field)
+    order_by = request.GET.get(order_by_param, default_field)
     
     # Parse direction and field
-    if order_by.startswith('-'):
-        order_field = order_by[1:]
-        order_direction = '-'
-    else:
-        order_field = order_by
-        order_direction = ''
+    direction = '-' if order_by.startswith('-') else ''
+    field = order_by[1:] if direction else order_by
     
-    # Validate order field
-    if order_field not in allowed_fields:
-        order_field = default_field
-        order_direction = ''
+    # Validate field is allowed, reset to default if not
+    if field not in allowed_fields:
+        field = default_field
+        direction = ''
         order_by = default_field
         
-    order_param = f"{order_direction}{order_field}"
-    
     return {
-        'order_by': order_by,
-        'order_param': order_param
+        'order_param': f"{direction}{field}",  # For queryset ordering
+        'order_by': order_by  # Original parameter for template links
     }
 
 def get_user_project_stats(user, project):

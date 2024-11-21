@@ -23,11 +23,7 @@ def custom_403_handler(request, exception):
     
     # Get custom error message from the PermissionDenied exception
     # raise PermissionDenied("Custom message")
-    error_message = str(exception)
-    
-    # use default message if no message was provided in the exception
-    if not error_message:
-        error_message = "Whoops, you're not supposed to be here!"
+    error_message = str(exception) if exception else "Whoops, you're not supposed to be here!"
     
     context = {
         'userid': request.user.id,
