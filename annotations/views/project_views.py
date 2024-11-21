@@ -63,6 +63,7 @@ def view_project(request, project_id):
         'collaborator_stats': collaborator_stats,
         'texts': texts,
         'order_by': ordering['order_by'],
+        'DEFAULT_USER_IMAGE': settings.DEFAULT_USER_IMAGE,
     }
 
     return render(request, template, context)
