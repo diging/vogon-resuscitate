@@ -165,6 +165,7 @@ CRISPY_TEMPLATE_PACK = 'bootstrap3'
 
 SUBPATH = '/'
 # Honor the 'X-Forwarded-Proto' header for request.is_secure()
+USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Allow all host headers
