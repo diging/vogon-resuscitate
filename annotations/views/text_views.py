@@ -1,4 +1,4 @@
-"""
+r"""
 Provides views onto :class:`.Text`\s.
 """
 

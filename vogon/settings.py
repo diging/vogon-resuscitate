@@ -55,7 +55,6 @@ INSTALLED_APPS = (
     'external_accounts',
     'rest_framework',
     'corsheaders',
-    'djcelery',
     'repository',
     'oauth2_provider',
 )
@@ -119,6 +118,9 @@ DATABASES = {
         'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
         'HOST': 'db',
         'PORT': '5432',
+        'OPTIONS': {
+            'options': '-c timezone=UTC',
+        },
     }
 }
 
@@ -151,8 +153,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_L10N = True
-
-USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.8/howto/static-files/
@@ -239,7 +239,7 @@ BASE_URI_NAMESPACE = u'http://www.vogonweb.net'
 #     },
 # }
 
-CELERY_TIMEZONE = 'UTC'
+# CELERY_TIMEZONE = 'UTC'
 
 GOOGLE_ANALYTICS_ID = os.environ.get('GOOGLE_ANALYTICS_ID', None)
 

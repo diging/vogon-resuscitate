@@ -14,10 +14,10 @@ from concepts.lifecycle import *
 
 # This will make sure the app is always imported when
 # Django starts so that shared_task will use this app.
-from celery import shared_task
+# from celery import shared_task
 
 
-@shared_task
+# @shared_task
 def resolve_concept(instance_id):
     """
     Since resolving concepts can involve several API calls, we handle it

@@ -1,4 +1,4 @@
-"""
+r"""
 Provides :class:`.RelationTemplate`\-related views.
 """
 
@@ -31,7 +31,7 @@ logger.setLevel('ERROR')
 
 @staff_member_required
 def add_relationtemplate(request):
-    """
+    r"""
     Staff can use this view to create :class:`.RelationTemplate`\s.
 
     Parameters
@@ -91,7 +91,7 @@ def add_relationtemplate(request):
 
 @login_required
 def list_relationtemplate(request):
-    """
+    r"""
     Returns a list of all :class:`.RelationTemplate`\s.
 
     This view will return JSON if ``format=json`` is passed in the GET request.
@@ -137,7 +137,7 @@ def list_relationtemplate(request):
 
 @login_required
 def get_relationtemplate(request, template_id):
-    """
+    r"""
     Returns data on fillable fields in a :class:`.RelationTemplate`\.
 
     This view will return JSON if ``format=json`` is passed in the GET request.
@@ -176,7 +176,7 @@ def get_relationtemplate(request, template_id):
 
 @login_required
 def create_from_relationtemplate(request, template_id):
-    """
+    r"""
     Create a :class:`.RelationSet` and constituent :class:`.Relation`\s from
     a :class:`.RelationTemplate` and user annotations.
 

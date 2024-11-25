@@ -163,7 +163,7 @@ class ConceptField(forms.CharField):
     queryset = Concept.objects.all()
 
     def label_from_instance(self, obj):
-        """
+        r"""
         The ``_concept`` field should be populated with the :class:`.Concept`\s
         id.
         """
@@ -200,7 +200,7 @@ class ConceptField(forms.CharField):
 
 class TemplateChoiceField(forms.ChoiceField):
     def label_from_instance(self, obj):
-        """
+        r"""
         The ``_concept`` field should be populated with the :class:`.Concept`\s
         id.
         """

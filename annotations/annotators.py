@@ -1,4 +1,4 @@
-"""
+r"""
 This module provides annotation functionality using a rough approximation of a
 factory pattern.
 
@@ -116,7 +116,7 @@ class Annotator(object):
 
 
     def render(self, context={}):
-        """
+        r"""
         Render this annotator's template to a response.
 
         Parameters
@@ -134,7 +134,7 @@ class Annotator(object):
         return render(self.context.get('request'), self.template, context)
 
     def render_display(self, context={}):
-        """
+        r"""
         Render this annotator's display template to a response.
 
         If :prop:`.display_template` is not set, will raise

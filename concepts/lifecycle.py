@@ -315,7 +315,7 @@ class ConceptLifecycle(object):
         return list(map(self._reform, data))
 
     def get_matching(self):
-        """
+        r"""
         Retrieve data about Conceptpower entries that are "equal to" the
         managed :class:`.Concept`\.
 

@@ -190,7 +190,7 @@ class VogonUser(AbstractBaseUser, PermissionsMixin):
 
     @property
     def uri(self):
-        """
+        r"""
         The Uniform Resource Identifier (URI) for this :class:`.VogonUser`\.
 
         This is required for accessioning annotations into Quadriga.
@@ -277,7 +277,7 @@ class TupleField(models.TextField):
 
 
 class QuadrigaAccession(models.Model):
-    """
+    r"""
     Records the event that a set of :class:`.RelationSet`\s are accessioned to
     Quadriga.
     """
@@ -307,7 +307,7 @@ class TextCollection(models.Model):
                                    specify the ID of an existing project in
                                    Quadriga with which this project should be
                                    associated."""))
-    """
+    r"""
     This ID will be used when submitting :class:`.RelationSet`\s to Quadriga.
     If not set, the default value (see ``QUADRIGA_PROJECT`` in settings) will
     be used instead.
@@ -338,7 +338,7 @@ class Text(models.Model):
     uri = models.CharField(max_length=255, unique=True,
                            help_text="Uniform Resource Identifier. This should"
                            " be sufficient to retrieve text from a repository.")
-    """
+    r"""
     This identifier is used when submitting :class:`.RelationSet`\s to
     Quadriga.
 
@@ -379,7 +379,7 @@ class Text(models.Model):
 
     source = models.ForeignKey("Repository", blank=True, null=True,
                                related_name="loadedTexts", on_delete=models.CASCADE)
-    """
+    r"""
     The repository (if applicable) from which the text was retrieved.
 
     .. todo:: This should target :class:`repository.Repository` rather than
@@ -416,7 +416,7 @@ class Text(models.Model):
 
     @property
     def annotation_count(self):
-        """
+        r"""
         The combined number of :class:`.Appellation`\s and :class:`.Relation`\s
         that have been created using this text.
         """
@@ -424,7 +424,7 @@ class Text(models.Model):
 
     @property
     def relation_count(self):
-        """
+        r"""
         The number of :class:`.RelationSet`\s that have been created using this
         text.
         """
@@ -456,7 +456,7 @@ class Text(models.Model):
 # TODO: remove this model, as it is no longer used (in favor of the repository
 #  module).
 class Repository(models.Model):
-    """
+    r"""
     Represents an online repository from which :class:`.Text`\s can be
     retrieved.
 
@@ -478,12 +478,12 @@ class Repository(models.Model):
     """The base URL for the repository API."""
 
     oauth_client_id = models.CharField(max_length=255)
-    """
+    r"""
     .. todo:: This should be moved to a more general formatted configuration
        in :mod:`repository`\.
     """
     oauth_secret_key = models.CharField(max_length=255)
-    """
+    r"""
     .. todo:: This should be moved to a more general formatted configuration
        in :mod:`repository`\.
     """
@@ -496,7 +496,7 @@ class Repository(models.Model):
 # TODO: remove this model, as it is no longer used (in favor of the repository
 #  module).
 class Authorization(models.Model):
-    """
+    r"""
     Represents an authorization token for an external service.
 
     .. deprecated:: 0.5
@@ -527,7 +527,7 @@ class Annotation(models.Model):
     """The date and time that the :class:`.Annotation` was created."""
 
     createdBy = models.ForeignKey(VogonUser, on_delete=models.CASCADE)
-    """The :class:`.VogonUser` who created the :class:`.Annotation`\."""
+    r"""The :class:`.VogonUser` who created the :class:`.Annotation`\."""
 
     submitted = models.BooleanField(default=False)
     """
@@ -552,7 +552,7 @@ class Annotation(models.Model):
 
 
 class Interpreted(models.Model):
-    """
+    r"""
     Mixin for :class:`.Annotation`\s that refer to a :class:`concepts.Concept`\.
 
     .. todo:: Should this subclass :class:`Annotation`\? Does it matter?
@@ -563,7 +563,7 @@ class Interpreted(models.Model):
 
     @property
     def interpretation_type(self):
-        """
+        r"""
         The primary-key identifier of the referenced
         :class:`concepts.Concept`\s associated :class:`concepts.Type`\.
 
@@ -586,7 +586,7 @@ class Interpreted(models.Model):
 
     @property
     def interpretation_type_label(self):
-        """
+        r"""
         The lemma/label of the referenced :class:`concepts.Concept`\'s
         associated :class:`concepts.Type`\.
 
@@ -620,7 +620,7 @@ class DateAppellation(Annotation):
 
     project = models.ForeignKey('TextCollection', related_name='date_appellations',
                                 null=True, blank=True, on_delete=models.CASCADE)
-    """
+    r"""
     Since a :class:`.Text` can belong to more than one :class:`.TextCollection`
     it follows not all :class:`.Appellation`\s for a text will belong to the
     same :class:`.TextCollection`\.
@@ -650,7 +650,7 @@ class DateAppellation(Annotation):
 
     @property
     def precision(self):
-        """
+        r"""
         This is mainly for display. Indicates the precision of the
         :class:`.DateAppellation`\: 'year', 'month', or 'day'. Precision will
         vary depending on the confidence/interpretation of the user.
@@ -679,7 +679,7 @@ class Appellation(Annotation, Interpreted):
 
     project = models.ForeignKey('TextCollection', related_name='appellations',
                                 null=True, blank=True, on_delete=models.CASCADE)
-    """
+    r"""
     Since a :class:`.Text` can belong to more than one :class:`.TextCollection`
     it follows not all :class:`.Appellation`\s for a text will belong to the
     same :class:`.TextCollection`\.
@@ -693,7 +693,7 @@ class Appellation(Annotation, Interpreted):
     """
 
     tokenIds = models.TextField(null=True, blank=True)
-    """
+    r"""
     IDs of words (in the tokenizedContent) selected for this Appellation.
 
     .. deprecated:: 0.5
@@ -707,7 +707,7 @@ class Appellation(Annotation, Interpreted):
     """
 
     startPos = models.IntegerField(blank=True, null=True)
-    """
+    r"""
     Character offset from the beginning of the (plain text) document.
 
     .. deprecated:: 0.5
@@ -717,7 +717,7 @@ class Appellation(Annotation, Interpreted):
 
 
     endPos = models.IntegerField(blank=True, null=True)
-    """
+    r"""
     Character offset from the end of the (plain text) document.
 
     .. deprecated:: 0.5
@@ -760,14 +760,14 @@ class Appellation(Annotation, Interpreted):
 
 
 class RelationSet(models.Model):
-    """
+    r"""
     A :class:`.RelationSet` organizes :class:`.Relation`\s into complete
     statements.
     """
 
     project = models.ForeignKey('TextCollection', related_name='relationsets',
                                 null=True, blank=True, on_delete=models.CASCADE)
-    """
+    r"""
     Since a :class:`.Text` can belong to more than one :class:`.TextCollection`
     it follows not all :class:`.RelationSet`\s for a text will belong to the
     same :class:`.TextCollection`\.
@@ -849,7 +849,7 @@ class RelationSet(models.Model):
 
     @property
     def root(self):
-        """
+        r"""
         Identifies and retrieves the highest-level or "starting"
         :class:`.Relation` in the :class:`.RelationSet`\.
         """
@@ -878,7 +878,7 @@ class RelationSet(models.Model):
 
     @property
     def label(self):
-        """
+        r"""
         The label displayed in lists of :class:`RelationSet`\s.
 
         Returns
@@ -892,7 +892,7 @@ class RelationSet(models.Model):
         return label
 
     def ready(self):
-        """
+        r"""
         Check whether or not the constituent :class:`.Concept`\s in this
         :class:`.RelationSet` have been resolved (or merged).
 
@@ -909,7 +909,7 @@ class RelationSet(models.Model):
     ready.boolean = True    # So that we can display a nifty icon in changelist.
 
     def appellations(self):
-        """
+        r"""
         Get all non-predicate appellations in child :class:`.Relation`\s.
 
         Returns
@@ -942,7 +942,7 @@ class RelationSet(models.Model):
 
 
 class Relation(Annotation):
-    """
+    r"""
     A :class:`.Relation` captures a user's assertion that a passage of text
     implies a specific relation between two concepts.
 
@@ -1018,7 +1018,7 @@ class RelationTemplate(models.Model):
 
 
 class RelationTemplatePart(models.Model):
-    """
+    r"""
     Template for a :class:`.Relation` constituent to a :class:`.RelationSet`\.
     """
 
@@ -1096,7 +1096,7 @@ class RelationTemplatePart(models.Model):
 
 
 class TemporalBounds(models.Model):
-    """
+    r"""
     .. deprecated:: 0.5
        We now fully implement the Quadruple model in VogonWeb. See
        :class:`.DateAppellation`\.
@@ -1107,7 +1107,7 @@ class TemporalBounds(models.Model):
 
 
 class DocumentPosition(models.Model):
-    """
+    r"""
     Represents a specific passage or area in a :class:`.Text`\.
 
     The passage can be indicated by token IDs, a bounding box, character
@@ -1143,7 +1143,7 @@ class DocumentPosition(models.Model):
     """
 
     position_value = models.TextField()
-    """
+    r"""
     Plain-text representation of the position.
 
     If :attr:`.position_type` is :attr:`.WHOLE_DOCUMENT`\, then this can be

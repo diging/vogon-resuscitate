@@ -138,7 +138,7 @@ def content_picker_factory(env, content_getter=_etree_cdata_getter, attrib_gette
 
 
 def passthrough_picker_factory(env, *args, **kwargs):
-    """
+    r"""
     Generates a function that simply returns a passed
     :class:`lxml.etree.Element`\.
 
@@ -246,7 +246,7 @@ def parse_json_path(path_string, nsmap={}, picker_factory=content_picker_factory
 
 
 def parse_xml_path(path_string, nsmap={}, picker_factory=content_picker_factory):
-    """
+    r"""
     Generate a function that will retrieve data of interest from an
     :class:`lxml.etree.Element`\.
 

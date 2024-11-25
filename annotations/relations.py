@@ -1,4 +1,4 @@
-"""
+r"""
 Business logic for building and using :class:`.RelationTemplate`\s.
 """
 
@@ -32,7 +32,7 @@ datum_as_key = lambda datum: (datum['part_id'], datum['part_field'])
 
 
 def get_fields(template):
-    """
+    r"""
     Retrieve the set of fields that are required to generate a new
     :class:`.RelationSet` from a :class:`.RelationTemplate`\. These fields can
     be used to generate :class:`.Appellation`\s that will be used in the
@@ -221,7 +221,7 @@ def parse_template_part_data(part_data, **kwargs):
 
 
 def create_template(template_data, part_data):
-    """
+    r"""
     Create a new :class:`.RelationTemplate` and constituent
     :class:`.RelationTemplatePart`\s from form/formset data.
 

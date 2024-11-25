@@ -135,7 +135,7 @@ def concepts(request):
 
 
 def concept(request, concept_id):
-    """
+    r"""
     Details about a :class:`.Concept`\, including its associated annotations.
     """
 

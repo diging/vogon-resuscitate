@@ -2,6 +2,7 @@ amqp==5.1.1
 billiard==4.2.1
 black-goat-client==0.2.6
 bleach==1.4.2
+# anyjson
 # celery
 certifi==2018.1.18
 chardet==3.0.4
@@ -14,7 +15,7 @@ dj-static==0.0.6
 Django==2.2.20
 django-allauth
 django-autocomplete-light==2.3.1
-# django-celery==3.3.1
+# django-celery
 django-cors-headers>=3.5.0
 django-crispy-forms==1.4.0
 django-extensions==1.5.9
@@ -24,6 +25,7 @@ django_inlinecss
 djangorestframework==3.10.0
 drf-nested-routers==0.91
 django-oauth-toolkit
+setuptools
 future==0.17.1
 gunicorn==19.3.0
 html5lib==0.9999999
@@ -32,21 +34,22 @@ jsonpickle==0.9.3
 kombu==5.4.2
 lxml>=4.3.3
 mock==3.0.5
-networkx==2.2
+networkx
 oauthlib==3.0.1
 psycopg2>=2.7.1
 PyJWT==1.7.1
 python-dateutil==2.9.0
 python-dotenv
 python3-openid==3.1.0
-pytz==2016.10
+pytz
 redis==3.2.1
-requests==2.13.0
+requests
 requests-oauthlib==1.2.0
-six==1.10.0
+six==1.16.0
 sqlparse==0.3.0
 static3==0.7.0
 Unidecode==1.0.23
-urllib3==1.24.1
+urllib3
 xmltodict==0.12.0
 six
+legacy-cgi

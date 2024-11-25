@@ -51,7 +51,7 @@ class RelationAdmin(admin.ModelAdmin):
 
 
 def submit_relationsets(modeladmin, request, queryset):
-    """
+    r"""
     Submit selected :class:`.RelationSet`\s to Quadriga.
 
     Will quietly skip any :class:`.RelationSet`\s that have already been
@@ -85,7 +85,7 @@ def submit_relationsets(modeladmin, request, queryset):
 
 
 def submit_relationsets_synch(modeladmin, request, queryset):
-    """
+    r"""
     Submit selected :class:`.RelationSet`\s to Quadriga.
 
     Will quietly skip any :class:`.RelationSet`\s that have already been

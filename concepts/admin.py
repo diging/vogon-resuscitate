@@ -203,7 +203,7 @@ def traverse_mergers(concept):
 
 
 def add_concepts_to_conceptpower(modeladmin, request, queryset):
-    """
+    r"""
     Adds :class:`.Concept`\s in ``queryset`` to the Conceptpower authority
     service.
 
