@@ -145,8 +145,29 @@ class RepositoryManager(RESTManager):
                             'filename': extracted_text.get('filename'),
                             'url': extracted_text.get('url')
                         })
-                    if giles_upload.get('progressId') and not extracted_text:
-                        is_file_processing = True
+                    else:
+                        upload_id = giles_upload.get("uploadId")
+                        if upload_id:
+                            giles_url = f"{settings.Gilesendpoint}/api/v2/resources/files/upload/{upload_id}"
+                            giles_response = requests.get(giles_url, headers=headers)
+
+                            if giles_response.status_code == 200:
+                                giles_data = giles_response.json()
+
+                                # Process `extractedText` if available
+                                extracted_text = giles_data.get("extractedText", {})
+                                if extracted_text and extracted_text.get("content-type") == "text/plain":
+                                    files.append({
+                                        "id": extracted_text.get("id"),
+                                        "filename": extracted_text.get("filename"),
+                                        "url": extracted_text.get("url"),
+                                        "size": extracted_text.get("size"),
+                                    })
+
+                                # Check if file processing is still in progress
+                                if giles_data.get("documentStatus") != "COMPLETE":
+                                    is_file_processing = True
+
                         
             return {
                 "files": files,
