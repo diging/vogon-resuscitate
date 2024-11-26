@@ -4,6 +4,8 @@ from repository import auth
 from external_accounts.utils import get_giles_document_details
 import requests
 
+import traceback
+
 class RepositoryManager(RESTManager):
     def __init__(self, **kwargs):
         self.user = kwargs.get('user')
@@ -129,30 +131,27 @@ class RepositoryManager(RESTManager):
             item_data = response.json()
 
             files = []
-            processing = False
+            is_file_processing = False
             
             # Extract Giles upload file details if available
             giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
             print(giles_uploads)
             if giles_uploads:
                 for giles_upload in giles_uploads:
-                    print(giles_upload) # DEBUG
-                    print("here",giles_upload.get('progressId')) # DEBUG
                     extracted_text = giles_upload.get('extractedText', {})
-                    if extracted_text.get('content-type') == 'text/plain':
+                    if extracted_text and extracted_text.get('content-type') == 'text/plain':
                         files.append({
                             'id': extracted_text.get('id'),
                             'filename': extracted_text.get('filename'),
                             'url': extracted_text.get('url')
                         })
-                    # Check if progressId exists and is not None
-                    if not extracted_text.get('content-type') == 'text/plain' and giles_upload.get('progressId'):
-                        print('Processing') # DEBUG
-                        processing = True
-
+                    if giles_upload.get('progressId') and not extracted_text:
+                        is_file_processing = True
+                        
             return {
                 "files": files,
-                "processing": processing
+                "is_file_processing": is_file_processing,
+                "test":'test',
             }
         else:
             response.raise_for_status()

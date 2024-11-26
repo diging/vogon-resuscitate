@@ -16,14 +16,15 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
     })
     .then(response => response.json())
     .then(data => {
-        // Check if files are still being processed
-        if (data.processing) {
+
+        if (data.is_file_processing) {
             fileListDiv.innerHTML = '<div class="alert alert-info">Files are still being processed. Please check back later.</div>';
             return;
         }
 
-        // Display files
         if (data.files && data.files.length > 0) {
+            console.log(data.test);
+            
             let fileListHtml = '<ul style="list-style-type: none; padding: 0;">';
             data.files.forEach(file => {
                 fileListHtml += `
