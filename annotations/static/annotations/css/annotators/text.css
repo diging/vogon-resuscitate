@@ -26,8 +26,6 @@
 .relation-list {
     font-size: 0.8em;
     max-height: 80vh;
-    overflow-y: scroll;
-    white-space: nowrap;
 }
 .relation-list .btn {
     font-size: 1em;
@@ -199,3 +197,23 @@
       border: 0;
       background-color: rgb(250, 250, 250);
   }
+
+a[data-tooltip] {
+    position: relative;
+    cursor: pointer;
+}
+
+a[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: -25px;
+    right: 0;
+    background-color: #333;
+    color: #fff;
+    padding: 2px 5px;
+    border-radius: 4px;
+    text-shadow: none;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+}
