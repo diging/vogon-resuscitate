@@ -177,7 +177,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC_ROOT = os.environ.get('STATIC_ROOT',
                              os.path.join(PROJECT_ROOT, 'staticfiles'))
-STATIC_URL = BASE_DIR + 'static/'
 
 STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'), )
 
@@ -287,6 +286,7 @@ CONCEPT_URI_PREFIXES = [
     'https://www.digitalhps.org/'
 ]
 APP_ROOT = os.getenv('APP_ROOT', 'vogon/')
+STATIC_URL = "/" + APP_ROOT + os.environ.get('STATIC_URL', 'static/')
 
 # Allauth Settings
 LOGIN_URL = f'/{APP_ROOT}login/'
