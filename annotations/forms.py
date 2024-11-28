@@ -277,6 +277,12 @@ class RelationTemplateForm(forms.ModelForm):
         model = RelationTemplate
         exclude = ['createdBy']
 
+    def __init__(self, *args, **kwargs):
+        super(RelationTemplateForm, self).__init__(*args, **kwargs)
+        # Set the initial value of 'terminal_nodes' field from the instance's current value for editing form
+        if self.instance and hasattr(self.instance, 'terminal_nodes'):
+            self.fields['terminal_nodes'].initial = self.instance.terminal_nodes
+
 
 class UberCheckboxInput(forms.CheckboxInput):
     def value_from_datadict(self, data, files, name):

@@ -499,3 +499,60 @@ def create_relationset(template, raw_data, creator, text, project_id=None):
                              relations, project_id=project_id)
         relationset.save()
     return relationset
+
+
+def update_template(template, template_data, part_data_list):
+    with transaction.atomic():
+        # Update the template fields
+        for field, value in template_data.items():
+            setattr(template, field, value)
+        template.save()
+
+        # Get the list of valid field names from the RelationTemplatePart model
+        field_names = [field.name for field in RelationTemplatePart._meta.get_fields()]
+
+        # Update existing parts and create new ones
+        existing_parts = {part.internal_id: part for part in template.template_parts.all()}
+        updated_internal_ids = []
+
+        for part_data in part_data_list:
+            internal_id = part_data.get('internal_id')
+            part_data_copy = part_data.copy()
+
+            # Filter out fields that are not valid model fields
+            part_data_copy = {k: v for k, v in part_data_copy.items() if k in field_names}
+
+            if internal_id in existing_parts:
+                # Update existing part
+                part = existing_parts[internal_id]
+                for field, value in part_data_copy.items():
+                    setattr(part, field, value)
+                part.save()
+            else:
+                # Create new part
+                part = RelationTemplatePart(part_of=template, **part_data_copy)
+                part.save()
+            updated_internal_ids.append(part.id)
+
+        # Delete parts that were removed
+        RelationTemplatePart.objects.filter(part_of=template).exclude(id__in=updated_internal_ids).delete()
+
+        # Update relations between parts based on internal_ids
+        existing_parts = {part.internal_id: part for part in template.template_parts.all()}
+        for part in template.template_parts.all():
+            source_internal_id = part.source_relationtemplate_internal_id
+            object_internal_id = part.object_relationtemplate_internal_id
+
+            if source_internal_id != -1:
+                part.source_relationtemplate = existing_parts.get(source_internal_id)
+            else:
+                part.source_relationtemplate = None
+
+            if object_internal_id != -1:
+                part.object_relationtemplate = existing_parts.get(object_internal_id)
+            else:
+                part.object_relationtemplate = None
+
+            part.save()
+
+    return template
