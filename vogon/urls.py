@@ -72,7 +72,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     path('vogon-admin-management/users/', views.user_views.UserVogonAdminListView, name='user_vogon_admin_list'),
-    path('vogon-admin-management/users/toggle/<int:user_id>/', views.user_views.ToggleVogonAdminStatusView.as_view(), name='toggle_vogon_admin_status'),
+    path('vogon-admin-management/users/toggle/<int:user_id>/', views.user_views.toggle_vogon_admin_status, name='toggle_vogon_admin_status'),
 
     re_path(r'^rest/', include(router.urls)),
 

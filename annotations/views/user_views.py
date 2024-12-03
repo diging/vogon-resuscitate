@@ -8,6 +8,7 @@ from django.views import View
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core.exceptions import PermissionDenied
 
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q, Count
@@ -397,13 +398,26 @@ def UserVogonAdminListView(request):
     users = VogonUser.objects.all()
     return render(request, 'annotations/user_vogon_admin_list.html', {'users': users})
 
-class ToggleVogonAdminStatusView(View):
-    def post(self, request, user_id):
-        if not request.user.is_admin and not request.user.is_staff:
-            return HttpResponseForbidden("You do not have permission to perform this action.")
-        
-        user = get_object_or_404(VogonUser, id=user_id)
-        user.vogon_admin = not user.vogon_admin
-        user.save()
-        
-        return redirect(reverse('user_vogon_admin_list'))
+@staff_member_required
+def toggle_vogon_admin_status(request, user_id):
+    """
+    Toggles the vogon_admin status of a user.
+
+    Parameters
+    ----------
+    request : `django.http.requests.HttpRequest`
+    user_id : int
+
+    Returns
+    ----------
+    :class:`django.http.response.HttpResponseRedirect`
+        Redirects to the user vogon admin list view.
+    """
+    if not request.user.is_admin and not request.user.is_staff:
+        raise PermissionDenied("You do not have permission to perform this action.")
+    
+    user = get_object_or_404(VogonUser, id=user_id)
+    user.vogon_admin = not user.vogon_admin # Toggles the value of vogon_admin.
+    user.save()
+    
+    return redirect(reverse('user_vogon_admin_list'))
