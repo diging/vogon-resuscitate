@@ -298,7 +298,7 @@ def delete_relationtemplate(request, template_id):
     return HttpResponseRedirect(reverse('list_relationtemplate'))
 
 
-@staff_member_required
+@vogon_admin_or_staff_required
 def edit_relationtemplate(request, template_id):
     """
     Staff can use this view to edit an existing RelationTemplate.
