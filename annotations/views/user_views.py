@@ -13,7 +13,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q, Count
 
-from django.http import HttpResponse, HttpResponseRedirect, HttpResponseForbidden
+from django.http import HttpResponseRedirect
 from django.shortcuts import render, redirect, get_object_or_404, render
 from django.urls import reverse
 
@@ -394,9 +394,17 @@ def list_user(request):
     return render(request, template, context)
 
 @staff_member_required
-def UserVogonAdminListView(request):
-    users = VogonUser.objects.all()
-    return render(request, 'annotations/user_vogon_admin_list.html', {'users': users})
+def list_vogon_admin_users(request):
+    """
+    Displays a paginated list of Vogon users with option to toggle Vogon Admin
+    """
+    all_users = VogonUser.objects.all().order_by('username')
+    paginator = Paginator(all_users, settings.VOGON_ADMIN_PAGE_SIZE)
+
+    current_page_number = request.GET.get('page')
+    current_page = paginator.get_page(current_page_number)
+
+    return render(request, 'annotations/user_vogon_admin_list.html', {'page_obj': current_page})
 
 @staff_member_required
 def toggle_vogon_admin_status(request, user_id):
