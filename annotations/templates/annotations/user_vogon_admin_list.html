@@ -40,9 +40,9 @@
                                 {% else %}
                                 <button type="submit" class="btn btn-sm {% if user.is_vogon_admin %}btn-danger{% else %}btn-success{% endif %}">
                                     {% if user.is_vogon_admin %}
-                                    <i class="glyphicon glyphicon-remove"></i> Remove Admin
+                                    <i class="glyphicon glyphicon-remove"></i> Revoke Admin Access
                                     {% else %}
-                                    <i class="glyphicon glyphicon-plus"></i> Make Admin
+                                    <i class="glyphicon glyphicon-plus"></i> Grant Admin Access
                                     {% endif %}
                                 </button>
                                 {% endif %}

@@ -88,13 +88,7 @@
                         <ul class="dropdown-menu">
                             <li><a href="{% url "concepts" %}">Concepts</a></li>
                             <li><a href="{% url "relations" %}">Annotations</a></li>
-<<<<<<< HEAD
                             {% if user.is_staff or user.is_vogon_admin %}<li><a href="{% url "list_relationtemplate" %}">Templates</a></li>{% endif %}
-=======
-                            {% if user.is_staff %}
-                                <li><a href="{% url "list_relationtemplate" %}">Templates</a></li>
-                            {% endif %}
->>>>>>> develop
                         </ul>
                     </li>
 					{% endif %}
