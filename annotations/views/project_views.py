@@ -22,8 +22,40 @@ from annotations.utils import get_ordering_metadata, get_user_project_stats, _an
 @login_required
 def view_project(request, project_id):
     """
-    Shows details about a specific project owned by the current user.
+    Displays detailed information about a specific project that the current user has access to.
+
+    **Note:** 
+    - In the backend, projects are represented by the `TextCollection` model.
+    - In the UI and throughout the views, the term "project" is used to refer to instances of `TextCollection`.
+
+    This view retrieves a project based on the provided `project_id`, ensuring that the user
+    is either the owner or a collaborator of the project. It then gathers necessary data
+    such as texts within the project, applies ordering, handles pagination, and collects
+    statistics for both the owner and collaborators. Finally, it renders the project details
+    using the specified template.
+
+    Parameters
+    ----------
+    request : django.http.HttpRequest
+        The HTTP request object containing user information and query parameters.
+    project_id : int
+        The unique identifier of the project to be viewed.
+
+    Raises
+    ------
+    PermissionDenied
+        If the current user is neither the owner nor a collaborator of the project.
+    Http404
+        If the project with the given `project_id` does not exist.
+
+    Returns
+    -------
+    django.http.HttpResponse
+        The rendered project details page.
     """
+    # Retrieve the project with annotated counts (e.g., number of texts, relations, collaborators)
+    # The `_annotate_project_counts` function adds additional metadata to the queryset for efficiency
+    # the model is named `TextCollection` in the backend, it represents a "project" in the UI
     project = get_object_or_404(
         _annotate_project_counts(TextCollection.objects),
         pk=project_id
