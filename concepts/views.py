@@ -92,7 +92,7 @@ def merge_concepts(request, source_concept_id):
 
     return HttpResponseRedirect(next_page)
 
-
+@login_required
 def concepts(request):
     """
     List all concepts.
