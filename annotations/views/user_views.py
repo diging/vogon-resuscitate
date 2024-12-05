@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q, Count
+from django.db import models
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import csrf_protect
@@ -202,10 +203,15 @@ def dashboard(request):
 
     template = "annotations/dashboard.html"
 
-    # Retrieve a unique list of texts that were recently annotated by the user.
-    _recently_annotated = request.user.appellation_set.order_by('occursIn_id', '-created')\
-                                           .values_list('occursIn_id')\
-                                           .distinct('occursIn_id')[:20]
+    # Retrieve a unique list of texts that were recently annotated by the user, where user is owner or collaborator
+    _recently_annotated = request.user.appellation_set.filter(
+        occursIn__partOf__in=TextCollection.objects.filter(
+            models.Q(ownedBy=request.user) | models.Q(collaborators=request.user)
+        )
+    ).order_by('occursIn_id', '-created')\
+     .values_list('occursIn_id')\
+     .distinct('occursIn_id')[:20]
+    
     _annotated_texts = Text.objects.filter(pk__in=_recently_annotated)
     _key = lambda t: t.id
     _recent_grouper = groupby(sorted([t.top_level_text for t in _annotated_texts], key=_key),

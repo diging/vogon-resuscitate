@@ -419,6 +419,9 @@ class Text(models.Model):
             models.Q(participants=self.addedBy)
         ).first()  # Get first project where user either owns or participates in
 
+        if project is None:
+            return None
+        
         return reverse('annotate', kwargs={'text_id': self.id, 'project_id': project.id})
         
 
