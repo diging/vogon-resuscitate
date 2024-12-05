@@ -39,6 +39,10 @@ class CitesphereAPIv1:
     def get_groups(self, params=None):
         """Fetch all groups with optional parameters."""
         return self._make_request("/groups/", params=params)
+    
+    def get_group_items(self, group_id, params=None):
+        """Make a request to fetch group items."""
+        return self._make_request(f"/groups/{group_id}/items/", params=params)
 
     def get_group_collections(self, group_id, params=None):
         """Fetch all collections within a group with optional parameters."""
@@ -93,7 +97,9 @@ class RepositoryManager:
         if not isinstance(page, int) or page < 1:
             raise CitesphereAPIError(message="Invalid page number", error_code="INVALID_PAGE", details="Page must be a positive integer")
 
-        response_data = self.api._make_request(f"/groups/{group_id}/items/", params={'page': page})
+        # Make the API call using CitesphereAPIv1
+        response_data = self.api.get_group_items(group_id, params={'page': page})
+
         group_data = response_data.get('group', {})
         items = response_data.get('items', [])
         total_items = group_data.get('numItems', 0)
