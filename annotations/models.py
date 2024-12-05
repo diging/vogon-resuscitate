@@ -327,7 +327,6 @@ class TextCollection(models.Model):
 #     original_uri = models.CharField(max_length=255, unique=True)
 #
 
-
 class Text(models.Model):
     """
     Represents a document that is available for annotation.
@@ -412,21 +411,16 @@ class Text(models.Model):
     available.
     """
 
-    def get_absolute_url(self, project):
-        """
-        Get the absolute URL for viewing/annotating this text within a specific project.
+    def get_absolute_url(self):
+        """Get the absolute URL for viewing/annotating this text."""
 
-        Parameters:
-        ----------
-        project : TextCollection
-            The project within which the annotation is being made.
+        project = self.partOf.filter(
+            models.Q(ownedBy=self.addedBy) | 
+            models.Q(participants=self.addedBy)
+        ).first()  # Get first project where user either owns or participates in
 
-        Returns:
-        -------
-        str
-            The URL for annotating the text within the given project.
-        """
         return reverse('annotate', kwargs={'text_id': self.id, 'project_id': project.id})
+        
 
 
     @property
