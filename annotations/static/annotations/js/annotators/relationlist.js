@@ -6,7 +6,7 @@ RelationListItem = {
                         'relation-selected': isSelected()
                     }">
                     <span class="pull-right text-muted btn-group">
-                        <a class="btn btn-xs" v-on:click="select">
+                        <a class="btn btn-xs" v-on:click="select" data-tooltip="Select relation">
                             <span class="glyphicon glyphicon-hand-down"></span>
                         </a>
                     </span>
