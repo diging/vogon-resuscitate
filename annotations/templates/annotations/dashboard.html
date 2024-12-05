@@ -20,43 +20,86 @@
                         <div class="col-md-3">
                             <div class="card">
                                 <div class="card-body">
-                                    <div class="flex-container">
-                                        <!-- Logo on the left -->
-                                        <div class="logo-container">
-                                            <img src="{% static 'annotations/img/citesphere-logo.png' %}" alt="Citesphere Logo" style="height: 100px; width: 100px;">
-                                        </div>
-                                
-                                        <!-- Title and button on the right -->
-                                        <div class="info-container">
-                                            <h2 class="card-title">Citesphere</h2>
+                                    <div class="d-flex align-items-center">
+                                        <img src="{% static 'annotations/img/citesphere-logo.png' %}" alt="Citesphere" class="img-fluid me-2" style="max-width: 50px;">
+                                        <div>
+                                            <h4 class="mb-2">Citesphere</h4>
                                             {% if has_citesphere_account %}
-                                                <button class="btn btn-success btn-margin-bottom" disabled>Connected</button><br>
-                                                
-                                                <!-- Display connected repositories -->
-                                                <ul class="list-unstyled">
-                                                    {% for repo in connected_repositories %}
-                                                        <li>
-                                                            <h5>Repository: {{ repo.repository_name }}</h5>
-                                                            <p>Connected as: {{ repo.user_id }}</p>
-                                                            <p>{{ repo.repository_description }}</p>
-                                                        </li>
-                                                    {% endfor %}
-                                                </ul>
+                                                <button class="btn btn-success btn-sm" disabled>Connected</button>
+                                                <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#manageReposModal">
+                                                    Manage
+                                                </button>
+                                                <br>
+
+                                                <!-- Manage Repositories Modal -->
+                                                <div class="modal fade" id="manageReposModal" tabindex="-1" role="dialog">
+                                                    <div class="modal-dialog" role="document">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title">Manage Connected Repositories</h5>
+                                                                <small class="d-block text-muted">
+                                                                    {{ connected_repositories|length }} repository linked
+                                                                </small>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                {% for repo in connected_repositories %}
+                                                                <div class="row border-bottom py-3">
+                                                                    <div class="col-sm-9">
+                                                                        <h4 class="mb-1">
+                                                                            {{ repo.repository_name }}
+                                                                            <small class="text-muted">(Connected as {{ repo.user_id }})</small>
+                                                                        </h4>
+                                                                        <small class="text-muted">{{ repo.repository_description }}</small>
+                                                                    </div>
+                                                                    <div class="col-sm-3 text-right">
+                                                                        <button class="btn btn-danger btn-sm" data-toggle="modal" data-target="#disconnectModal{{ repo.repository_id }}" data-dismiss="modal">
+                                                                            Disconnect
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                                {% endfor %}
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {% for repo in connected_repositories %}
+                                                <div class="modal fade" id="disconnectModal{{ repo.repository_id }}" tabindex="-1" role="dialog">
+                                                    <div class="modal-dialog" role="document">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title">Confirm Disconnect</h5>
+                                                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                                    <span aria-hidden="true">&times;</span>
+                                                                </button>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                Are you sure you want to disconnect from {{ repo.repository_name }}?
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                                                <a href="{% url 'citesphere_disconnect' repo.repository_id %}" class="btn btn-danger">Disconnect</a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
                                             {% else %}
-                                                <a href="{% url 'citesphere_login' %}" class="btn btn-primary">Connect</a>
+                                                <a href="{% url 'citesphere_login' %}" class="btn btn-sm btn-primary">Connect</a>
                                             {% endif %}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <!-- Future Account Cards -->
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
     <div class="row">
         <div class="col-md-4">

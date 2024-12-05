@@ -229,11 +229,12 @@ def dashboard(request):
     citesphere_accounts = CitesphereAccount.objects.filter(user=request.user)
     has_citesphere_account = citesphere_accounts.exists()
 
-    # A list of connected repositories if available
+    # A list of connected repositories if available, we filter data here so that we dont send any sensitive information to the frontend
     connected_repositories = [
         {
             'repository_name': account.repository.name,
             'repository_description': account.repository.description,
+            'repository_id': account.repository.id,
             'user_id': account.citesphere_user_id,
         }
         for account in citesphere_accounts
