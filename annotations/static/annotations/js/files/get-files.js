@@ -17,8 +17,11 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
     .then(response => response.json())
     .then(data => {
 
+        console.log(data);
+        
+
         if (data.is_file_processing) {
-            fileListDiv.innerHTML = '<div class="alert alert-info">Files are still being processed. Please check back later.</div>';
+            fileListDiv.innerHTML = '<div class="alert alert-info">Files are still being processed in Giles. Please check back later.</div>';
             return;
         }
 
