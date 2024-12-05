@@ -27,6 +27,8 @@ from external_accounts.utils import parse_iso_datetimes
 from external_accounts.decorators import citesphere_authenticated
 from annotations.utils import get_pagination_metadata
 
+import traceback
+
 def _get_params(request):
     # The request may include parameters that should be passed along to the
     #  repository -- at this point, this is just for pagination.
@@ -80,8 +82,10 @@ def repository_collections(request, repository_id):
     try:
         collections = manager.groups()  # Fetch collections
     except CitesphereAPIError as e:
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
     except Exception as e:
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     context = {
@@ -110,9 +114,10 @@ def repository_collection(request, repository_id, group_id):
         collections = response_data.get('collections', [])
         group_texts = manager.group_items(group_id=group_id, page=page)
     except CitesphereAPIError as e:
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
     except Exception as e:
-        print(e)
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     project_id = request.GET.get('project_id')
@@ -151,8 +156,10 @@ def repository_browse(request, repository_id):
     try:
         resources = manager.list(**params)
     except CitesphereAPIError as e:
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
     except Exception as e:
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     base_url = reverse('repository_browse', args=(repository_id,))
@@ -255,8 +262,10 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     try:
         texts = manager.collection_items(group_id, group_collection_id, page=page)
     except CitesphereAPIError as e:
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
     except Exception as e:
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     # retrieve items per page from settings and calculate pagination metadata from util function
@@ -288,8 +297,10 @@ def repository_text_import(request, repository_id, group_id, text_key):
     try:
         result = manager.item(group_id, text_key)
     except CitesphereAPIError as e:
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
     except Exception as e:
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     # Extracting item details and Giles details from the result
@@ -340,8 +351,10 @@ def repository_text_content(request, repository_id, text_id, content_id):
         content = manager.content(id=int(content_id))
         resource = manager.resource(id=int(text_id))
     except CitesphereAPIError as e:
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
     except Exception as e:
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     content_type = content.get('content_type', None)
