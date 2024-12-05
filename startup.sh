@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 
-BASH_ENV=.env_app
+source .env_app
 python -m pip install -r requirements.txt
 python manage.py migrate
 python manage.py collectstatic --noinput
