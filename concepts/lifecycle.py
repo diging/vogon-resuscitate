@@ -45,9 +45,8 @@ class ConceptLifecycle(object):
         assert isinstance(instance, Concept)
         self.instance = instance
         self.conceptpower = Conceptpower()
-
-        self.conceptpower.endpoint = settings.CONCEPTPOWER_ENDPOINT
-        self.conceptpower.namespace = settings.CONCEPTPOWER_NAMESPACE
+        self.conceptpower.endpoint = 'https://diging-dev.asu.edu/conceptpower-review/rest/'
+        self.conceptpower.namespace = '{http://www.digitalhps.org/}'
         self.user = settings.CONCEPTPOWER_USERID
         self.password = settings.CONCEPTPOWER_PASSWORD
 
@@ -56,10 +55,10 @@ class ConceptLifecycle(object):
         """
         Extract namespace from URI.
         """
-
+        
         o = urlparse(uri)
         namespace = o.scheme + "://" + o.netloc + "/"
-
+        
         if o.scheme == '' or o.netloc == '':
             return None
             # raise ConceptLifecycleException("Could not determine namespace for %s." % uri)
@@ -230,6 +229,7 @@ class ConceptLifecycle(object):
         children_queryset.update(merged_with=target)
 
     def add(self):
+        
         """
         Use data from the managed :class:`.Concept` instance to create a new
         native entry in Conceptpower.
@@ -261,12 +261,17 @@ class ConceptLifecycle(object):
         if not pos:
             pos = 'noun'
         try:
+            print("in add try")
+            print(self.user,self.password)
+            self.password= "-----"
+            print(type(self.user),type(self.password),type(self.instance.label),type(pos),type(self.DEFAULT_LIST),type(self.instance.description),type(concept_type),type(equal_uris), equal_uris)
             data = self.conceptpower.create(self.user, self.password,
                                             self.instance.label, pos,
                                             self.DEFAULT_LIST,
                                             self.instance.description,
                                             concept_type,
                                             equal_uris=equal_uris)
+            print(data)
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
                                            " concept to Conceptpower:"
@@ -310,6 +315,17 @@ class ConceptLifecycle(object):
             return []
         try:
             data = self.conceptpower.search(q)
+        #     data = [{"id": "CONekHjWmcZLCFs",
+        #     "lemma": "Einstein",
+        #     "pos": "NOUN",
+        #     "description": "someone who has exceptional intellectual ability and originality; \\\"Mozart was a child genius\\\"; \\\"he's smart but he's no Einstein\\\"",
+        #     "conceptList": "list1",},
+        #  {
+        #     "id": "CONLR2DgzqOtFQP",
+        #     "lemma": "Albert Einstein",
+        #     "pos": "Noun",
+        #     "description": "physicist born in Germany who formulated the special theory of relativity and the general theory of relativity; Einstein also proposed that light consists of discrete quantized bundles of energy (later called photons) (1879-1955) physicist born in Germany who formulated the special theory of relativity and the general theory of relativity; Einstein also proposed that light consists of discrete quantized bundles of energy (later called photons) (1879-1955)",
+        #     "conceptList": "list1",}]
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
         return list(map(self._reform, data))
