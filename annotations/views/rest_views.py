@@ -20,7 +20,7 @@ from rest_framework.pagination import (LimitOffsetPagination,
 
 from annotations.serializers import *
 from annotations.models import *
-from annotations.utils import generate_graph_data
+from annotations.quadriga import generate_graph_data
 from concepts.models import Concept, Type
 from concepts.lifecycle import *
 

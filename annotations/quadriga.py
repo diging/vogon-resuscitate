@@ -1,5 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
+from django.utils import timezone
 
 from annotations.models import Relation, Appellation, DateAppellation, DocumentPosition
 
@@ -7,9 +8,6 @@ import xml.etree.ElementTree as ET
 import datetime
 import re
 import uuid
-import requests
-from requests.auth import HTTPBasicAuth
-
 
 def _created_element(element, annotation):
     ET.SubElement(element, 'id')
@@ -255,3 +253,112 @@ def parse_response(raw_response):
         tag = child.tag.replace(QDNS, '')
         data[tag] = child.text
     return data
+
+
+
+def build_concept_node(concept, user, creation_time, source_uri):
+    """
+    Helper function to build a concept node dictionary.
+    """
+    return {
+        "label": concept.label or "",
+        "metadata": {
+            "type": "appellation_event",
+            "interpretation": concept.uri,
+            "termParts": [
+                {
+                    "position": 1,
+                    "expression": concept.label or "",
+                    "normalization": "",
+                    "formattedPointer": "",
+                    "format": ""
+                }
+            ]
+        },
+        "context": {
+            "creator": user.username,
+            "creationTime": creation_time.strftime('%Y-%m-%d'),
+            "creationPlace": "",
+            "sourceUri": source_uri
+        }
+    }
+
+def get_relation_node(user, creation_time, source_uri):
+    """
+    Helper function to build a relation node.
+    """
+    return {
+        "label": "",
+        "metadata": {
+            "type": "relation_event"
+        },
+        "context": {
+            "creator": user.username,
+            "creationTime": creation_time.strftime('%Y-%m-%d'),
+            "creationPlace": "",
+            "sourceUri": source_uri
+        }
+    }
+
+def generate_graph_data(relationset, user):
+    nodes = {}
+    edges = []
+    node_counter = 0
+    source_uri = relationset.occursIn.uri
+
+    def get_node_id():
+        nonlocal node_counter
+        node_id = str(node_counter)
+        node_counter += 1
+        return node_id
+
+    for relation in relationset.constituents.all():
+        subject = getattr(relation.source_content_object, 'interpretation', None)
+        obj = getattr(relation.object_content_object, 'interpretation', None)
+        predicate = getattr(relation.predicate, 'interpretation', None)
+        
+        # Extract the creation time from the appellation
+        creation_time = relationset.occursIn.created
+
+        if subject and subject.uri not in nodes:
+            subject_id = get_node_id()
+            nodes[subject_id] = build_concept_node(subject, user, creation_time, source_uri)
+
+        if obj and obj.uri not in nodes:
+            obj_id = get_node_id()
+            nodes[obj_id] = build_concept_node(obj, user, creation_time, source_uri)
+
+        if predicate and predicate.uri not in nodes:
+            predicate_id = get_node_id()
+            nodes[predicate_id] = build_concept_node(predicate, user, creation_time, source_uri)
+
+        relation_id = get_node_id()
+        nodes[relation_id] = get_relation_node(user, creation_time, source_uri)
+
+        if subject and predicate:
+            edges.append({"source": subject_id, "relation": "subject", "target": predicate_id})
+
+        if predicate and obj:
+            edges.append({"source": predicate_id, "relation": "predicate", "target": obj_id})
+
+        edges.append({"source": relation_id, "relation": "object", "target": obj_id})
+
+    return {
+        "graph": {
+            "metadata": {
+                "defaultMapping": {
+                    "subject": {"type": "REF", "reference": "0"},
+                    "predicate": {"type": "URI", "uri": "", "label": ""},
+                    "object": {"type": "REF", "reference": "3"}
+                },
+                "context": {
+                    "creator": user.username,
+                    "creationTime": timezone.now().strftime('%Y-%m-%d'),
+                    "creationPlace": "",
+                    "sourceUri": source_uri
+                }
+            },
+            "nodes": nodes,
+            "edges": edges
+        }
+    }
