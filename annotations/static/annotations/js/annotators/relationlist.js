@@ -28,9 +28,13 @@ const RelationListItem = {
     },
     computed: {
         isReadyToSubmit() {
+            // This matches RelationSet.STATUS_READY_TO_SUBMIT = 'ready_to_submit'
+            // See annotations/models.py RelationSet model
             return this.relation.status === 'ready_to_submit';
         },
         isAlreadySubmitted() {
+            // This matches RelationSet.STATUS_SUBMITTED = 'submitted'
+            // See annotations/models.py RelationSet model
             return this.relation.status === 'submitted';
         },
         tooltipText() {
