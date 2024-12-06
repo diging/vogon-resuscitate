@@ -16,9 +16,6 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
     })
     .then(response => response.json())
     .then(data => {
-        console.log("Response data:", data); // Print entire response
-        console.log("Files:", data.files); // Print files array
-        console.log("Is processing:", data.is_file_processing); // Print processing status
 
         if (data.is_file_processing) {
             fileListDiv.innerHTML = '<div class="alert alert-info">Files are still being processed in Giles. Please check back later.</div>';

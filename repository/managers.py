@@ -135,13 +135,10 @@ class RepositoryManager(RESTManager):
             is_file_processing = False
             
             # Extract Giles upload file details if available
-            print("ITEM ID", itemId) #DEBUG
             giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
-            print("giles", giles_uploads) #DEBUG
             if giles_uploads:
                 for giles_upload in giles_uploads:
                     extracted_text = giles_upload.get('extractedText', {})
-                    print("extracted text", extracted_text) #DEBUG
                     if extracted_text and extracted_text.get('content-type') == 'text/plain':
                         files.append({
                             'id': extracted_text.get('id'),
@@ -150,7 +147,6 @@ class RepositoryManager(RESTManager):
                         })
                     else:
                         upload_id = giles_upload.get("progressId")
-                        print("upload id", upload_id) #DEBUG
                         if upload_id:
                             is_file_processing = True
 
