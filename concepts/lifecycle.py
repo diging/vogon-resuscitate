@@ -4,7 +4,8 @@ from urllib.parse import urlparse
 from conceptpower import Conceptpower
 
 from concepts.models import *
-
+import requests
+import json
 
 TYPES = settings.CONCEPT_TYPES
 
@@ -152,6 +153,7 @@ class ConceptLifecycle(object):
         """
 
         """
+        print("-------------in resolve--------------")
         if self.instance.concept_state == Concept.RESOLVED:
             raise ConceptLifecycleException("This concept is already resolved")
         if self.instance.concept_state == Concept.MERGED:
@@ -244,6 +246,7 @@ class ConceptLifecycle(object):
         #  identities, but we have some  use-cases that depend on the
         #  equal_to field in Conceptpower.
         equal_uris = []
+        print("------------in add--------------")
         if self.is_external:
             equal_uris.append(self.instance.uri)
 
@@ -314,21 +317,28 @@ class ConceptLifecycle(object):
         if not q:
             return []
         try:
-            data = self.conceptpower.search(q)
-        #     data = [{"id": "CONekHjWmcZLCFs",
-        #     "lemma": "Einstein",
-        #     "pos": "NOUN",
-        #     "description": "someone who has exceptional intellectual ability and originality; \\\"Mozart was a child genius\\\"; \\\"he's smart but he's no Einstein\\\"",
-        #     "conceptList": "list1",},
-        #  {
-        #     "id": "CONLR2DgzqOtFQP",
-        #     "lemma": "Albert Einstein",
-        #     "pos": "Noun",
-        #     "description": "physicist born in Germany who formulated the special theory of relativity and the general theory of relativity; Einstein also proposed that light consists of discrete quantized bundles of energy (later called photons) (1879-1955) physicist born in Germany who formulated the special theory of relativity and the general theory of relativity; Einstein also proposed that light consists of discrete quantized bundles of energy (later called photons) (1879-1955)",
-        #     "conceptList": "list1",}]
+            # def search(self, request, **kwargs):
+            url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
+            parameters = {
+                'word': q,
+                'pos': None,
+            }
+            headers = {
+                'Accept': 'application/json',
+            }
+            response = requests.get(url, headers=headers, params=parameters)
+            
+            if response.status_code == 200:
+                    # Parse the JSON response
+                data = response.json()
+                concepts = []
+                if 'conceptEntries' in data:
+                    for concept_entry in data['conceptEntries']:
+                        concept = self.parse_concept(concept_entry)
+                        concepts.append(concept)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
-        return list(map(self._reform, data))
+        return concepts
 
     def get_matching(self):
         """
@@ -345,3 +355,22 @@ class ConceptLifecycle(object):
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
         return list(map(self._reform, data))
+
+    def parse_concept(self,concept_entry):
+        """
+        Parse a concept and return a dictionary with the required fields.
+        """
+        concept = {}
+        concept['label'] = concept_entry.get('lemma', '')
+        concept['id'] = concept_entry.get('id', '')
+        concept['pos'] = concept_entry.get('pos', '')
+        concept['type'] = concept_entry.get('type','')
+        concept['conceptList'] = concept_entry.get('conceptList', '')
+        concept['uri'] = concept_entry.get('concept_uri', '')
+
+        description = concept_entry.get('description', '')
+        try:
+            concept['description'] = json.loads(f'"{description}"')
+        except json.JSONDecodeError:
+            concept['description'] = description
+        return concept

@@ -150,7 +150,7 @@ def concept(request, concept_id):
 
 @staff_member_required
 def add_concept(request, concept_id):
-
+    print("------------in add_concept------------")
     concept = get_object_or_404(Concept, pk=concept_id)
     manager = ConceptLifecycle(concept)
     next_page = request.GET.get('next', reverse('concepts'))
