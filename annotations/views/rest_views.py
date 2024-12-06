@@ -314,6 +314,10 @@ class RelationSetViewSet(viewsets.ModelViewSet):
     def get_queryset(self, *args, **kwargs):
         queryset = super(RelationSetViewSet, self).get_queryset(*args, **kwargs)
 
+        # Perform readiness checks only for fetched RelationSets
+        for relationset in queryset:
+            relationset.update_status()
+
         textid = self.request.query_params.getlist('text')
         userid = self.request.query_params.getlist('user')
 
