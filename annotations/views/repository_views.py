@@ -16,8 +16,7 @@ from repository.auth import *
 from repository.managers import *
 from annotations.models import Text, TextCollection
 from annotations.annotators import supported_content_types
-from annotations.tasks import tokenize
-from annotations.utils import get_pagination_metadata
+from annotations.utils import get_pagination_metadata, tokenize
 
 from urllib.parse import urlparse, parse_qs
 from urllib.parse import urlencode

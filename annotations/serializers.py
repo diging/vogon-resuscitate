@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from annotations.models import VogonUser
+from annotations.tasks import tokenize
 from .models import *
 from concepts.models import Concept, Type
 
