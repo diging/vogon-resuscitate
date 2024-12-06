@@ -282,11 +282,9 @@ def repository_text_files(request, repository_id, group_id, item_id):
 
     try:
         item_data = manager.item_files(group_id, item_id)
-        files = item_data.get('files', [])
+        return JsonResponse(item_data)
     except Exception as e:
-        files = []
-
-    return JsonResponse({'files': files}, status=200)
+        print(e)
 
 @citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key, file_id):

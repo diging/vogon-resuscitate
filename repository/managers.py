@@ -3,6 +3,7 @@ from repository.restable import RESTManager
 from repository import auth
 from external_accounts.utils import get_giles_document_details
 import requests
+from django.http import JsonResponse
 
 import traceback
 
@@ -134,12 +135,13 @@ class RepositoryManager(RESTManager):
             is_file_processing = False
             
             # Extract Giles upload file details if available
+            print("ITEM ID", itemId) #DEBUG
             giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
-            print(giles_uploads)
+            print("giles", giles_uploads) #DEBUG
             if giles_uploads:
                 for giles_upload in giles_uploads:
                     extracted_text = giles_upload.get('extractedText', {})
-                    print("extracted text", extracted_text)
+                    print("extracted text", extracted_text) #DEBUG
                     if extracted_text and extracted_text.get('content-type') == 'text/plain':
                         files.append({
                             'id': extracted_text.get('id'),
@@ -148,43 +150,11 @@ class RepositoryManager(RESTManager):
                         })
                     else:
                         upload_id = giles_upload.get("progressId")
-                        print("upload id", upload_id)
+                        print("upload id", upload_id) #DEBUG
                         if upload_id:
-                            giles_url = f"{settings.Gilesendpoint}/api/v2/resources/files/upload/{upload_id}"
-                            giles_response = requests.get(giles_url, headers=headers)
+                            is_file_processing = True
 
-                            if giles_response.status_code == 200:
-                                try:
-                                    giles_data = giles_response.json()
-
-                                    print("GILES DATA", giles_data)
-
-                                    # Process `extractedText` if available
-                                    extracted_text = giles_data.get("extractedText", {})
-                                    if extracted_text and extracted_text.get("content-type") == "text/plain":
-                                        files.append({
-                                            "id": extracted_text.get("id"),
-                                            "filename": extracted_text.get("filename"),
-                                            "url": extracted_text.get("url"),
-                                            "size": extracted_text.get("size"),
-                                        })
-
-                                    # Check if file processing is still in progress
-                                    if giles_data.get("documentStatus") != "COMPLETE":
-                                        is_file_processing = True
-
-                                except Exception as e:
-                                    import traceback
-                                    print("Error processing Giles response:")
-                                    print(traceback.format_exc())
-                                    is_file_processing = True
-
-                        
-            return {
-                "files": files,
-                "is_file_processing": is_file_processing,
-                "test":'test',
-            }
+            return {"files": files, "is_file_processing": is_file_processing}
         else:
             response.raise_for_status()
 

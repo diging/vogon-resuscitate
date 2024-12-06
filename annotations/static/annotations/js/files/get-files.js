@@ -16,9 +16,9 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
     })
     .then(response => response.json())
     .then(data => {
-
-        console.log(data);
-        
+        console.log("Response data:", data); // Print entire response
+        console.log("Files:", data.files); // Print files array
+        console.log("Is processing:", data.is_file_processing); // Print processing status
 
         if (data.is_file_processing) {
             fileListDiv.innerHTML = '<div class="alert alert-info">Files are still being processed in Giles. Please check back later.</div>';
@@ -26,8 +26,6 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
         }
 
         if (data.files && data.files.length > 0) {
-            console.log(data.test);
-            
             let fileListHtml = '<ul style="list-style-type: none; padding: 0;">';
             data.files.forEach(file => {
                 fileListHtml += `
@@ -48,7 +46,7 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
     })
     .catch(error => {
         console.error('Error fetching files:', error);
-        fileListDiv.innerHTML = '<div class="alert alert-danger">Failed to load files.</div>';
+        fileListDiv.innerHTML = '<div class="alert alert-danger">Failed to load files. Please try again later!</div>';
     });
 }
 
