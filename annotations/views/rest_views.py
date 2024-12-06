@@ -352,7 +352,7 @@ class RelationSetViewSet(viewsets.ModelViewSet):
             return Response({'error': 'You are not authorized to submit this RelationSet.'},
                             status=status.HTTP_403_FORBIDDEN)
 
-        if relationset.status != 'ready_to_submit':
+        if relationset.status != RelationSet.STATUS_READY_TO_SUBMIT:
             return Response({'error': 'Quadruple(s) is not ready to submit.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
