@@ -4,6 +4,9 @@ from urllib.parse import urlparse
 from conceptpower import Conceptpower
 
 from concepts.models import *
+
+from requests.auth import HTTPBasicAuth
+
 import requests
 import json
 
@@ -139,15 +142,15 @@ class ConceptLifecycle(object):
         )
         return manager
 
-    def approve(self):
-        if self.instance.concept_state == Concept.RESOLVED:
-            raise ConceptLifecycleException("This concept is already resolved.")
-        if self.instance.concept_state == Concept.MERGED:
-            raise ConceptLifecycleException("This concept is merged, and cannot"
-                                            " be approved.")
+    # def approve(self):
+    #     if self.instance.concept_state == Concept.RESOLVED:
+    #         raise ConceptLifecycleException("This concept is already resolved.")
+    #     if self.instance.concept_state == Concept.MERGED:
+    #         raise ConceptLifecycleException("This concept is merged, and cannot"
+    #                                         " be approved.")
 
-        self.instance.concept_state = Concept.APPROVED
-        self.instance.save()
+    #     self.instance.concept_state = Concept.APPROVED
+    #     self.instance.save()
 
     def resolve(self):
         """
@@ -236,6 +239,11 @@ class ConceptLifecycle(object):
         Use data from the managed :class:`.Concept` instance to create a new
         native entry in Conceptpower.
         """
+        if self.instance.concept_state == Concept.RESOLVED:
+            raise ConceptLifecycleException("This concept is already resolved.")
+        if self.instance.concept_state == Concept.MERGED:
+            raise ConceptLifecycleException("This concept is merged, and cannot"
+                                            " be resolved.")
         if self.is_native:
             raise ConceptLifecycleException("This concept already exists in"
                                             " Conceptpower, genius!")
@@ -253,6 +261,7 @@ class ConceptLifecycle(object):
         # It is possible that the managed Concept does not have a type, and
         #  sometimes we just don't care.
         concept_type = getattr(self.instance.typed, 'uri', self.DEFAULT_TYPE)
+        print(ConceptLifecycle.get_namespace(concept_type),ConceptLifecycle.CONCEPTPOWER)
         if ConceptLifecycle.get_namespace(concept_type) != ConceptLifecycle.CONCEPTPOWER:
             concept_type = TYPES.get(concept_type)
         if not concept_type:
@@ -266,20 +275,27 @@ class ConceptLifecycle(object):
         try:
             print("in add try")
             print(self.user,self.password)
-            self.password= "-----"
+            self.password= "--"
             print(type(self.user),type(self.password),type(self.instance.label),type(pos),type(self.DEFAULT_LIST),type(self.instance.description),type(concept_type),type(equal_uris), equal_uris)
-            data = self.conceptpower.create(self.user, self.password,
-                                            self.instance.label, pos,
-                                            self.DEFAULT_LIST,
-                                            self.instance.description,
-                                            concept_type,
-                                            equal_uris=equal_uris)
-            print(data)
+            auth = HTTPBasicAuth(self.user,self.password)
+            url = f"{settings.CONCEPTPOWER_ENDPOINT}concept/add"
+            concept_data = {
+                "word": self.instance.label,
+                "pos": pos,
+                "conceptlist": self.DEFAULT_LIST,
+                "description": self.instance.description,
+                "type": concept_type,
+                "equalTo": equal_uris,
+            }
+            response = requests.post(url=url, data=json.dumps(concept_data), auth=auth)
+            
+            if response.status_code != requests.codes.ok:
+                raise RuntimeError(response.status_code, response.text)
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
                                            " concept to Conceptpower:"
                                            " %s" % str(E))
-        target = ConceptLifecycle.create_from_raw(data).instance
+        target = ConceptLifecycle.create_from_raw(response.json()).instance
         self.instance.merged_with = target
         self.instance.concept_state = Concept.MERGED
         self.instance.save()

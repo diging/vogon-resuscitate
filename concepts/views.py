@@ -53,14 +53,16 @@ def approve_concept(request, concept_id):
     """
 
     """
-
+    print("------------in approve_concept------------")
     concept = get_object_or_404(Concept, pk=concept_id)
     manager = ConceptLifecycle(concept)
     next_page = request.GET.get('next', reverse('concepts'))
+    back_to_page = request.GET.get('next')
 
     context = {
         'concept': concept,
         'next_page': urllib.parse.quote_plus(next_page),
+        'back_to_page': back_to_page
     }
 
     # TODO: say something more informative.
@@ -68,7 +70,11 @@ def approve_concept(request, concept_id):
         return HttpResponseRedirect(next_page)
 
     if request.GET.get('confirmed', False):
-        manager.approve()
+        try:
+            manager.add()
+        except ConceptUpstreamException as E:
+            return HttpResponse("Conceptpower is causing all kinds of problems"
+                                " right now: %s" % str(E), status=500)
         return HttpResponseRedirect(next_page)
 
     candidates = manager.get_similar()
@@ -160,7 +166,7 @@ def add_concept(request, concept_id):
         'next_page': urllib.parse.quote_plus(next_page),
         'back_to_page': back_to_page
     }
-    if concept.concept_state != Concept.APPROVED:
+    if concept.concept_state != Concept.PENDING:
         return HttpResponseRedirect(next_page)
 
     if request.GET.get('confirmed', False):

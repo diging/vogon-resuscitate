@@ -116,7 +116,7 @@
                         ></a>
                 </div>
                 <div class="btn-group">
-                    {% if concept_state  == concept.PENDING and concept|is_conceptpower_namespaced is not True %}<a style="top: 1;" href="{% url "approve_concept" concept.id %}?next={{ path }}" class="btn btn-xs btn-success">Approve</a>{% endif %}
+                    {% if concept_state  == concept.PENDING and concept|is_conceptpower_namespaced is not True %}<a style="top: 1;" href="{% url "add_concept" concept.id %}?next={{ path }}" class="btn btn-xs btn-success">Approve</a>{% endif %}
                     {% if concept_state  == concept.APPROVED %}{% if concept.typed %}<a style="top: 1;" href="{% url "add_concept" concept.id %}?next={{ path }}" class="btn btn-xs btn-success">Add</a>{% else %}<a href="{% url "edit_concept" concept.id %}?next={{ path }}" class="btn btn-xs btn-primary">Set Type</a>{% endif %}{% endif %}
                 </div>
             </div>
