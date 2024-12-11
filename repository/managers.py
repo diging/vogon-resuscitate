@@ -150,7 +150,10 @@ class RepositoryManager(RESTManager):
                         if upload_id:
                             is_file_processing = True
 
-            return {"files": files, "is_file_processing": is_file_processing}
+            return {
+                "files": files,
+                "is_file_processing": is_file_processing
+            }
         else:
             response.raise_for_status()
 

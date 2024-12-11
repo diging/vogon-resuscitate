@@ -29,6 +29,9 @@ from external_accounts.utils import parse_iso_datetimes
 from external_accounts.decorators import citesphere_authenticated
 from annotations.utils import get_pagination_metadata
 
+import logging
+logger = logging.getLogger(__name__)
+
 def _get_params(request):
     # The request may include parameters that should be passed along to the
     #  repository -- at this point, this is just for pagination.
@@ -284,7 +287,9 @@ def repository_text_files(request, repository_id, group_id, item_id):
         item_data = manager.item_files(group_id, item_id)
         return JsonResponse(item_data)
     except Exception as e:
-        print(e)
+        logger.error(f"Error accessing repository files: {str(e)}")
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An error occurred while accessing the repository.'}, status=500)
+
 
 @citesphere_authenticated
 def repository_text_import(request, repository_id, group_id, text_key, file_id):
@@ -296,7 +301,8 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id):
 
     try:
         result = manager.item(group_id, text_key, file_id)
-    except IOError:
+    except IOError as e:
+        logger.error(f"Error accessing repository: {str(e)}")
         return JsonResponse({'error': 'An error occurred while accessing the repository.'}, status=500)
 
     # Extracting item details and Giles details from the result
