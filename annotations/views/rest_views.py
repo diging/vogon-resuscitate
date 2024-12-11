@@ -493,6 +493,38 @@ class ConceptViewSet(viewsets.ModelViewSet):
         if not q:
             return Response({'results': []})
         pos = request.GET.get('pos', None)
+
+        # Search ConceptPower
+        cp_concepts = self._search_conceptpower(q, pos)
+        
+        # Search VIAF
+        viaf_concepts = self._search_viaf(q)
+
+        # Combine and sort results
+        exact_matches = []
+        other_matches = []
+
+        for concept in cp_concepts:
+            if concept['label'].lower() == q.lower():
+                exact_matches.append(concept)
+            else:
+                other_matches.append(concept)
+
+        for concept in viaf_concepts:
+            if concept['label'].lower() == q.lower():
+                exact_matches.append(concept)
+            else:
+                other_matches.append(concept)
+
+        # Sort results to show ConceptPower results first in each category
+        exact_matches.sort(key=lambda x: x['authority']['name'] != 'Conceptpower')
+        other_matches.sort(key=lambda x: x['authority']['name'] != 'Conceptpower')
+
+        # Combine all results with exact matches first
+        all_results = exact_matches + other_matches
+        return Response({'results': all_results})
+
+    def _search_conceptpower(self, q, pos=None):
         url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
         parameters = {
             'word': q,
@@ -501,24 +533,46 @@ class ConceptViewSet(viewsets.ModelViewSet):
         headers = {
             'Accept': 'application/json',
         }
-        response = requests.get(url, headers=headers, params=parameters)
-        
-        if response.status_code == 200:
-            try:
-                # Parse the JSON response
+        try:
+            response = requests.get(url, headers=headers, params=parameters)
+            if response.status_code == 200:
                 data = response.json()
                 concepts = []
                 for concept_entry in data['conceptEntries']:
                     concept = parse_concept(concept_entry)
-                    # Now relabel the fields
                     concept = _relabel(concept)
+                    concept['authority']['name'] = 'Conceptpower'
                     concepts.append(concept)
-                return Response({'results': concepts})
-            except Exception as e:
-                return Response({'error': f'Error parsing ConceptPower response: {str(e)}'}, status=400)
-        else:
-            return Response({'error': 'Error fetching concepts from ConceptPower'}, status=response.status_code)
+                return concepts
+        except Exception as e:
+            logger.error(f"Error searching ConceptPower: {str(e)}")
+            return []
+        return []
 
+    def _search_viaf(self, q):
+        encoded_query = requests.utils.quote(f'local.names all "{q}"')
+        url = f"http://viaf.org/viaf/search?query={encoded_query}&httpAccept=application/json"
+        
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                concepts = []
+                
+                if 'searchRetrieveResponse' in data:
+                    records = data['searchRetrieveResponse'].get('records', [])
+                    
+                    for record in records:
+                        record_data = record.get('record', {}).get('recordData', {})
+                        if record_data:
+                            concept = parse_viaf_concept(record_data)
+                            concept['authority']['name'] = 'VIAF'
+                            concepts.append(concept)
+                return concepts
+        except Exception as e:
+            logger.error(f"Error searching VIAF: {str(e)}")
+            return []
+        return []
 
     def get_queryset(self, *args, **kwargs):
         """
@@ -616,5 +670,33 @@ def parse_concept(concept_entry):
         concept['authority'] = {'name': 'Conceptpower'}
     else:
         concept['authority'] = {'name': 'Unknown'}
+    
+    return concept
+
+def parse_viaf_concept(record_data):
+    """
+    Parse a VIAF record and return a dictionary with standardized fields.
+    """
+    concept = {}
+    
+    viaf_id = record_data.get('viafID', '')
+    concept['uri'] = f'http://viaf.org/viaf/{viaf_id}'
+    
+    if 'mainHeadings' in record_data:
+        main_heading = record_data['mainHeadings'].get('data', {})
+        if isinstance(main_heading, dict):
+            concept['label'] = main_heading.get('text', '').split('|')[0].strip()
+    
+    concept['id'] = viaf_id
+    concept['pos'] = ''
+    
+    # Get type from nameType if available
+    concept['concept_type'] = record_data.get('nameType', 'Person')
+    
+    # Build description from available data
+    description_parts = []
+    
+    concept['description'] = ' | '.join(description_parts) if description_parts else ''
+    concept['authority'] = {'name': 'VIAF'}
     
     return concept
