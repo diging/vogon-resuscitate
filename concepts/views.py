@@ -177,13 +177,15 @@ def add_concept(request, concept_id):
                                 " right now: %s" % str(E), status=500)
         return HttpResponseRedirect(next_page)
 
-
+    print("----in check state",manager.is_external, manager.is_native, manager.is_created)
     candidates = manager.get_similar()
     matches = manager.get_matching()
+    equals = manager.get_equal() if manager.is_external else []
 
     context.update({
         'candidates': candidates,
         'matches': matches,
+        'equals': equals
     })
 
     return render(request, "annotations/concept_add.html", context)

@@ -211,7 +211,9 @@ class ConceptLifecycle(object):
         """
         if self.is_native:
             raise ConceptLifecycleException("Cannot merge a native concept")
-
+        # if self.is_external:
+            
+            
         # We use the boilerplate try..except here to avoid making unneecessary
         #  API calls.
         try:
@@ -253,10 +255,12 @@ class ConceptLifecycle(object):
         #  users can benefit. Ideally this would happen with BlackGoat
         #  identities, but we have some  use-cases that depend on the
         #  equal_to field in Conceptpower.
-        equal_uris = []
+        equal_uri = ""
         print("------------in add--------------")
+        print(self.instance.uri)
         if self.is_external:
-            equal_uris.append(self.instance.uri)
+            print("is external")
+            equal_uri = self.instance.uri
 
         # It is possible that the managed Concept does not have a type, and
         #  sometimes we just don't care.
@@ -275,8 +279,7 @@ class ConceptLifecycle(object):
         try:
             print("in add try")
             print(self.user,self.password)
-            self.password= "--"
-            print(type(self.user),type(self.password),type(self.instance.label),type(pos),type(self.DEFAULT_LIST),type(self.instance.description),type(concept_type),type(equal_uris), equal_uris)
+            self.password= "---"
             auth = HTTPBasicAuth(self.user,self.password)
             url = f"{settings.CONCEPTPOWER_ENDPOINT}concept/add"
             concept_data = {
@@ -285,12 +288,14 @@ class ConceptLifecycle(object):
                 "conceptlist": self.DEFAULT_LIST,
                 "description": self.instance.description,
                 "type": concept_type,
-                "equalTo": equal_uris,
+                "equal_to": equal_uri
             }
+            print(concept_data)
             response = requests.post(url=url, data=json.dumps(concept_data), auth=auth)
             
             if response.status_code != requests.codes.ok:
                 raise RuntimeError(response.status_code, response.text)
+            print(response.json())
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
                                            " concept to Conceptpower:"
@@ -356,6 +361,38 @@ class ConceptLifecycle(object):
             raise ConceptUpstreamException("Whoops: %s" % str(E))
         return concepts
 
+    def get_equal(self):
+        """
+        Retrieve data about Conceptpower entries that are "equal to" the
+        managed :class:`.Concept`\.
+
+        Returns
+        -------
+        list
+            A list of dicts with raw data from Conceptpower.
+        """
+        try:
+            url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
+            parameters = {
+                'equal_to': self.instance.uri
+            }
+            headers = {
+                'Accept': 'application/json',
+            }
+            response = requests.get(url, headers=headers, params=parameters)
+            print(response)
+            if response.status_code == 200:
+                data = response.json()
+                concepts = []
+                if 'conceptEntries' in data:
+                    for concept_entry in data['conceptEntries']:
+                        concept = self.parse_concept(concept_entry)
+                        concepts.append(concept)
+        except Exception as E:
+            raise ConceptUpstreamException("Whoops: %s" % str(E))
+        # print(data)
+        return list(map(self._reform, concepts))   
+    
     def get_matching(self):
         """
         Retrieve data about Conceptpower entries that are "equal to" the
