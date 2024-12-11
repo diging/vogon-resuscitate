@@ -10,6 +10,38 @@ from dateutil import parser
 from .models import CitesphereAccount
 
 import requests
+import logging
+logger = logging.getLogger(__name__)
+
+
+class GilesAPI:
+    """Class to handle interactions with the Giles API"""
+    
+    def __init__(self, user, repository):
+        self.repository = repository
+        self.base_url = repository.giles_endpoint
+        self.user = user
+        self.access_token = self._get_access_token()
+        
+    def _get_access_token(self):
+        """Get authentication token for user"""
+        try:
+            account = CitesphereAccount.objects.get(user=self.user, repository=self.repository)
+            return account.access_token
+        except CitesphereAccount.DoesNotExist:
+            return None
+        
+    def get_file_content(self, file_id):
+        """Make request to Giles API to get file content"""
+        if not self.access_token:
+            raise ValueError("User must authenticate with Citesphere before making API calls")
+            
+        headers = {'Authorization': f'Bearer {self.access_token}'}
+        url = f"{self.base_url}/api/v2/resources/files/{file_id}/content/"
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        return response.text
+
 
 def parse_iso_datetimes(datetime_list):
     parsed_dates = []
@@ -39,24 +71,16 @@ def get_giles_document_details(user, file_id, repository):
 
     Args:
         user: The user object
-        document_id: The ID of the document that you recieve from Citesphere Items endpoint
+        file_id: The ID of the file to retrieve from Giles
+        repository: The repository object containing Giles endpoint info
 
     Returns:
         A dictionary with the document details if successful, None otherwise.
     """
     try:
-        citesphere_account = CitesphereAccount.objects.get(user=user, repository=repository)
-        if not citesphere_account:
-            return None
-        token = citesphere_account.access_token
-        headers = {'Authorization': f'Bearer {token}'}
-        url = f"{repository.giles_endpoint}/api/v2/resources/files/{file_id}/content/"
-
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()  # Raises an HTTPError for bad responses
-
-        return response.text
+        giles = GilesAPI(user, repository)
+        return giles.get_file_content(file_id)
+        
     except requests.RequestException as e:
-        print(f"Failed to retrieve Giles document details: {e}")
+        logger.error(f"Failed to retrieve Giles document details: {e}")
         return None
-    
