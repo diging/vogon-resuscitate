@@ -220,7 +220,7 @@ class ConceptLifecycle(object):
             target = Concept.objects.get(uri=uri)
         except Concept.DoesNotExist:
             try:
-                data = self.conceptpower.get(uri)
+                data = self.get_uri(uri)
             except Exception as E:
                 raise ConceptUpstreamException("Whoops: %s" % str(E))
             target = ConceptLifecycle.create_from_raw(data).instance
@@ -308,7 +308,7 @@ class ConceptLifecycle(object):
     def _reform(self, raw):
         return ConceptData(**{
             'label': raw.get('word') if raw.get('word') else raw.get('lemma'),
-            'uri': raw.get('uri') if raw.get('uri') else raw.get('id'),
+            'uri': raw.get('uri') if raw.get('concept_uri') else raw.get('id'),
             'description': raw.get('description'),
             'typed': raw.get('type_uri'),
             'equal_to': raw.get('equal_to', []),
@@ -317,7 +317,7 @@ class ConceptLifecycle(object):
 
     def get(self, uri):
         try:
-            raw = self.conceptpower.get(uri)
+            raw = self.get_uri(uri)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
         return self._reform(raw)
@@ -388,10 +388,11 @@ class ConceptLifecycle(object):
                     for concept_entry in data['conceptEntries']:
                         concept = self.parse_concept(concept_entry)
                         concepts.append(concept)
+                        # print(concept)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
         # print(data)
-        return list(map(self._reform, concepts))   
+        return list(concepts)   
     
     def get_matching(self):
         """
@@ -404,11 +405,27 @@ class ConceptLifecycle(object):
             A list of dicts with raw data from Conceptpower.
         """
         try:
-            data = self.conceptpower.get(self.instance.uri)
+            data = self.get_uri(self.instance.uri)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
         return list(map(self._reform, data))
 
+    def get_uri(self, uri):
+        try:
+            url = f"{settings.CONCEPTPOWER_ENDPOINT}Concept?id={uri}"
+            headers = {
+                'Accept': 'application/json',
+            }
+            response = requests.get(url, headers=headers)
+
+            if response.status_code == 200:
+                    data = response.json()
+                    concept_entry = data.get('conceptEntries', [None])[0]
+            else:
+                raise ValueError(f"Error fetching concept data: {response.status_code}")
+        except Exception as E:
+            raise ConceptUpstreamException("Whoops: %s" % str(E))
+        return concept_entry
     def parse_concept(self,concept_entry):
         """
         Parse a concept and return a dictionary with the required fields.

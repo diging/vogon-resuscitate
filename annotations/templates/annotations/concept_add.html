@@ -65,7 +65,7 @@
     </div>
 
     <ul class="list-group">
-        {% for candidate in matches %}
+        {% for candidate in equals %}
         <li class="list-group-item clearfix">
             <div class="pull-right btn-group">
                 <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
@@ -104,7 +104,7 @@
     {% endif %}
 
     <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
-    <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Approve{% endif %}</a>
+    <a class="btn btn-md btn-{% if matches or candidates or equals %}warning{% else %}success{% endif %}" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates or equals %}I accept the risks: add anyway!{% else %}Approve{% endif %}</a>
 </div>
 
 
