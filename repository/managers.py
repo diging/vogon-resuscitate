@@ -1,7 +1,7 @@
 from django.conf import settings
 from repository.restable import RESTManager
 from repository import auth
-from external_accounts.utils import get_giles_document_details
+from external_accounts.giles import get_giles_document_details, check_giles_upload_status_details
 from .exceptions import GilesUploadError, GilesTextExtractionError
 import requests
 
@@ -149,6 +149,19 @@ class RepositoryManager(RESTManager):
                 extracted_text_data = get_giles_document_details(self.user, extracted_text.get('id'), repository)
                 item_data['item']['text'] = extracted_text_data
             else:
+                # Check upload status and get extracted text if processing is complete
+                giles_upload_progress_id = giles_uploads[0].get('progressId')
+                if giles_upload_progress_id:
+                    giles_processing_status = check_giles_upload_status_details(self.user, giles_upload_progress_id, repository)
+                    
+                    if giles_processing_status['status'] == 'complete':
+                        item_data['item']['text'] = giles_processing_status['extracted_text']
+                        return item_data
+                    elif giles_processing_status['status'] == 'processing':
+                        raise GilesUploadError(giles_processing_status['message'])
+                    else:
+                        raise GilesTextExtractionError(giles_processing_status['message'])
+                    
                 raise GilesTextExtractionError("No valid text/plain content found for this text!")
 
             item_data['item']['details'] = item_details
