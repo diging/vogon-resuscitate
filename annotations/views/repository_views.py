@@ -21,6 +21,7 @@ from annotations.tasks import tokenize
 from annotations.utils import get_pagination_metadata
 
 from django.http import JsonResponse
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
 from urllib.parse import urlparse, parse_qs
 from urllib.parse import urlencode
@@ -224,22 +225,43 @@ def repository_list(request):
 @citesphere_authenticated
 def repository_details(request, repository_id):
     template = "annotations/repository_details.html"
-    user = None if isinstance(request.user, AnonymousUser) else request.user
     repository = get_object_or_404(Repository, pk=repository_id)
+    user = None if isinstance(request.user, AnonymousUser) else request.user
 
-    texts = repository.texts.all().order_by('-added')
+    texts_by_project = {}
+
+    # Get projects where user is owner or collaborator
+    user_collections = TextCollection.objects.filter(
+        Q(ownedBy=user) | Q(collaborators=user)
+    ).distinct()
+
+    for collection in user_collections:
+        # Filter texts within each collection that belong to the repository
+        collection_texts = collection.texts.filter(repository=repository).order_by('-added')
+        if collection_texts.exists():
+            paginator = Paginator(collection_texts, settings.REPOSITORY_TEXT_PAGINATION_PAGE_SIZE)
+            try:
+                paginated_texts = paginator.page(request.GET.get('page', 1))
+            except PageNotAnInteger:
+                paginated_texts = paginator.page(1)
+            except EmptyPage:
+                paginated_texts = paginator.page(paginator.num_pages)
+            texts_by_project[collection] = paginated_texts
+
     manager = RepositoryManager(user=user, repository=repository)
-    project_id = request.GET.get('project_id')
+
     context = {
         'user': user,
         'repository': repository,
         'manager': manager,
-        'title': 'Repository details: %s' % repository.name,
-        'texts':texts,
-        'project_id': project_id,
+        'title': f'Repository details: {repository.name}',
+        'texts_by_project': texts_by_project,
+        'project_id': request.GET.get('project_id'),
+        'page': request.GET.get('page', 1),
     }
 
     return render(request, template, context)
+
 
 @citesphere_authenticated
 def repository_collection_texts(request, repository_id, group_id, group_collection_id):
@@ -292,10 +314,14 @@ def repository_text_files(request, repository_id, group_id, item_id):
 
 
 @citesphere_authenticated
-def repository_text_import(request, repository_id, group_id, text_key, file_id):
-    """
-    Handles the import process for a specific file associated with a text.
-    """
+def repository_text_import(request, repository_id, group_id, text_key, file_id, project_id=None):
+
+    if not project_id:
+        return redirect(f"{reverse('list_projects')}?redirect_to_text_import=True&repository_id={repository_id}&group_id={group_id}&text_key={text_key}")
+
+    # Retrieve the project directly using project_id from the URL
+    project = get_object_or_404(TextCollection, pk=project_id)
+    
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=request.user, repository=repository)
 
@@ -305,7 +331,6 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id):
         logger.error(f"Error accessing repository: {str(e)}")
         return JsonResponse({'error': 'An error occurred while accessing the repository.'}, status=500)
 
-    # Extracting item details and Giles details from the result
     item_details = result.get('item', {}).get('details', {})
     giles_text = result.get('item', {}).get('text')
 
@@ -342,21 +367,14 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id):
         master_text.tokenizedContent = tokenized_content
         master_text.save()
 
-    project_id = request.GET.get('project_id')
-    if project_id:
-        try:
-            project = TextCollection.objects.get(pk=project_id)
-            project.texts.add(master_text)
-            redirect_url = reverse('annotate', args=[master_text.id]) + f'?project_id={project_id}'
-        except TextCollection.DoesNotExist:
-            return JsonResponse({'error': 'Project not found.'}, status=404)
-    else:
-        # Redirect to the annotation page without a project ID
-        redirect_url = reverse('annotate', args=[master_text.id])
+    # Add text to project only if it's not already present
+    if not project.texts.filter(pk=master_text.pk).exists():
+        project.texts.add(master_text)
 
+    redirect_url = reverse('annotate', args=[master_text.id, project_id])
+    
     # Using json response as in repository_collections_text_list template this view is being called via AJAX
     return JsonResponse({'success': True, 'redirect_url': redirect_url})
-
 
 @login_required
 def repository_text_content(request, repository_id, text_id, content_id):
@@ -380,7 +398,7 @@ def repository_text_content(request, repository_id, text_id, content_id):
         'title': resource.get('title'),
         'created': resource.get('created'),
         'repository': repository,
-        'repository_source_id': text_id,
+        'repository_source_id': repository_id,
         'addedBy': request.user,
     }
     part_of_id = request.GET.get('part_of')
@@ -422,6 +440,7 @@ def repository_text_content(request, repository_id, text_id, content_id):
         'addedBy': request.user,
         'content_type': content_type,
         'part_of': resource_text,
+        'project':project,
         'originalResource': getattr(resource.get('url'), 'value', None),
     }
     text, _ = Text.objects.get_or_create(uri=content['uri'], defaults=defaults)
