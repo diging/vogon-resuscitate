@@ -29,7 +29,7 @@
                 <span class="label label-primary pull-right">{{ collection.size }}</span>
                 {{ collection.name }}
                 <div class="text-warning">
-                    {{ collection.description }}
+                    {{ collection.description|safe }}
                 </div>
             </a>
             {% endfor %}
