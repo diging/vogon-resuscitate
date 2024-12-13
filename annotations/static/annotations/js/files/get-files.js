@@ -46,30 +46,47 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
         fileListDiv.innerHTML = '<div class="alert alert-danger">Failed to load files. Please try again later!</div>';
     });
 }
-
 function importFile(itemKey, fileId, repositoryId, groupId, csrfToken) {
-    const url = `/vogon/repository/${repositoryId}/group/${groupId}/text/${itemKey}/files/${fileId}/`;
+    // Get project ID from URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const projectId = urlParams.get('project_id');
+
+    // Build base URL
+    const baseUrl = `/vogon/repository/${repositoryId}/group/${groupId}/text/${itemKey}/file/${fileId}`;
+
+    // If no project selected, redirect to projects page with return parameters
+    if (!projectId) {
+        const returnParams = new URLSearchParams({
+            redirect_to_text_import: true,
+            repository_id: repositoryId,
+            group_id: groupId,
+            text_key: itemKey,
+            file_id: fileId
+        });
+        window.location.href = `/vogon/project/?${returnParams.toString()}`;
+        return;
+    }
+
+    // Add project ID to URL if project is selected
+    const url = `${baseUrl}/project/${projectId}/`;
 
     fetch(url, {
         method: 'POST',
         headers: {
-            'X-CSRFToken': csrfToken,
-            'Content-Type': 'application/json'
-        },
+            'X-CSRFToken': csrfToken
+        }
     })
     .then(response => {
         if (!response.ok) {
-            return response.json().then(data => {
-                throw new Error(data.error || 'Unexpected error occurred');
-            });
+            throw new Error('Import failed. Please try again.');
         }
         return response.json();
     })
     .then(data => {
-        if (data.success) {
+        if (data.success && data.redirect_url) {
             window.location.href = data.redirect_url;
         } else {
-            console.error('Failed to import the file');
+            throw new Error('Failed to import file. Please try again.');
         }
     })
     .catch(error => {

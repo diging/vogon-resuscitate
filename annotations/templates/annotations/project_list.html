@@ -5,6 +5,35 @@
 <script src="{% static "annotations/js/spin.min.js" %}"></script>
 <script src="{% static "annotations/js/jquery.spin.js" %}"></script>
 <script src="{% static "annotations/js/cytoscape.min.js" %}"></script>
+<script>
+$(document).ready(function() {
+    // Handle clicks on project links for text import
+    $('.project-import-link').click(function(e) {
+        e.preventDefault();
+        var url = $(this).attr('href');
+        
+        // Show loading spinner
+        $(this).spin();
+        
+        // Make AJAX call to import text
+        $.ajax({
+            url: url,
+            method: 'GET',
+            success: function(response) {
+                if (response.success && response.redirect_url) {
+                    // Redirect to annotation page
+                    window.location.href = response.redirect_url;
+                }
+            },
+            error: function() {
+                alert('Error importing text. Please try again.');
+                $(this).spin(false);
+            }
+        });
+    });
+});
+</script>
+
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -27,8 +56,8 @@
         {% if projects %}
             {% for project in projects %}
             {% if redirect_to_text_import %}
-                <a class="list-group-item"
-                    href="{% url 'repository_text_import' repository_id group_id text_key project.id %}">
+                <a class="list-group-item project-import-link"
+                    href="{% url 'repository_text_import' repository_id group_id text_key file_id project.id %}">
             {% else %}
                 <a class="list-group-item"
                     href="{% url "view_project" project.id %}">
