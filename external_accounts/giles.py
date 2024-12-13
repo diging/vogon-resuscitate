@@ -129,8 +129,10 @@ def check_giles_upload_status_details(user, progress_id, repository):
         repository: The repository object containing Giles endpoint info
 
     Returns:
-        Dictionary with extracted text details if processing complete, 
-        or status message if still processing
+        Dictionary containing:
+        - status: "complete", "processing", or "error"
+        - extracted_text: The extracted text content if status is "complete"
+        - message: Error or status message if not complete
     """
     try:
         giles = GilesAPI(user, repository)
