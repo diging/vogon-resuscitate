@@ -6,7 +6,7 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
     fileListDiv.innerHTML = 'Loading files...';
     fileRow.style.display = 'table-row';
 
-    const url = `/vogon/repository/files/${repositoryId}/groups/${groupId}/items/${itemKey}/`;
+    const url = `/${window.config.APP_ROOT}repository/files/${repositoryId}/groups/${groupId}/items/${itemKey}/`;
 
     fetch(url, {
         method: 'GET',
@@ -51,7 +51,7 @@ function importFile(itemKey, fileId, repositoryId, groupId, csrfToken) {
     const urlParams = new URLSearchParams(window.location.search);
     const projectId = urlParams.get('project_id');
 
-    const baseUrl = `/vogon/repository/${repositoryId}/group/${groupId}/text/${itemKey}/file/${fileId}`;
+    const baseUrl = `/${window.config.APP_ROOT}repository/${repositoryId}/group/${groupId}/text/${itemKey}/file/${fileId}`;
 
     // If no project selected, redirect to projects lists page with return parameters
     if (!projectId) {
@@ -62,7 +62,7 @@ function importFile(itemKey, fileId, repositoryId, groupId, csrfToken) {
             text_key: itemKey,
             file_id: fileId
         });
-        window.location.href = `/vogon/project/?${returnParams.toString()}`;
+        window.location.href = `/${window.config.APP_ROOT}project/?${returnParams.toString()}`;
         return;
     }
 

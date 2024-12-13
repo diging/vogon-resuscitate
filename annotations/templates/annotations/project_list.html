@@ -26,8 +26,10 @@ $(document).ready(function() {
                     window.location.href = response.redirect_url;
                 }
             },
-            error: function() {
-                alert('Error importing text. Please try again.');
+            error: function(xhr, status, error) {
+                console.error('Error importing text:', error);
+                alert('Failed to import text. Redirecting to projects page...');
+                window.location.href = "{% url 'list_projects' %}";
                 $(this).spin(false);
             }
         });

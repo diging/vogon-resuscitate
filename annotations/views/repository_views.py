@@ -134,6 +134,7 @@ def repository_collection(request, repository_id, group_id):
         'current_page': pagination['current_page'],
         'total_pages': pagination['total_pages'],
         'page_range': pagination['page_range'],
+        'APP_ROOT': settings.APP_ROOT,        
     }
 
     return render(request, 'annotations/repository_collection.html', context)
@@ -293,6 +294,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         'current_page': pagination['current_page'],
         'total_pages': pagination['total_pages'],
         'page_range': pagination['page_range'],
+        'APP_ROOT': settings.APP_ROOT,
     }
 
     return render(request, 'annotations/repository_collections_text_list.html', context)

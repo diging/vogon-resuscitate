@@ -183,6 +183,12 @@
 </div>
 
 {% block scripts %}
+<script>
+    window.config = {
+        APP_ROOT: "{{ APP_ROOT }}"
+    };
+    console.log(window.config.APP_ROOT);
+</script>
 <script src="{% static 'annotations/js/files/get-files.js' %}"></script>
 {% endblock %}
 
