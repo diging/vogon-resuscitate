@@ -15,7 +15,6 @@ import os, sys, requests
 from urllib.parse  import urlparse
 import socket
 import dj_database_url
-from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -279,8 +278,8 @@ CONCEPTPOWER_NAMESPACE = os.environ.get('CONCEPTPOWER_NAMESPACE')
 QUADRIGA_ENDPOINT = os.environ.get('QUADRIGA_ENDPOINT')
 
 PAGINATION_PAGE_SIZE = 50
-
 CITESPHERE_ITEM_PAGE = 50
 
-# Adjust the time interval between checks for relation set status updates
-CHECK_RELATIONSET_STATUS_INTERVAL = timedelta(minutes=5)
+
+REPOSITORY_TEXT_PAGINATION_PAGE_SIZE = 20
+PROJECT_TEXT_PAGINATION_PAGE_SIZE = 20
