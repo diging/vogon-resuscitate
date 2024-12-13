@@ -5,6 +5,7 @@
 <script src="{% static "annotations/js/spin.min.js" %}"></script>
 <script src="{% static "annotations/js/jquery.spin.js" %}"></script>
 <script src="{% static "annotations/js/cytoscape.min.js" %}"></script>
+
 <script>
 $(document).ready(function() {
     // Handle clicks on project links for text import
@@ -12,7 +13,7 @@ $(document).ready(function() {
         e.preventDefault();
         var url = $(this).attr('href');
         
-        // Show loading spinner
+        // loading spinner
         $(this).spin();
         
         // Make AJAX call to import text

@@ -51,10 +51,9 @@ function importFile(itemKey, fileId, repositoryId, groupId, csrfToken) {
     const urlParams = new URLSearchParams(window.location.search);
     const projectId = urlParams.get('project_id');
 
-    // Build base URL
     const baseUrl = `/vogon/repository/${repositoryId}/group/${groupId}/text/${itemKey}/file/${fileId}`;
 
-    // If no project selected, redirect to projects page with return parameters
+    // If no project selected, redirect to projects lists page with return parameters
     if (!projectId) {
         const returnParams = new URLSearchParams({
             redirect_to_text_import: true,
@@ -67,7 +66,7 @@ function importFile(itemKey, fileId, repositoryId, groupId, csrfToken) {
         return;
     }
 
-    // Add project ID to URL if project is selected
+    // Add project ID to URL
     const url = `${baseUrl}/project/${projectId}/`;
 
     fetch(url, {
