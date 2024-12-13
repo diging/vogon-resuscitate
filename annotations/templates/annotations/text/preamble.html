@@ -1,7 +1,12 @@
 <div class="annotation-preamble">
     {% if project %}
     <div class="text-warning">
-        All annotations will be added to project: <a href="{% url "view_project" project.id %}">{{ project.name }}</a>
+        <div class="btn btn-xs btn-success">
+            <span class="glyphicon glyphicon-ok"></span> Text in {{ project.name }}
+        </div>
+        <p>
+            All annotations will be added to project: <a href="{% url "view_project" project.id %}">{{ project.name }}</a>
+        </p>
     </div>
     {% endif %}
     <div class="h4">

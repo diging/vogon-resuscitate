@@ -104,9 +104,13 @@
                     <span class="h4">Recently Annotated</span>
                 </div>
                 <div class="list-group">
-                    {% for text in recent_texts %}
-                    <a class="list-group-item" href="{{ text.get_absolute_url }}">{{ text.top_level_text.title }}</a>
-                    {% endfor %}
+                    {% if recent_texts %}
+                        {% for text in recent_texts %}
+                        <a class="list-group-item" href="{{ text.get_absolute_url }}">{{ text.top_level_text.title }}</a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item text-muted">No recently annotated texts yet. Start annotating to see your work here!</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -116,9 +120,13 @@
                     <span class="h4">Recently Added</span>
                 </div>
                 <div class="list-group">
-                    {% for text in added_texts %}
-                    <a class="list-group-item" href="{{ text.get_absolute_url }}">{{ text.title }}</a>
-                    {% endfor %}
+                    {% if added_texts %}
+                        {% for text in added_texts %}
+                        <a class="list-group-item" href="{{ text.get_absolute_url }}">{{ text.title }}</a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item text-muted">No texts added yet. Add some texts to get started!</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -132,12 +140,39 @@
                     </div>
                 </div>
                 <div class="list-group">
-                    {% for project in projects_owned %}
-                    <a class="list-group-item" href="{% url "view_project" project.id %}">
-                        <strong>{{ project.name }}</strong>
-                        <p class="text-muted">{{ project.description }}</p>
-                    </a>
-                    {% endfor %}
+                    {% if projects_owned %}
+                        {% for project in projects_owned %}
+                        <a class="list-group-item" href="{% url "view_project" project.id %}">
+                            <strong>{{ project.name }}</strong>
+                            <p class="text-muted">{{ project.description }}</p>
+                        </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item text-muted">No projects created yet. Create your first project to get started!</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="panel">
+                <div class="panel-heading clearfix">
+                    <span class="h4">Projects I Collaborate On</span>
+                </div>
+                <div class="list-group">
+                    {% if collaborator_projects %}
+                        {% for project in collaborator_projects %}
+                        <a class="list-group-item" href="{% url "view_project" project.id %}">
+                            <strong>{{ project.name }}</strong>
+                            <p class="text-muted">{{ project.description }}</p>
+                            <small>Owned by: {{ project.ownedBy__username }}</small>
+                        </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item text-muted">You're not collaborating on any projects yet. Join a project to see it here!</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -148,6 +183,9 @@
         <a class="btn btn-sm" href="{% url "relations" %}?createdBy={{ user.id }}">See all</a>
     </div>
     {% include "annotations/relations_list_fragment.html" %}
+    {% else %}
+    <div class="h3">My Recent Annotations</div>
+    <div class="text-muted">You haven't created any annotations yet. Start annotating texts to see your work here!</div>
     {% endif %}
 </div>
 
