@@ -5,8 +5,11 @@ General-purpose helper functions.
 from django.conf import settings
 
 from itertools import chain, combinations, groupby
+from django.db.models import Q, Count, F
 import re
 import math
+
+from annotations import models
 
 def help_text(text):
     """
@@ -65,3 +68,111 @@ def get_pagination_metadata(total_items, page, items_per_page):
         'current_page': page,
         'page_range': page_range,
     }
+def get_ordering_metadata(request, default_field='title', allowed_fields=None, order_by_param='order_by'):
+    """
+    Get ordering metadata from request parameters.
+    
+    Parameters
+    ----------
+    request : HttpRequest
+        The request object containing GET parameters
+    default_field : str
+        Default field to order by if none specified
+    allowed_fields : list
+        List of fields that are allowed for ordering
+    order_by_param : str
+        Name of the request parameter used for ordering (default: 'order_by')
+        
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - order_param: String to use in queryset order_by() with optional '-' prefix
+        - order_by: Original request parameter for template rendering
+    """
+    if allowed_fields is None:
+        allowed_fields = [default_field]
+        
+    # Get order_by from request, default to default_field
+    order_by = request.GET.get(order_by_param, default_field)
+    
+    # Parse direction and field
+    direction = '-' if order_by.startswith('-') else ''
+    field = order_by[1:] if direction else order_by
+    
+    # Validate field is allowed, reset to default if not
+    if field not in allowed_fields:
+        field = default_field
+        direction = ''
+        order_by = default_field
+        
+    return {
+        'order_param': f"{direction}{field}",  # For queryset ordering
+        'order_by': order_by  # Original parameter for template links
+    }
+
+def get_user_project_stats(user, project):
+    """
+    Get statistics for a user's contributions to a project.
+    
+    Parameters
+    ----------
+    user : VogonUser
+        The user to get stats for
+    project : TextCollection
+        The project to get stats from
+        
+    Returns
+    -------
+    dict
+        Dictionary containing user stats including:
+        - number of texts added
+        - number of appellations
+        - number of relations
+        - user object reference
+    """
+    stats = {
+        'user': user,
+        'num_texts_added': models.Text.objects.filter(
+            addedBy=user,
+            partOf=project
+        ).count(),
+        'num_appellations': models.Appellation.objects.filter(
+            createdBy=user,
+            occursIn__partOf=project
+        ).count(),
+        'num_relations': models.RelationSet.objects.filter(
+            createdBy=user,
+            occursIn__partOf=project,
+        ).count(),
+    }
+    
+    return stats
+
+def _annotate_project_counts(queryset):
+    """
+    Helper function to annotate project queryset with counts of texts, relations and collaborators.
+    
+    Parameters
+    ----------
+    queryset : QuerySet
+        Base queryset of TextCollection objects
+        
+    Returns
+    -------
+    QuerySet
+        Annotated queryset with num_texts, num_relations, and num_collaborators
+    """
+    return queryset.annotate(
+        num_texts=Count('texts', distinct=True),
+        # Count relations created by either collaborators or project owner
+        # texts__relationsets: Access relationsets through texts
+        # filter: Only count relations where creator is either:
+        #   - One of the project collaborators (createdBy__in=collaborators)
+        #   - The project owner (createdBy=ownedBy)
+        num_relations=Count('texts__relationsets', 
+                          filter=Q(texts__relationsets__createdBy__in=F('collaborators')) | 
+                                Q(texts__relationsets__createdBy=F('ownedBy')),
+                          distinct=True),
+        num_collaborators=Count('collaborators', distinct=True)
+    )
