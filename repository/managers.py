@@ -1,7 +1,7 @@
 from django.conf import settings
 from repository.restable import RESTManager
 from repository import auth
-from external_accounts.giles import get_giles_document_details, check_giles_upload_status_details
+from external_accounts.giles import GilesAPI, get_giles_document_details, check_giles_upload_status_details
 from .exceptions import GilesUploadError, GilesTextExtractionError
 import requests
 

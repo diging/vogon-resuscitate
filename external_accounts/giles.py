@@ -145,13 +145,16 @@ def check_giles_upload_status_details(user, progress_id, repository):
             return {"status": "processing", "message": "Files are still being processed in Giles, Please check back later!"}
 
         extracted_text = upload_info.get("extractedText")
-        if extracted_text:
+        if extracted_text and extracted_text.get("content-type") == "text/plain":
+            text_content = giles.get_file_content(extracted_text.get("id"))
+            if not text_content or '\x00' in text_content:
+                return {"status": "error", "message": "The text you are trying to import contains invalid text content containing null characters This may be due to Giles processing."}
             return {
                 "status": "complete",
-                "extracted_text": extracted_text
+                "extracted_text" : text_content
             }
         else:
-            return {"status": "error", "message": "No extracted text available"}
+            return {"status": "error", "message": "No valid text/plain content found for this text!"}
 
     except requests.RequestException as e:
         logger.error(f"Failed to check Giles upload status: {e}")
