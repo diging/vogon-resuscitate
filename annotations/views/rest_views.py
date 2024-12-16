@@ -13,6 +13,7 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import (IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
+from django.http import JsonResponse
 from rest_framework.decorators import action
 from rest_framework.pagination import (LimitOffsetPagination,
                                        PageNumberPagination)
@@ -24,9 +25,10 @@ from concepts.lifecycle import *
 
 import uuid
 
-import goat
-goat.GOAT = settings.GOAT
-goat.GOAT_APP_TOKEN = settings.GOAT_APP_TOKEN
+import requests
+from django.conf import settings
+
+import json
 
 import logging
 logging.basicConfig()
@@ -34,6 +36,56 @@ logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOGLEVEL)
 
 
+# Custom permission class that restricts write access (POST/PUT/DELETE) to only project owners and collaborators,
+# while allowing read access (GET) to any authenticated user. This is used to ensure that only authorized users
+# can modify annotations within their projects.
+class ProjectOwnerOrCollaboratorAccessOrReadOnly(IsAuthenticatedOrReadOnly):
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+            
+        # Allow GET requests for authenticated users
+        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+            return True
+
+        # check if user is owner or collaborator For POST/PUT/DELETE 
+        text_id = None
+        if request.method == 'POST':
+            text_id = request.data.get('occursIn')
+        elif request.method in ['PUT', 'DELETE']:
+            text_id = request.query_params.get('text')
+            
+        if text_id:
+            try:
+                text = Text.objects.get(id=text_id)
+                collections = text.partOf.all()
+                for collection in collections:
+                    if (request.user == collection.ownedBy or 
+                        request.user in collection.collaborators.all()):
+                        return True
+            except Text.DoesNotExist:
+                return False
+                
+        return False
+
+    def has_object_permission(self, request, view, annotation):
+        # Allow GET requests for authenticated users
+        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+            return True
+            
+        # Check if user is owner or collaborator of the text's collection
+        text = None
+        if hasattr(annotation, 'occursIn'):
+            text = annotation.occursIn
+        
+        if text:
+            collections = text.partOf.all()
+            for collection in collections:
+                if (request.user == collection.ownedBy or 
+                    request.user in collection.collaborators.all()):
+                    return True
+                    
+        return False
 
 # http://stackoverflow.com/questions/17769814/django-rest-framework-model-serializers-read-nested-write-flat
 class SwappableSerializerMixin(object):
@@ -99,10 +151,9 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 class DateAppellationViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
     queryset = DateAppellation.objects.all()
     serializer_class = DateAppellationSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, )
+    permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
 
     def create(self, request, *args, **kwargs):
-        print((request.data))
         data = request.data.copy()
         position = data.pop('position', None)
         if 'month' in data and data['month'] is None:
@@ -123,7 +174,6 @@ class DateAppellationViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
             print((serializer.errors))
             raise E
 
-        # raise AttributeError('asdf')
         try:
             instance = serializer.save()
         except Exception as E:
@@ -153,55 +203,74 @@ class DateAppellationViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
                         headers=headers)
 
 
-
 class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewsets.ModelViewSet):
     queryset = Appellation.objects.filter(asPredicate=False)
     serializer_class = AppellationSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, )
+    permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
     serializer_classes = {
         'GET': AppellationSerializer,
         'POST': AppellationPOSTSerializer
     }
-    # pagination_class = LimitOffsetPagination
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
-        position = data.pop('position', None)
-        interpretation = data.get('interpretation')
+        position = data.get('position')
+        pos = data.get('pos')
+        label = data.get('label')
+        interpretation = data.get('interpretation')  # The old logic checks for this
 
-        # A concept URI may have been passed directly, in which case we need to
-        #  get (or create) the local Concept instance.
-        if type(interpretation) in [str, str] and interpretation.startswith('http'):
-            try:
-                concept = Concept.objects.get(uri=interpretation)
-            except Concept.DoesNotExist:
+        try:
+            # Check if interpretation (a concept URI) was passed directly
+            if isinstance(interpretation, str) and interpretation.startswith('http'):
+                try:
+                    concept = Concept.objects.get(uri=interpretation)
+                except Concept.DoesNotExist:
+                    concept_data = fetch_concept_data(interpretation, pos)
+                    type_data = concept_data.get('concept_type')
+                    type_instance = None
+                    
+                    # Handle concept type creation if necessary
+                    if type_data:
+                        try:
+                            type_instance = Type.objects.get(uri=type_data.get('type_uri'))
+                        except Type.DoesNotExist:
+                            # Create a new Type instance if it doesn't exist
+                            type_instance = Type.objects.create(
+                                uri=type_data.get('type_uri'),
+                                label=type_data.get('type_name'),
+                                description=type_data.get('description',''),
+                                authority=concept_data.get('authority', {}),
+                            )
 
-                concept_data = goat.Concept.retrieve(identifier=interpretation)
-                type_data = concept_data.data.get('concept_type')
-                type_instance = None
-                if type_data:
-                    try:
-                        type_instance = Type.objects.get(uri=type_data.get('identifier'))
-                    except Type.DoesNotExist:
-                        print(type_data)
-                        type_instance = Type.objects.create(
-                            uri = type_data.get('identifier'),
-                            label = type_data.get('name'),
-                            description = type_data.get('description'),
-                            authority = concept_data.data.get('authority', {}).get('name'),
-                        )
+                    # Create a new concept instance
+                    concept = ConceptLifecycle.create(
+                        uri=interpretation,
+                        label=label,
+                        description=concept_data.get('description'),
+                        typed=type_instance,
+                        authority=concept_data.get('authority', {}),
+                    ).instance
 
+                data['interpretation'] = concept.id
+
+            else:
+                # If interpretation is not a URI, fetch concept based on label and pos
                 concept = ConceptLifecycle.create(
-                    uri = interpretation,
-                    label = concept_data.data.get('name'),
-                    description = concept_data.data.get('description'),
-                    typed = type_instance,
-                    authority = concept_data.data.get('authority', {}).get('name'),
+                    uri=interpretation,
+                    label=label,
+                    description=concept_data.get('description'),
+                    typed=type_instance,
+                    authority=concept_data.get('authority', {}),
                 ).instance
 
-            data['interpretation'] = concept.id
+                # Set the interpretation to the concept ID
+                data['interpretation'] = concept.id
+
+        except ValueError as e:
+            return Response({'error': str(e)}, status=400)
 
         serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=data)
 
         try:
             serializer = serializer_class(data=data)
@@ -215,36 +284,26 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
             print((serializer.errors))
             raise E
 
-        # raise AttributeError('asdf')
         try:
             instance = serializer.save()
         except Exception as E:
             print((":::", E))
             raise E
 
-        # Prior to 0.5, the selected tokens were stored directly in Appellation,
-        #  as ``tokenIds``. Now that we have several different annotation
-        #  modes (e.g. images, HT/XML), we use the more flexible
-        #  DocumentPosition model instead. For now, however, the JS app in the
-        #  text annotation interface still relies on the original tokenId field.
-        #  So until we modify that JS app, we still need to store tokenIds on
-        #  Appellation, in addition to creating and linking a DocumentPosition.
         tokenIDs = serializer.data.get('tokenIds', None)
-
         text_id = serializer.data.get('occursIn')
 
         if tokenIDs:
             position = DocumentPosition.objects.create(
-                        occursIn_id=text_id,
-                        position_type=DocumentPosition.TOKEN_ID,
-                        position_value=tokenIDs)
-
+                occursIn_id=text_id,
+                position_type=DocumentPosition.TOKEN_ID,
+                position_value=tokenIDs
+            )
             instance.position = position
             instance.save()
 
-
         if position:
-            if type(position) is not DocumentPosition:
+            if not isinstance(position, DocumentPosition):
                 position_serializer = DocumentPositionSerializer(data=position)
                 try:
                     position_serializer.is_valid(raise_exception=True)
@@ -260,12 +319,9 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
         reserializer = AppellationSerializer(instance, context={'request': request})
 
         headers = self.get_success_headers(serializer.data)
-        return Response(reserializer.data, status=status.HTTP_201_CREATED,
-                        headers=headers)
+        return Response(reserializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    # TODO: implement some real filters!
     def get_queryset(self, *args, **kwargs):
-
         queryset = AnnotationFilterMixin.get_queryset(self, *args, **kwargs)
 
         concept = self.request.query_params.get('concept', None)
@@ -289,13 +345,13 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
 class PredicateViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
     queryset = Appellation.objects.filter(asPredicate=True)
     serializer_class = AppellationSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, )
+    permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
 
 
 class RelationSetViewSet(viewsets.ModelViewSet):
     queryset = RelationSet.objects.all()
     serializer_class = RelationSetSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, )
+    permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
 
     def get_queryset(self, *args, **kwargs):
         queryset = super(RelationSetViewSet, self).get_queryset(*args, **kwargs)
@@ -323,7 +379,7 @@ class RelationSetViewSet(viewsets.ModelViewSet):
 class RelationViewSet(viewsets.ModelViewSet):
     queryset = Relation.objects.all()
     serializer_class = RelationSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, )
+    permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
 
     def get_queryset(self, *args, **kwargs):
         """
@@ -450,7 +506,6 @@ class ConceptViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticatedOrReadOnly, )
 
     def create(self, request, *args, **kwargs):
-        print(("ConceptViewSet:: create::", request.data))
         data = request.data
         if data['uri'] == 'generate':
             data['uri'] = 'http://vogonweb.net/{0}'.format(uuid.uuid4())
@@ -483,17 +538,31 @@ class ConceptViewSet(viewsets.ModelViewSet):
         if not q:
             return Response({'results': []})
         pos = request.GET.get('pos', None)
-        concepts = goat.Concept.search(q=q, pos=pos, limit=50)
-
-        def _relabel(datum):
-            _fields = {
-                'name': 'label',
-                'id': 'alt_id',
-                'identifier': 'uri'
-            }
-
-            return {_fields.get(k, k): v for k, v in list(datum.items())}
-        return Response({'results': list(map(_relabel, [c.data for c in concepts]))})
+        url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
+        parameters = {
+            'word': q,
+            'pos': pos if pos else None,
+        }
+        headers = {
+            'Accept': 'application/json',
+        }
+        response = requests.get(url, headers=headers, params=parameters)
+        
+        if response.status_code == 200:
+            try:
+                # Parse the JSON response
+                data = response.json()
+                concepts = []
+                for concept_entry in data['conceptEntries']:
+                    concept = parse_concept(concept_entry)
+                    # Now relabel the fields
+                    concept = _relabel(concept)
+                    concepts.append(concept)
+                return Response({'results': concepts})
+            except Exception as e:
+                return Response({'error': f'Error parsing ConceptPower response: {str(e)}'}, status=400)
+        else:
+            return Response({'error': 'Error fetching concepts from ConceptPower'}, status=response.status_code)
 
 
     def get_queryset(self, *args, **kwargs):
@@ -537,7 +606,60 @@ class ConceptViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-def concept_search(request):
-    q = request.get('search', None)
-    pos = self.request.query_params.get('pos', None)
-    return goat.Concept.search(q=q, pos=pos)
+def fetch_concept_data(concept_uri, pos=None):
+    """
+    Fetch concept data from ConceptPower based on the given URI (unique identifier) and part of speech (pos).
+    Returns the concept data in a suitable format for the create function.
+    """
+
+    url = f"{settings.CONCEPTPOWER_ENDPOINT}Concept?id={concept_uri}"
+    headers = {
+        'Accept': 'application/json',
+    }
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        try:
+            data = response.json()
+            concept_entry = data.get('conceptEntries', [None])[0]
+            return parse_concept(concept_entry) if concept_entry else {}
+        except Exception as e:
+            raise ValueError(f"Error parsing ConceptPower response: {str(e)}")
+    else:
+        raise ValueError(f"Error fetching concept data: {response.status_code}")
+
+
+def _relabel(datum):
+    """
+    Relabel fields to match a standardized structure.
+    """
+    _fields = {
+        'name': 'label',
+        'id': 'alt_id',
+        'concept_uri': 'uri'
+    }
+    return {_fields.get(k, k): v for k, v in datum.items()}
+
+def parse_concept(concept_entry):
+    """
+    Parse a concept and return a dictionary with the required fields.
+    """
+    concept = {}
+    concept['uri'] = concept_entry.get('concept_uri', '')
+    concept['label'] = concept_entry.get('lemma', '')
+    concept['id'] = concept_entry.get('id', '')
+    concept['pos'] = concept_entry.get('pos', '')
+    concept['concept_type'] = concept_entry.get('type','')
+
+    description = concept_entry.get('description', '')
+    try:
+        concept['description'] = json.loads(f'"{description}"')
+    except json.JSONDecodeError:
+        concept['description'] = description
+    
+    if concept['uri'].startswith(tuple(settings.CONCEPT_URI_PREFIXES)):
+        concept['authority'] = {'name': 'Conceptpower'}
+    else:
+        concept['authority'] = {'name': 'Unknown'}
+    
+    return concept

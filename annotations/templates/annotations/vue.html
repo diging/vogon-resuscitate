@@ -4,14 +4,25 @@
 <!-- <html>
     <head> -->
         {% block extrahead %}
+        <!-- Jquery -->
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <!-- Bootstrap -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+        <!-- Vue -->
         <script src="{% static "annotations/js/vue.min.js" %}"></script>
         <script src="https://cdn.jsdelivr.net/vue.resource/1.2.1/vue-resource.min.js"></script>
-       <script src="https://cdn.jsdelivr.net/npm/es6-promise@4/dist/es6-promise.auto.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/es6-promise@4/dist/es6-promise.auto.js"></script>
         <script src="https://unpkg.com/vuex@2.0.0"></script>
+        <!-- Local files -->
         <script src="{% static "annotations/js/moment.js" %}"></script>
         <script src="{% static "annotations/js/tiny-cookie.min.js" %}"></script>
         <script src="{% static 'annotations/js/cytoscape.min.js' %}"></script>
         <link rel="stylesheet" href="{% static "annotations/css/annotators/text.css" %}">
+        <!-- Tooltip -->
+        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/v-tooltip@2.1.3/dist/v-tooltip.min.js"></script>
+
         {% endblock %}
     <!-- </head> -->
     {% block main %}
@@ -92,7 +103,7 @@
                                                     'btn-success': !create_date_appellation,
                                                     'btn-default': create_date_appellation
                                                 }"
-                                                v-tooltip="'Concept'"
+                                                data-tooltip="Create text appellation"
                                                 v-on:click="toggleDateAppellation">
                                                 <span class="glyphicon glyphicon-grain"></span>
                                             </a>
@@ -102,7 +113,7 @@
                                                     'btn-success': create_date_appellation,
                                                     'btn-default': !create_date_appellation
                                                 }"
-                                                v-tooltip="'Date'"
+                                                data-tooltip="Create date appellation"
                                                 v-on:click="toggleDateAppellation">
                                                 <span class="glyphicon glyphicon-calendar"></span>
                                             </a>
@@ -133,16 +144,16 @@
                                                 'col-xs-5': sidebarIsShown(),
                                             }"
                                             style="padding-right: 15px;">
-                                         <a v-if="sidebarIsShown()" class="btn" v-on:click="hideSidebar"  style="padding: 2px;">
+                                         <a v-if="sidebarIsShown()" class="btn" v-on:click="hideSidebar" data-tooltip="Hide sidebar" style="padding: 2px;">
                                              <span class="glyphicon glyphicon-chevron-right"></span>
                                          </a>
-                                         <a v-else class="btn" v-on:click="showSidebar" style="padding: 2px;">
+                                         <a v-else class="btn" v-on:click="showSidebar" data-tooltip="Show sidebar" style="padding: 2px;">
                                              <span class="glyphicon glyphicon-chevron-left"></span>
                                          </a>
                                                 <div v-if="sidebarIsShown()" style="padding: 0px;">
                                                     <div class="clearfix sidebar-buttons">
                                                         <div>
-                                                            <a v-if="submitAppellationClicked == false" v-tooltip="'Submit All Appellations'"
+                                                            <!-- <a v-if="submitAppellationClicked == false" v-tooltip="'Submit All Appellations'"
                                                                     v-bind:class="{btn: true, 'btn-primary':'btn-primary'}"
                                                                     v-on:click="showSubmitAllAppellationsSidebar">
                                                                 <span class="glyphicon glyphicon-cloud-upload"></span>
@@ -152,33 +163,34 @@
                                                                     v-on:click="showSubmitAllAppellationsSidebar(); createRelationsFromText();">
                                                                     <span>Submit</span>
                                                                 
-                                                            </a>
+                                                            </a> -->
                                                             <h6  v-if="massAssignmentFailed" style="color: red;">Assignment Failed!</h6>
                                                             <div class="pull-right btn-group">
-                                                                <a  id="appellation-submit"v-tooltip="'Appellations'"
+                                                                <a id="appellation-submit"
                                                                     v-bind:class="{
                                                                             btn: true,
                                                                             'btn-success': sidebar == 'appellations',
                                                                             'btn-default': sidebar != 'appellations'
                                                                         }"
+                                                                    data-tooltip="Show text appellations"
                                                                     v-on:click="showAppellationsSidebar">
                                                                     <span class="glyphicon glyphicon-tag"></span>
                                                                 </a>
-                                                                <a  v-tooltip="'Date Appellations'"
-                                                                    v-bind:class="{
+                                                                <a v-bind:class="{
                                                                             btn: true,
                                                                             'btn-success': sidebar == 'dateappellations',
                                                                             'btn-default': sidebar != 'dateappellations'
                                                                         }"
+                                                                    data-tooltip="Show date appellations"
                                                                     v-on:click="showDateAppellationsSidebar">
                                                                     <span class="glyphicon glyphicon-calendar"></span>
                                                                 </a>
-                                                                <a v-tooltip="'Relations'"
-                                                                    v-bind:class="{
+                                                                <a v-bind:class="{
                                                                             btn: true,
                                                                             'btn-success': sidebar == 'relations',
                                                                             'btn-default': sidebar != 'relations'
                                                                         }"
+                                                                    data-tooltip="Show relations"
                                                                     v-on:click="showRelationsSidebar">
                                                                     <span class="glyphicon glyphicon-th-list"></span>
                                                                 </a>
@@ -219,7 +231,7 @@
                                                         v-on:showappellation="showDateAppellation"
                                                         v-on:hideappellation="hideDateAppellation"
                                                         v-on:selectappellation="selectDateAppellation">
-                                                    </appellation-list>
+                                                    <strong>Date Appellations</strong> </appellation-list>
                                                 </div>
                                     </div>
                                 </div>
@@ -231,10 +243,11 @@
                 </script>
             </div>
 
-          <script src="https://unpkg.com/tether"></script>
-          <script src="https://unpkg.com/tether-drop"></script>
-          <script src="https://unpkg.com/tether-tooltip"></script>
-          <script src="{% static "annotations/js/v-tooltip.browser.js" %}"></script>
+            <script src="https://cdn.jsdelivr.net/npm/@floating-ui/core@1.6.7"></script>
+            <script src="https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.6.10"></script>
+
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.7/js/tether.min.js"></script>
+
           <style>
           pre {
                 white-space: pre-wrap;       /* Since CSS 2.1 */
@@ -252,7 +265,7 @@
             var USER_NAME = '{{ user.username }}';
             var PROJECT_ID = '{{ project.id }}';
             var PROJECT_NAME = '{{ project.name }}';
-            var TEXT_CONTENT = `{{ content|safe }}`;  // the safe tag suppresses unicode errors
+            var TEXT_CONTENT = `{{ content|safe|striptags }}`;  // Remove HTML tags to hide word_id
             var BASE_URL = '{{ base_url }}';
 
         // Appellator is the text annotation application. Even though we load
@@ -437,6 +450,7 @@
         $('body').ready(reloadGraph);
 
         </script>
+        <!-- Local files -->
         <script src="{% static 'annotations/js/annotators/util.js' %}"></script>
         <script src="{% static 'annotations/js/annotators/buses.js' %}"></script>
         <script src="{% static 'annotations/js/annotators/store.js' %}"></script>
@@ -446,6 +460,10 @@
         <script src="{% static "annotations/js/annotators/appellationdisplay.js" %}"></script>
         <script src="{% static "annotations/js/annotators/textdisplay.js" %}"></script>
         <script src="{% static "annotations/js/annotators/text.js" %}"></script>
+        <!-- Vue Tooltip -->
+        <script>
+            Vue.use(VTooltip);
+        </script>
     </body>
     {% endblock %}
 <!-- </html> -->

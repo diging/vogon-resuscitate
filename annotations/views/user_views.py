@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q, Count
+from django.db import models
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import csrf_protect
@@ -23,6 +24,8 @@ from annotations.display_helpers import user_recent_texts
 
 import datetime
 from isoweek import Week
+
+from external_accounts.models import CitesphereAccount
 
 
 class VogonUserAuthenticationForm(AuthenticationForm):
@@ -183,7 +186,6 @@ def user_projects(request):
     }
     return render(request, template, context)
 
-
 @login_required
 def dashboard(request):
     """
@@ -201,29 +203,30 @@ def dashboard(request):
 
     template = "annotations/dashboard.html"
 
-    # Retrieve a unique list of texts that were recently annotated by the user.
-    #  Since many annotations will be on "subtexts" (i.e. Texts that are
-    #  part_of another Text), we need to first identify the unique subtexts,
-    #  and then assemble a list of unique "top level" texts.
-    _recently_annotated = request.user.appellation_set.order_by('occursIn_id', '-created')\
-                                           .values_list('occursIn_id')\
-                                           .distinct('occursIn_id')[:20]
+    # Retrieve a unique list of texts that were recently annotated by the user, where user is owner or collaborator
+    _recently_annotated = request.user.appellation_set.filter(
+        occursIn__partOf__in=TextCollection.objects.filter(
+            models.Q(ownedBy=request.user) | models.Q(collaborators=request.user)
+        )
+    ).order_by('occursIn_id', '-created')\
+     .values_list('occursIn_id')\
+     .distinct('occursIn_id')[:20]
+    
     _annotated_texts = Text.objects.filter(pk__in=_recently_annotated)
     _key = lambda t: t.id
-    _recent_grouper = groupby(sorted([t.top_level_text for t in _annotated_texts],
-                                     key=_key),
+    _recent_grouper = groupby(sorted([t.top_level_text for t in _annotated_texts], key=_key),
                               key=_key)
-    recent_texts = []
-    for t_id, group in _recent_grouper:
-        recent_texts.append(next(group))    # Take the first item only.
+    recent_texts = [next(group) for _, group in _recent_grouper]
 
     added_texts = Text.objects.filter(addedBy_id=request.user.id, part_of__isnull=True)\
                                 .order_by('-added')
-                                # .values('id', 'title', 'added')
 
-    flds = ['id', 'name', 'description']
+    # Get projects owned by user
+    flds = ['id', 'name', 'description', 'ownedBy__username']
     projects_owned = request.user.collections.all().values(*flds)
-    projects_contributed = request.user.contributes_to.all().values(*flds)
+
+    # Get projects where user is a collaborator
+    collaborator_projects = TextCollection.objects.filter(collaborators=request.user).values(*flds)
 
     appellation_qs = Appellation.objects.filter(createdBy__pk=request.user.id)\
                                         .filter(asPredicate=False)\
@@ -231,18 +234,35 @@ def dashboard(request):
     relationset_qs = RelationSet.objects.filter(createdBy__pk=request.user.id)\
                                         .distinct().count()
 
+    # Check if there are any connected Citesphere accounts for the user and retrieve them
+    citesphere_accounts = CitesphereAccount.objects.filter(user=request.user)
+    has_citesphere_account = citesphere_accounts.exists()
+
+    # A list of connected repositories if available
+    connected_repositories = [
+        {
+            'repository_name': account.repository.name,
+            'repository_description': account.repository.description,
+            'user_id': account.citesphere_user_id,
+        }
+        for account in citesphere_accounts
+    ]
+
     context = {
         'title': 'Dashboard',
         'user': request.user,
         'recent_texts': recent_texts[:5],
         'added_texts': added_texts[:5],
         'projects_owned': projects_owned[:5],
-        'projects_contributed': projects_contributed[:5],
+        'collaborator_projects': collaborator_projects[:5],
         'appellationCount': appellation_qs,
         'relation_count': relationset_qs,
-        'relations': RelationSet.objects.filter(createdBy=request.user).order_by('-created')[:10]
+        'relations': RelationSet.objects.filter(createdBy=request.user).order_by('-created')[:10],
+        'has_citesphere_account': has_citesphere_account,
+        'connected_repositories': connected_repositories,
     }
     return render(request, template, context)
+
 
 
 def user_details(request, userid, *args, **kwargs):
@@ -264,7 +284,7 @@ def user_details(request, userid, *args, **kwargs):
         Renders an user details view based on user's authentication status.
     """
     user = get_object_or_404(VogonUser, pk=userid)
-    if request.user.is_authenticated() and request.user.id == int(userid) and request.GET.get('mode', '') == 'edit':
+    if request.user.is_authenticated and request.user.id == int(userid) and request.GET.get('mode', '') == 'edit':
         return HttpResponseRedirect(reverse('settings'))
     else:
         textCount = Text.objects.filter(addedBy=user).count()

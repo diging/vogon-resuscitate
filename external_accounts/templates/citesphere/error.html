@@ -1,0 +1,27 @@
+{% extends "annotations/base.html" %}
+{% load static %}
+
+{% block breadcrumbs %}
+    <a href="{% url 'home' %}" class="btn btn-xs">Home</a>
+    &raquo;<a href="{% url 'dashboard' %}" class="btn btn-xs">Dashboard</a>
+{% endblock %}
+
+{% block main %}
+    <div class="container mt-5 d-flex justify-content-center align-items-center" style="min-height: 80vh;">
+        <div class="row">
+            <div class="col-md-12 text-center">
+                <div class="card shadow-lg">
+                    <div class="card-body">
+                        <h1 class="card-title mb-4 text-danger">
+                            &#9888; {{ message }}
+                        </h1>
+                        <p class="card-text mb-4">We apologize for the inconvenience. Please try again or contact support if the issue persists.</p>
+                        <a href="{% url 'dashboard' %}" class="btn btn-primary btn-lg">
+                            Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

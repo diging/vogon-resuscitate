@@ -42,16 +42,6 @@ var ConceptSearch = {
                         </div>
                       </div>
                   </div>
-                  <div>
-                    <div class="form-group">
-                        <div class="checkbox">
-                            <label>
-                                <input type="checkbox" class="checkbox"  style="width: 100%;" v-model="force">
-                                Force fresh search
-                            </label>
-                        </div>
-                    </div>
-                  </div>
                   <div class="list-group concept-search-list-group">
                       <concept-list-item
                             v-on:selectconcept="selectConcept"
@@ -67,7 +57,6 @@ var ConceptSearch = {
             searching: false,
             error: false,
             pos: "",
-            force: false
         }
     },
     methods: {
@@ -91,9 +80,6 @@ var ConceptSearch = {
             };
             if (this.pos != "") {
                 payload['pos'] = this.pos;
-            }
-            if (this.force) {
-                payload['force'] = 'force';
             }
             Concept.search(payload).then(function (response) {
                 self.concepts = response.body.results;
@@ -166,7 +152,7 @@ ConceptCreator = {
                    </div>
                    <div v-if="ready()" class="clearfix">
                        <div class="pull-right btn-group">
-                           <a v-if="ready" class="btn btn-success btn-xs" v-on:click="createConcept">
+                           <a v-if="ready" class="btn btn-success btn-xs" v-on:click="createConcept" data-tooltip="Create concept">
                                 Create <span class="glyphicon glyphicon-grain"></span>
                            </a>
                            <span v-if="submitted" class="btn glyphicon glyphicon-hourglass"></span>
@@ -226,7 +212,7 @@ ConceptCreator = {
                 self = this;
                 Concept.save({
                     uri: 'generate',
-                    label: this.name,
+                    label: "this.label",
                     description: this.description,
                     pos: this.pos,
                     typed: this.concept_type
@@ -290,7 +276,7 @@ DateAppellationCreator = {
                         <input v-model="year" type="number" class="form-control input-sm" placeholder="YYYY" min="-9999" max="9999">
                         <input v-model="month" type="number" class="form-control input-sm" placeholder="MM" min="-100" max="12">
                         <input v-model="day" type="number" class="form-control input-sm" placeholder="DD" min="-100" max="31">
-                        <a v-if="ready()" v-on:click="createAppellation" class="btn btn-sm btn-success">Create</a>
+                        <a v-if="ready()" v-on:click="createAppellation" class="btn btn-sm btn-success" data-tooltip="Create date appellation">Create</a>
                     </div>
                     <div>
                         <a v-on:click="cancel" class="btn btn-xs btn-danger">Cancel</a>
@@ -346,7 +332,8 @@ ConceptPickerItem = {
     components: {},
     template: `<div class="list-group-item concept-item clearfix" :id="'concept-' + concept.interpretation.uri">
                 <div>
-                    <a v-on:click="select" style="cursor: pointer;">{{ concept.interpretation_label }} ({{ concept.interpretation.authority }})</a>
+                    <a v-on:click="select" style="cursor: pointer;">{{ concept.interpretation.label }}</a>
+                    <p>{{ concept.interpretation.uri }}</p>
                 </div>
                 <div class="text text-muted">{{ concept.interpretation.description }}</div>
             </div>`,
@@ -451,7 +438,6 @@ AppellationCreator = {
             saving: false,
             search: false,
             display: true
-
         }
     },
     template: `<div class="appellation-creator" style="max-height: 80vh; overflow-y: scroll;">
@@ -474,7 +460,8 @@ AppellationCreator = {
                         <span class="appellation-creator-offsets">{{ position.startOffset }}&ndash;{{ position.endOffset }}</span>:
                         <span class="appellation-creator-representation">{{ position.representation }}</span>
                     </div>
-                    <div v-if="concept != null" class="text-warning">{{ concept.label }}
+                    <div v-if="concept != null" class="text-warning">
+                        {{ getConceptLabel() }}
                         <span v-if="concept.authority != null">({{ concept.authority.name }})</span>
                     </div>
 
@@ -512,7 +499,6 @@ AppellationCreator = {
                        <a v-on:click="cancel" class="btn btn-xs btn-danger">Cancel</a>
                    </div>
                </div>`,
-
     watch: {
         search: function () {
             if (this.search == true) {
@@ -553,11 +539,14 @@ AppellationCreator = {
             this.concept = concept;
             this.create = false;
         },
+        getConceptLabel: function() {
+            if (this.concept) {
+                return this.concept.label || (this.concept.interpretation && this.concept.interpretation.label);
+            }
+            return '';
+        },
         createAppellation: function () {
             let stringRep
-            /* 
-             * may want to change this at somepoint. If this is a concept for a text we set the position values to null
-             */
             if (store.getters.showConcepts) {
                 this.position.startOffset = null
                 this.position.endOffset = null
@@ -566,7 +555,7 @@ AppellationCreator = {
                 stringRep = this.position.representation
             }
             if (!(this.submitted || this.saving)) {
-                this.submitted = true; // Prevent multiple submissions.
+                this.submitted = true;
                 this.saving = true;
                 self = this;
                 Appellation.save({
@@ -583,7 +572,9 @@ AppellationCreator = {
                     occursIn: this.text.id,
                     createdBy: this.user.id,
                     project: this.project.id,
-                    interpretation: this.concept.uri || this.concept.interpretation.uri
+                    interpretation: this.concept.uri || this.concept.interpretation.uri,
+                    pos: this.concept.pos || this.concept.interpretation.pos,
+                    label: this.concept.label || this.concept.interpretation.label
                 }).then(function (response) {
                     self.reset();
                     if (store.getters.showConcepts) {
@@ -629,7 +620,7 @@ RelationField = {
                             :id="'relation-part-' + field.part_id"
                             v-bind:placeholder="inputPlaceholder()" />
                         <span class="input-group-btn">
-                            <button v-if="selection == null"
+                            <a v-if="selection == null"
                                 v-on:click="listen"
                                 v-bind:class="{
                                         btn: true,
@@ -637,17 +628,20 @@ RelationField = {
                                         'btn-primary': !listening,
                                         'btn-warning': listening,
                                         'btn-default': isBlocked
-                                    }">
+                                    }"
+                                v-bind:data-tooltip="field.type === 'CO' ? 'Select text. Press ESC to cancel.' : (field.type === 'DT' ? 'Select the date for this relation.' : 'Select text or existing appellation. Press ESC to cancel.')">
+
                                 &nbsp;<span v-if="field.type == 'TP'" class=" glyphicon glyphicon-edit"></span>
                                 <i v-if="field.type == 'CO'" class="fa fa-i-cursor" aria-hidden="true"></i>
                                 <span v-if="field.type == 'DT'" class=" glyphicon glyphicon-calendar"></span>
-                            </button>
-                            <button
+                            </a>
+                            <a
                                 v-else
                                 v-on:click="clear"
-                                class="btn btn-sm btn-success">
+                                class="btn btn-sm btn-success"
+                                data-tooltip="Clear selection">
                                 &nbsp;<span class="glyphicon glyphicon-ok"></span>
-                            </button>
+                            </a>
                         </span>
                     </div>
                </div>`,
@@ -833,7 +827,8 @@ RelationDateAssignment = {
                                 'btn-xs': true,
                                 'btn-success': !collectStarted,
                                 'btn-danger': collectStarted
-                            }">
+                            }"
+                            v-bind:data-tooltip="collectStarted ? 'Cancel' : 'Select the start date for this relation'">
                             <span v-bind:class="{
                                     'glyphicon': true,
                                     'glyphicon-calendar': !collectStarted,
@@ -845,7 +840,8 @@ RelationDateAssignment = {
                                 'btn-xs': true,
                                 'btn-success': !collectOccurred,
                                 'btn-danger': collectOccurred
-                            }">
+                            }"
+                            v-bind:data-tooltip="collectOccurred ? 'Cancel' : 'Select the date when this relation occurred'">
                             <span v-bind:class="{
                                     'glyphicon': true,
                                     'glyphicon-calendar': !collectOccurred,
@@ -858,7 +854,8 @@ RelationDateAssignment = {
                                 'btn-xs': true,
                                 'btn-success': !collectEnded,
                                 'btn-danger': collectEnded
-                            }">
+                            }"
+                            v-bind:data-tooltip="collectEnded ? 'Cancel' : 'Select the end date for this relation'">
                             <span v-bind:class="{
                                     'glyphicon': true,
                                     'glyphicon-calendar': !collectEnded,
@@ -945,14 +942,20 @@ RelationCreator = {
                     </div>
                     <div class="clearfix">
                         <div v-if="ready" class="pull-right">
-                            <a v-on:click="create" class="btn btn-xs btn-success">Create</a>
+                            <a v-on:click="create" class="btn btn-xs btn-success" data-tooltip="Create relation">Create</a>
                         </div>
                         <div>
                             <a v-on:click="cancel" class="btn btn-xs btn-danger">Cancel</a>
                         </div>
                     </div>
-
-
+                    <div class="selected-concepts">
+                        <h4>Selected Concepts:</h4>
+                        <ul>
+                            <li v-for="(data, key) in field_data" :key="key">
+                                <strong>{{ getFieldLabel(key) }}:</strong> {{ data.interpretation.label }}
+                            </li>
+                        </ul>
+                    </div>
                </div>`,
     methods: {
         fieldIsListeningForText: function () {
@@ -979,9 +982,19 @@ RelationCreator = {
             })
             return ready;
         },
-        // Relation fields don't have unique identifiers, so we create them.
         fieldHash: function (field) {
             return [field.part_id, field.part_field].join('.');
+        },
+        getFieldLabel: function(key) {
+            const [part_id, part_field] = key.split('.');
+            const field = this.fields.find(f => f.part_id == part_id && f.part_field == part_field);
+            return field ? field.label : 'Unknown Field';
+        },
+        getConceptLabel: function(data) {
+            if (data) {
+                return data.stringRep;
+            }
+            return 'Not selected';
         },
         prepareSubmission: function () {
             self = this;
@@ -1052,7 +1065,7 @@ RelationTemplateSelector = {
                                 v-model="query"
                                 placeholder="Search for a relation template..." />
                             <div class="input-group-btn">
-                                <a v-on:click="search" class="btn btn-sm btn-success">
+                                <a v-on:click="search" class="btn btn-sm btn-success" data-tooltip="Search relation templates">
                                     &nbsp;<span v-if="!searching" class="glyphicon glyphicon-search"></span>
                                     <span v-if="searching" class="glyphicon glyphicon-hourglass"></span>
                                 </a>
@@ -1532,8 +1545,8 @@ Appellator = new Vue({
             this.selected_relation = relation;
             this.selected = null;
             this.relations.forEach(function (r) {
-                r.selected = (r.id == relation.id);
-            });
+                this.$set(r, 'selected', (r.id == relation.id));
+            }, this);
             var appellation_ids = relation.appellations.map(function (appellation) {
                 return appellation.id;
             });

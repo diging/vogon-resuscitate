@@ -17,6 +17,9 @@ import socket
 import dj_database_url
 # import djcelery
 from datetime import timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -45,15 +48,16 @@ INSTALLED_APPS = (
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
-    'allauth.socialaccount.providers.github',
+    'django_inlinecss',
     'concepts',
     'giles',
     'annotations',
+    'external_accounts',
     'rest_framework',
     'corsheaders',
     'djcelery',
     'repository',
-    # 'social.apps.django_app.default',
+    'oauth2_provider',
 )
 
 MIDDLEWARE = (
@@ -123,27 +127,19 @@ DATABASES = {
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend', # default
-    # 'social.backends.github.GithubOAuth2',
-    'allauth.account.auth_backends.AuthenticationBackend',
+    'allauth.account.auth_backends.AuthenticationBackend', #Allauth
 )
 
 ACCOUNT_AUTHENTICATED_LOGIN_REDIRECTS =True
 ANONYMOUS_USER_ID = -1
-BASE_URL = os.environ.get('BASE_URL', '/')
-SOCIAL_AUTH_GITHUB_KEY = os.environ.get('SOCIAL_AUTH_GITHUB_KEY', None)
-SOCIAL_AUTH_GITHUB_SECRET = os.environ.get('SOCIAL_AUTH_GITHUB_SECRET', None)
-SOCIAL_AUTH_LOGIN_REDIRECT_URL = BASE_URL
-SOCIAL_AUTH_GITHUB_SCOPE = ['user']
 
-SOCIALACCOUNT_PROVIDERS = {
-    'github': {
-        'SCOPE': [
-            'user',
-        ],
-    }
-}
-
-SOCIALACCOUNT_ADAPTER = 'annotations.adapter.SocialAccountAdapter'
+# Allauth Email Settings
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND')
+EMAIL_HOST = os.environ.get('EMAIL_HOST')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+EMAIL_PORT = os.environ.get('EMAIL_PORT')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS')
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
@@ -164,11 +160,12 @@ USE_TZ = True
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOW_CREDENTIALS = False
 
-APPEND_SLASH = False
+APPEND_SLASH = True
 CRISPY_TEMPLATE_PACK = 'bootstrap3'
 
 SUBPATH = '/'
 # Honor the 'X-Forwarded-Proto' header for request.is_secure()
+USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Allow all host headers
@@ -180,7 +177,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC_ROOT = os.environ.get('STATIC_ROOT',
                              os.path.join(PROJECT_ROOT, 'staticfiles'))
-STATIC_URL = BASE_URL + 'static/'
 
 STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'), )
 
@@ -216,17 +212,14 @@ PREDICATES = {
 
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
-        'LOCATION': 'default_cache_table',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
     }
 }
 
 CONCEPTPOWER_USERID = os.environ.get('CONCEPTPOWER_USERID', None)
 CONCEPTPOWER_PASSWORD = os.environ.get('CONCEPTPOWER_PASSWORD', None)
-CONCEPTPOWER_ENDPOINT = os.environ.get(
-    'CONCEPTPOWER_ENDPOINT', 'http://chps.asu.edu/conceptpower/rest/')
-CONCEPTPOWER_NAMESPACE = os.environ.get('CONCEPTPOWER_NAMESPACE',
-                                        '{http://www.digitalhps.org/}')
+CONCEPTPOWER_ENDPOINT = os.environ.get('CONCEPTPOWER_ENDPOINT')
+CONCEPTPOWER_NAMESPACE = os.environ.get('CONCEPTPOWER_NAMESPACE')
 
 QUADRIGA_USERID = os.environ.get('QUADRIGA_USERID', '')
 QUADRIGA_PASSWORD = os.environ.get('QUADRIGA_PASSWORD', '')
@@ -252,25 +245,16 @@ GOOGLE_ANALYTICS_ID = os.environ.get('GOOGLE_ANALYTICS_ID', None)
 
 VERSION = '0.4'
 
-# Giles and HTTP.
-GILES = os.environ.get('GILES', 'https://diging-dev.asu.edu/giles-review')
-IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
-GET = requests.get
-POST = requests.post
-GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
-GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
-MAX_GILES_UPLOADS = 20
-
 GOAT = os.environ.get('GOAT', 'http://127.0.0.1:8000')
 GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN')
 
-LOGIN_URL = BASE_URL + 'login/github/'
-# LOGIN_REDIRECT_URL = 'home'
-# LOGOUT_REDIRECT_URL = 'home'
-
 LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
 
+
+# Session Cookie Settings
 SESSION_COOKIE_NAME = 'vogon'
+SESSION_COOKIE_AGE = 1209600  # 2 weeks (default)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # Concept types
 PERSONAL_CONCEPT_TYPE = os.environ.get('PERSONAL_CONCEPT_TYPE',
@@ -287,3 +271,34 @@ CONCEPT_TYPES = {
 }
 
 SUBMIT_WAIT_TIME = {'days': 3, 'hours': 0, 'minutes': 0}
+
+# Giles Credentials
+GILES_ENDPOINT = os.environ.get('GILES_ENDPOINT')
+IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
+GET = requests.get
+POST = requests.post
+GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
+GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
+MAX_GILES_UPLOADS = 20
+
+CONCEPT_URI_PREFIXES = [
+    'http://www.digitalhps.org/',
+    'https://www.digitalhps.org/'
+]
+APP_ROOT = os.getenv('APP_ROOT', 'vogon/')
+STATIC_URL = "/" + APP_ROOT + os.environ.get('STATIC_URL', 'static/')
+
+# Allauth Settings
+LOGIN_URL = f'/{APP_ROOT}login/'
+LOGOUT_URL = f'/{APP_ROOT}logout/'
+LOGIN_REDIRECT_URL = 'home'
+LOGOUT_REDIRECT_URL = 'home'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
+
+BASE_URL = os.path.join(os.getenv('BASE_URL', '/'), APP_ROOT)
+
+PAGINATION_PAGE_SIZE = 50
+CITESPHERE_ITEM_PAGE = 50
+REPOSITORY_TEXT_PAGINATION_PAGE_SIZE = 20
+PROJECT_TEXT_PAGINATION_PAGE_SIZE = 20

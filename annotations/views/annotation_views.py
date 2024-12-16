@@ -4,16 +4,25 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 
-from annotations.models import Relation, Appellation, VogonUser, Text, RelationSet
+from annotations.models import Relation, Appellation, VogonUser, Text, RelationSet, TextCollection
 from annotations.annotators import annotator_factory
 
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from urllib.parse import urlencode
+
+from django.core.exceptions import PermissionDenied
+
 @login_required
 @ensure_csrf_cookie
-def annotate(request, text_id):
+def annotate(request, text_id, project_id):
     text = get_object_or_404(Text, pk=text_id)
-    annotator = annotator_factory(request, text)
+    project = get_object_or_404(TextCollection, pk=project_id)
+    
+    # Check if user is owner or collaborator
+    if not (request.user == project.ownedBy or request.user in project.collaborators.all()):
+        raise PermissionDenied("Whoops! Looks like you're trying to sneak a peek at someone else's annotations. Nice try, but this text is for authorized eyes only! 👀")
+    
+    annotator = annotator_factory(request, text, project_id)
     return annotator.render()
 
 
@@ -31,6 +40,7 @@ def annotate_image(request, text_id):
     return render(request, template, context)
 
 
+@login_required
 def relations(request):
     from annotations.filters import RelationSetFilter
 

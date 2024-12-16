@@ -5,6 +5,6 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /vogon
 
 COPY startup.sh /vogon/startup.sh
-RUN ["chmod" "+x" "/vogon/startup.sh"]
+RUN ["chmod", "+x", "/vogon/startup.sh"]
 
 ENTRYPOINT ["/vogon/startup.sh"]

@@ -7,10 +7,10 @@ var AppellationListItem = {
 					}">
 					
 				<span class="pull-right text-muted btn-group">
-					<a class="btn btn-xs" v-on:click="select">
+					<a class="btn btn-xs" v-on:click="select" data-tooltip="Select appellation">
 						<span class="glyphicon glyphicon-hand-down"></span>
 					</a>
-					<a class="btn btn-xs" v-on:click="toggle">
+					<a class="btn btn-xs" v-on:click="toggle" v-bind:data-tooltip="appellation.visible ? 'Hide appellation' : 'Show appellation'">
 						<span v-if="appellation.visible" class="glyphicon glyphicon glyphicon-eye-open"></span>
 						<span v-else class="glyphicon glyphicon glyphicon-eye-close"></span>
 					</a>
@@ -164,7 +164,7 @@ AppellationList = {
 							</div>
 						</div>
 						<div class="col-lg-12 col-xl-12" style="padding-left: 2.5%; padding-right: 1%">
-							<ul class="list-group appellation-list" style="max-height: 400px; overflow-y: scroll; margin-top: 2%;">
+							<ul class="list-group appellation-list" style="max-height: 400px; margin-top: 2%;">
 								<appellation-list-item
 									v-bind:sidebar="sidebar"
 									v-on:hideappellation="hideAppellation"
@@ -217,15 +217,7 @@ AppellationList = {
             // Replace an array prop wholesale doesn't seem to trigger a
             //  DOM update in the v-for binding, but a push() does; so we'll
             //  just push the appellations that aren't already in the array.
-            var current_ids = this.current_appellations.map(function (elem) {
-                return elem.id;
-            });
-            var self = this;
-            this.appellations.forEach(function (elem) {
-                if (current_ids.indexOf(elem.id) < 0) {
-                    self.current_appellations.push(elem);
-                }
-            });
+            this.current_appellations = this.appellations;
         },
         selected_template: function () {
             store.commit("setTemplate", this.selected_template);
