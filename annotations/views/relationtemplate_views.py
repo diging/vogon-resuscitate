@@ -296,3 +296,85 @@ def delete_relationtemplate(request, template_id):
             )
 
     return HttpResponseRedirect(reverse('list_relationtemplate'))
+
+
+@staff_member_required
+def edit_relationtemplate(request, template_id):
+    """
+    Staff can use this view to edit an existing RelationTemplate.
+
+    Parameters
+    ----------
+    request : django.http.requests.HttpRequest
+    template_id : int
+
+    Returns
+    ----------
+    :class:`django.http.response.HttpResponse`
+    """
+
+    template = get_object_or_404(RelationTemplate, pk=template_id)
+
+    parts = RelationTemplatePart.objects.filter(part_of=template).order_by('id')
+
+    # Create the formset with pre-filled existing parts
+    formset_class = formset_factory(
+        RelationTemplatePartForm, formset=RelationTemplatePartFormSet, extra=0
+    )
+    form_class = RelationTemplateForm
+
+    context = {}
+
+    if request.POST:
+        relationtemplate_form = form_class(request.POST, instance=template)
+        relationtemplatepart_formset = formset_class(request.POST, prefix='parts')
+
+        context['formset'] = relationtemplatepart_formset
+        context['templateform'] = relationtemplate_form
+
+        formset_is_valid = relationtemplatepart_formset.is_valid()
+        form_is_valid = relationtemplate_form.is_valid()
+
+        if formset_is_valid and form_is_valid:
+            relationtemplate_data = relationtemplate_form.cleaned_data
+            part_data = [form.cleaned_data for form in relationtemplatepart_formset]
+
+            try:
+                template = relations.update_template(template, relationtemplate_data, part_data)
+                return HttpResponseRedirect(reverse('get_relationtemplate', args=(template.id,)))
+            except relations.InvalidTemplate as E:
+                relationtemplate_form.add_error(None, str(E))
+                logger.debug('Updating relationtemplate failed: %s' % str(E))
+    else:
+        relationtemplate_form = form_class(instance=template)
+        initial_data = []
+        for part in parts:
+            initial_data.append({
+                'source_concept': part.source_concept,
+                'source_node_type': part.source_node_type,
+                'source_concept_text': part.source_concept.label if part.source_concept else '',
+                'source_prompt_text': part.source_prompt_text,
+                'source_description': part.source_description,
+                'source_label': part.source_label,
+                'predicate_concept': part.predicate_concept,
+                'predicate_node_type': part.predicate_node_type,
+                'predicate_concept_text': part.predicate_concept.label if part.predicate_concept else '',
+                'predicate_prompt_text': part.predicate_prompt_text,
+                'predicate_description': part.predicate_description,
+                'predicate_label': part.predicate_label,
+                'object_concept': part.object_concept,
+                'object_node_type': part.object_node_type,
+                'object_concept_text': part.object_concept.label if part.object_concept else '',
+                'object_prompt_text': part.object_prompt_text,
+                'object_description': part.object_description,
+                'object_label': part.object_label,
+                'source_relationtemplate_internal_id': part.source_relationtemplate_internal_id,
+                'object_relationtemplate_internal_id': part.object_relationtemplate_internal_id,
+                'internal_id': part.internal_id,
+            })
+        relationtemplatepart_formset = formset_class(initial=initial_data, prefix='parts')
+
+        context['formset'] = relationtemplatepart_formset
+        context['templateform'] = relationtemplate_form
+
+    return render(request, 'annotations/relationtemplate_edit.html', context)
