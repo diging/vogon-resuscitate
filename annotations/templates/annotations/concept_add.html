@@ -56,32 +56,6 @@
         {% endfor %}
     </ul>
     {% endif %}
-    {% if equals %}
-    <div class="alert alert-warning">
-        <div class="h4">This concept might matches an existing entry in conceptpower!</div>
-        <p>
-            Please link this concept to...
-        </p>
-    </div>
-
-    <ul class="list-group">
-        {% for candidate in equals %}
-        <li class="list-group-item clearfix">
-            <div class="pull-right btn-group">
-                <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
-            </div>
-            <div><strong>{{ candidate.label }}</strong> </div>
-            <div class="text-warning">
-                <span class="glyphicon glyphicon-globe"></span>
-                {{ candidate.uri }}
-            </div>
-            <p>
-                {{ candidate.description }}
-            </p>
-        </li>
-        {% endfor %}
-    </ul>
-    {% endif %}
     {% if candidates %}
     <div class="h4">This concept looks a lot like...</div>
     <ul class="list-group">
@@ -104,7 +78,7 @@
     {% endif %}
 
     <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
-    <a class="btn btn-md btn-{% if matches or candidates or equals %}warning{% else %}success{% endif %}" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates or equals %}I accept the risks: add anyway!{% else %}Approve{% endif %}</a>
+    <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}</a>
 </div>
 
 

@@ -113,7 +113,6 @@ urlpatterns = [
     re_path(r'^concept/(?P<concept_id>[0-9]+)/$', conceptViews.concept, name='concept'),
     re_path(r'^concept/(?P<concept_id>[0-9]+)/add/$', conceptViews.add_concept, name='add_concept'),
     re_path(r'^concept/(?P<concept_id>[0-9]+)/edit/$', conceptViews.edit_concept, name='edit_concept'),
-    re_path(r'^concept/(?P<concept_id>[0-9]+)/approve/$', conceptViews.approve_concept, name="approve_concept"),
     re_path(r'^concept/(?P<source_concept_id>[0-9]+)/merge/$', conceptViews.merge_concepts, name='merge_concepts'),
 
     # url(r'^concept_autocomplete/', views.search_views.concept_autocomplete, name='concept_autocomplete'),

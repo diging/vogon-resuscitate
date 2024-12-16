@@ -85,7 +85,6 @@ class ConceptLifecycle(object):
 
     @property
     def is_external(self):
-        print((self._get_namespace(), self.is_native, self.is_created))
         return not (self.is_native or self.is_created)
 
     @property
@@ -126,14 +125,21 @@ class ConceptLifecycle(object):
 
     @staticmethod
     def create_from_raw(data):
-        _type_uri = data.get('type_uri')
+        _type_uri = None
+
+        _type = data.get('type')
+
+        if isinstance(_type, str):
+            _type_uri = _type
+        elif _type and hasattr(_type, 'type_uri'):
+            _type_uri = _type.type_uri
+
         if _type_uri:
             _typed, _ = Type.objects.get_or_create(uri=_type_uri)
         else:
             _typed = None
-
         manager = ConceptLifecycle.create(
-            uri = data.get('uri').strip() if data.get('uri') else data.get('id'),
+            uri = data.get('uri').strip() if data.get('uri') else data.get('concept_uri'),
             label = data.get('word').strip() if data.get('word') else data.get('lemma'),
             description = data.get('description').strip(),
             pos = data.get('pos').strip(),
@@ -142,75 +148,13 @@ class ConceptLifecycle(object):
         )
         return manager
 
-    # def approve(self):
-    #     if self.instance.concept_state == Concept.RESOLVED:
-    #         raise ConceptLifecycleException("This concept is already resolved.")
-    #     if self.instance.concept_state == Concept.MERGED:
-    #         raise ConceptLifecycleException("This concept is merged, and cannot"
-    #                                         " be approved.")
-
-    #     self.instance.concept_state = Concept.APPROVED
-    #     self.instance.save()
-
-    def resolve(self):
-        """
-
-        """
-        print("-------------in resolve--------------")
-        if self.instance.concept_state == Concept.RESOLVED:
-            raise ConceptLifecycleException("This concept is already resolved")
-        if self.instance.concept_state == Concept.MERGED:
-            raise ConceptLifecycleException("This concept is merged, and cannot"
-                                            " be resolved")
-        if self.is_created:
-            raise ConceptLifecycleException("Created concepts cannot be"
-                                            " resolved")
-
-        if self.is_native:
-            data = self.get(self.instance.uri)
-            if data.typed:
-                _typed, _ = Type.objects.get_or_create(uri=data.typed)
-            else:
-                _typed = None
-
-            self.instance.label = data.label
-            self.instance.description = data.description
-            if _typed:
-                self.instance.typed = _typed
-            self.instance.pos = data.pos
-            self.instance.concept_state = Concept.RESOLVED
-            self.instance.save()
-            return
-
-        if self.is_external:
-            matching = self.get_matching()
-            if matching:
-                if len(matching) > 1:
-                    raise ConceptLifecycleException("There are more than one"
-                                                    " matching native concepts"
-                                                    " for this external"
-                                                    " concept.")
-                match = matching.pop()
-                self.merge_with(match.uri)
-
-            if self.get_similar():
-                raise ConceptLifecycleException("Cannot resolve an external"
-                                                " concept with similar native"
-                                                " entries in Conceptpower.")
-
-            # External concepts with no matching or similar concepts in
-            #  Conceptpower can be added automatically.
-            self.add()
-            return
-        raise ConceptLifecycleException("Could not resolve concept.")
-
-
     def merge_with(self, uri):
         """
         Merge the managed :class:`.Concept` with some other concept.
         """
         if self.is_native:
             raise ConceptLifecycleException("Cannot merge a native concept")
+        # if self.is_external:
         # if self.is_external:
             
             
@@ -256,16 +200,12 @@ class ConceptLifecycle(object):
         #  identities, but we have some  use-cases that depend on the
         #  equal_to field in Conceptpower.
         equal_uri = ""
-        print("------------in add--------------")
-        print(self.instance.uri)
         if self.is_external:
-            print("is external")
             equal_uri = self.instance.uri
 
         # It is possible that the managed Concept does not have a type, and
         #  sometimes we just don't care.
         concept_type = getattr(self.instance.typed, 'uri', self.DEFAULT_TYPE)
-        print(ConceptLifecycle.get_namespace(concept_type),ConceptLifecycle.CONCEPTPOWER)
         if ConceptLifecycle.get_namespace(concept_type) != ConceptLifecycle.CONCEPTPOWER:
             concept_type = TYPES.get(concept_type)
         if not concept_type:
@@ -277,9 +217,6 @@ class ConceptLifecycle(object):
         if not pos:
             pos = 'noun'
         try:
-            print("in add try")
-            print(self.user,self.password)
-            self.password= "---"
             auth = HTTPBasicAuth(self.user,self.password)
             url = f"{settings.CONCEPTPOWER_ENDPOINT}concept/add"
             concept_data = {
@@ -290,37 +227,21 @@ class ConceptLifecycle(object):
                 "type": concept_type,
                 "equal_to": equal_uri
             }
-            print(concept_data)
             response = requests.post(url=url, data=json.dumps(concept_data), auth=auth)
             
             if response.status_code != requests.codes.ok:
                 raise RuntimeError(response.status_code, response.text)
-            print(response.json())
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
                                            " concept to Conceptpower:"
                                            " %s" % str(E))
-        target = ConceptLifecycle.create_from_raw(response.json()).instance
-        self.instance.merged_with = target
-        self.instance.concept_state = Concept.MERGED
+        if not self.is_created:
+            target = ConceptLifecycle.create_from_raw(response.json()).instance
+            self.instance.merged_with = target
+            self.instance.concept_state = Concept.MERGED
+        else:
+            self.instance.concept_state = Concept.RESOLVED
         self.instance.save()
-
-    def _reform(self, raw):
-        return ConceptData(**{
-            'label': raw.get('word') if raw.get('word') else raw.get('lemma'),
-            'uri': raw.get('uri') if raw.get('concept_uri') else raw.get('id'),
-            'description': raw.get('description'),
-            'typed': raw.get('type_uri'),
-            'equal_to': raw.get('equal_to', []),
-            'pos': raw.get('pos'),
-        })
-
-    def get(self, uri):
-        try:
-            raw = self.get_uri(uri)
-        except Exception as E:
-            raise ConceptUpstreamException("Whoops: %s" % str(E))
-        return self._reform(raw)
 
     def get_similar(self):
         """
@@ -333,7 +254,9 @@ class ConceptLifecycle(object):
         """
         import re, string
         from unidecode import unidecode
-
+        equals = []
+        if self.is_external:
+            equals = self.get_equal()
         q = re.sub("[0-9]", "", unidecode(self.instance.label).translate(string.punctuation).lower())
         if not q:
             return []
@@ -359,7 +282,7 @@ class ConceptLifecycle(object):
                         concepts.append(concept)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
-        return concepts
+        return concepts if not equals else equals
 
     def get_equal(self):
         """
@@ -380,7 +303,6 @@ class ConceptLifecycle(object):
                 'Accept': 'application/json',
             }
             response = requests.get(url, headers=headers, params=parameters)
-            print(response)
             if response.status_code == 200:
                 data = response.json()
                 concepts = []
@@ -388,10 +310,8 @@ class ConceptLifecycle(object):
                     for concept_entry in data['conceptEntries']:
                         concept = self.parse_concept(concept_entry)
                         concepts.append(concept)
-                        # print(concept)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
-        # print(data)
         return list(concepts)   
     
     def get_matching(self):
@@ -408,7 +328,7 @@ class ConceptLifecycle(object):
             data = self.get_uri(self.instance.uri)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
-        return list(map(self._reform, data))
+        return list(data)
 
     def get_uri(self, uri):
         try:
@@ -420,7 +340,7 @@ class ConceptLifecycle(object):
 
             if response.status_code == 200:
                     data = response.json()
-                    concept_entry = data.get('conceptEntries', [None])[0]
+                    concept_entry = data.get('conceptEntries', [{}])[0]
             else:
                 raise ValueError(f"Error fetching concept data: {response.status_code}")
         except Exception as E:

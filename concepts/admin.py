@@ -225,12 +225,6 @@ def add_concepts_to_conceptpower(modeladmin, request, queryset):
             concept.save()
 
 
-def approve_concepts(modeladmin, request, queryset):
-    for concept in queryset:
-        concept.concept_state = Concept.APPROVED
-        concept.save()
-
-
 def perform_merge(unresolved_concepts, master_concept):
     """
     Merge a set of unresolved concepts into a single master concept.
@@ -379,7 +373,7 @@ class ConceptAdmin(admin.ModelAdmin):
     model = Concept
     search_fields = ('label',)
     list_display = ('label', 'description', 'concept_state', 'typed',)
-    actions = (merge_concepts, approve_concepts, add_concepts_to_conceptpower,
+    actions = (merge_concepts, add_concepts_to_conceptpower,
                resolve)
     list_filter = ('concept_state', 'typed',)
 
