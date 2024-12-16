@@ -253,7 +253,6 @@ class ConceptLifecycle(object):
         if not q:
             return []
         try:
-            # def search(self, request, **kwargs):
             url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
             parameters = {
                 'word': q,
@@ -265,7 +264,6 @@ class ConceptLifecycle(object):
             response = requests.get(url, headers=headers, params=parameters)
             
             if response.status_code == 200:
-                    # Parse the JSON response
                 data = response.json()
                 concepts = []
                 if 'conceptEntries' in data:
