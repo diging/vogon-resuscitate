@@ -1,12 +1,10 @@
 from django.conf import settings
 
 from urllib.parse import urlparse
-from conceptpower import Conceptpower
 
 from concepts.models import *
 
 from requests.auth import HTTPBasicAuth
-
 import requests
 import json
 
@@ -48,9 +46,6 @@ class ConceptLifecycle(object):
     def __init__(self, instance):
         assert isinstance(instance, Concept)
         self.instance = instance
-        self.conceptpower = Conceptpower()
-        self.conceptpower.endpoint = 'https://diging-dev.asu.edu/conceptpower-review/rest/'
-        self.conceptpower.namespace = '{http://www.digitalhps.org/}'
         self.user = settings.CONCEPTPOWER_USERID
         self.password = settings.CONCEPTPOWER_PASSWORD
 
@@ -59,10 +54,10 @@ class ConceptLifecycle(object):
         """
         Extract namespace from URI.
         """
-        
+
         o = urlparse(uri)
         namespace = o.scheme + "://" + o.netloc + "/"
-        
+
         if o.scheme == '' or o.netloc == '':
             return None
             # raise ConceptLifecycleException("Could not determine namespace for %s." % uri)
@@ -154,17 +149,14 @@ class ConceptLifecycle(object):
         """
         if self.is_native:
             raise ConceptLifecycleException("Cannot merge a native concept")
-        # if self.is_external:
-        # if self.is_external:
-            
-            
+
         # We use the boilerplate try..except here to avoid making unneecessary
         #  API calls.
         try:
             target = Concept.objects.get(uri=uri)
         except Concept.DoesNotExist:
             try:
-                data = self.get_uri(uri)
+                data = self.get_concept(uri)
             except Exception as E:
                 raise ConceptUpstreamException("Whoops: %s" % str(E))
             target = ConceptLifecycle.create_from_raw(data).instance
@@ -325,12 +317,12 @@ class ConceptLifecycle(object):
             A list of dicts with raw data from Conceptpower.
         """
         try:
-            data = self.get_uri(self.instance.uri)
+            data = self.get_concept(self.instance.uri)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
         return list(data)
 
-    def get_uri(self, uri):
+    def get_concept(self, uri):
         try:
             url = f"{settings.CONCEPTPOWER_ENDPOINT}Concept?id={uri}"
             headers = {
@@ -346,6 +338,7 @@ class ConceptLifecycle(object):
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
         return concept_entry
+
     def parse_concept(self,concept_entry):
         """
         Parse a concept and return a dictionary with the required fields.

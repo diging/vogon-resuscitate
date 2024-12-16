@@ -116,7 +116,6 @@ def concept(request, concept_id):
 
 @staff_member_required
 def add_concept(request, concept_id):
-    print("------------in add_concept------------")
     concept = get_object_or_404(Concept, pk=concept_id)
     manager = ConceptLifecycle(concept)
     next_page = request.GET.get('next', reverse('concepts'))
@@ -137,9 +136,9 @@ def add_concept(request, concept_id):
                                 " right now: %s" % str(E), status=500)
         return HttpResponseRedirect(next_page)
 
-    print("----in check state",manager.is_external, manager.is_native, manager.is_created)
     candidates = manager.get_similar()
     matches = manager.get_matching()
+
     context.update({
         'candidates': candidates,
         'matches': matches,
