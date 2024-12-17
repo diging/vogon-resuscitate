@@ -97,8 +97,11 @@ def concepts(request):
     """
     List all concepts.
     """
-    qs = Concept.objects.filter(appellation__isnull=False).distinct('id').order_by('-id')
-
+    qs = None
+    if request.user.is_admin:
+        qs = Concept.objects.filter(appellation__isnull=False).distinct('id').order_by('-id')
+    else:
+        qs = Concept.objects.filter(appellation__isnull=False, createdBy=request.user).distinct('id').order_by('-id')
     filtered = ConceptFilter(request.GET, queryset=qs)
     qs = filtered.qs
 
