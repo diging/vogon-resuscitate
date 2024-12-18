@@ -223,7 +223,7 @@ class RepositoryManager:
                 if plain_text_content is not None:
                     text_content += plain_text_content
                 else:
-                    raise CitesphereAPIError(message="Failed to fetch document text from Giles, please try again later.", error_code="GILES_UPLOAD_PLAIN_TEXT_ERROR", details=f"Failed to fetch text from plain text file {upload.get('uploadedFile', 'unknown')['id']}")
+                    raise CitesphereAPIError(message="Failed to fetch document text from Giles, please try again later.", error_code="GILES_UPLOAD_PLAIN_TEXT_ERROR", details=f"Failed to fetch text from plain text file {upload.get('uploadedFile')['id']}")
 
             # Fallback to extracting text from pages
             elif 'pages' in upload:
