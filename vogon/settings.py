@@ -15,8 +15,6 @@ import os, sys, requests
 from urllib.parse  import urlparse
 import socket
 import dj_database_url
-# import djcelery
-from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -55,7 +53,6 @@ INSTALLED_APPS = (
     'external_accounts',
     'rest_framework',
     'corsheaders',
-    'djcelery',
     'repository',
     'oauth2_provider',
 )
@@ -216,30 +213,7 @@ CACHES = {
     }
 }
 
-CONCEPTPOWER_USERID = os.environ.get('CONCEPTPOWER_USERID', None)
-CONCEPTPOWER_PASSWORD = os.environ.get('CONCEPTPOWER_PASSWORD', None)
-CONCEPTPOWER_ENDPOINT = os.environ.get('CONCEPTPOWER_ENDPOINT')
-CONCEPTPOWER_NAMESPACE = os.environ.get('CONCEPTPOWER_NAMESPACE')
-
-QUADRIGA_USERID = os.environ.get('QUADRIGA_USERID', '')
-QUADRIGA_PASSWORD = os.environ.get('QUADRIGA_PASSWORD', '')
-QUADRIGA_ENDPOINT = os.environ.get('QUADRIGA_ENDPOINT', '')
-QUADRIGA_CLIENTID = os.environ.get('QUADRIGA_CLIENTID', 'vogonweb')
-QUADRIGA_PROJECT = os.environ.get('QUADRIGA_PROJECT', 'vogonweb')
-
 BASE_URI_NAMESPACE = u'http://www.vogonweb.net'
-
-# Celery config.
-
-# djcelery.setup_loader()
-# CELERYBEAT_SCHEDULE = {
-#     'accession_ready_relationsets': {
-#         'task': 'annotations.tasks.accession_ready_relationsets',
-#         'schedule': timedelta(minutes=10, seconds=0),
-#     },
-# }
-
-CELERY_TIMEZONE = 'UTC'
 
 GOOGLE_ANALYTICS_ID = os.environ.get('GOOGLE_ANALYTICS_ID', None)
 
@@ -250,11 +224,7 @@ GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN')
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
 
-
-# Session Cookie Settings
 SESSION_COOKIE_NAME = 'vogon'
-SESSION_COOKIE_AGE = 1209600  # 2 weeks (default)
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # Concept types
 PERSONAL_CONCEPT_TYPE = os.environ.get('PERSONAL_CONCEPT_TYPE',
@@ -273,6 +243,7 @@ CONCEPT_TYPES = {
 SUBMIT_WAIT_TIME = {'days': 3, 'hours': 0, 'minutes': 0}
 
 # Giles Credentials
+# Giles and HTTP.
 GILES_ENDPOINT = os.environ.get('GILES_ENDPOINT')
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 GET = requests.get
@@ -298,7 +269,17 @@ ACCOUNT_UNIQUE_EMAIL = True
 
 BASE_URL = os.path.join(os.getenv('BASE_URL', '/'), APP_ROOT)
 
+# Conceptpower Credentials
+CONCEPTPOWER_USERID = os.environ.get('CONCEPTPOWER_USERID', None)
+CONCEPTPOWER_PASSWORD = os.environ.get('CONCEPTPOWER_PASSWORD', None)
+CONCEPTPOWER_ENDPOINT = os.environ.get('CONCEPTPOWER_ENDPOINT')
+CONCEPTPOWER_NAMESPACE = os.environ.get('CONCEPTPOWER_NAMESPACE')
+
+QUADRIGA_ENDPOINT = os.environ.get('QUADRIGA_ENDPOINT')
+
 PAGINATION_PAGE_SIZE = 50
 CITESPHERE_ITEM_PAGE = 50
+
+
 REPOSITORY_TEXT_PAGINATION_PAGE_SIZE = 20
 PROJECT_TEXT_PAGINATION_PAGE_SIZE = 20

@@ -15,7 +15,6 @@ from annotations.display_helpers import get_snippet_relation
 from annotations.forms import UploadFileForm
 from annotations.models import Text, Appellation, RelationSet
 from annotations.utils import basepath
-from annotations.tasks import handle_file_upload
 from annotations.display_helpers import get_appellation_summaries
 
 
@@ -180,45 +179,6 @@ def text(request, textid):
     context = context_data
     return render(request, template, context)
 
-
-#TODO: retire this view.
-@login_required
-def upload_file(request):
-    """
-    Upload a file and save the text instance.
-
-    Parameters
-    ----------
-    request : `django.http.requests.HttpRequest`
-
-    Returns
-    ----------
-    :class:`django.http.response.HttpResponse`
-    """
-
-    project_id = request.GET.get('project', None)
-
-    if request.method == 'POST':
-        form = UploadFileForm(request.POST, request.FILES)
-        form.fields['project'].queryset = form.fields['project'].queryset.filter(ownedBy_id=request.user.id)
-        if form.is_valid():
-
-            text = handle_file_upload(request, form)
-            return HttpResponseRedirect(reverse('text', args=[text.id]) + '?mode=annotate')
-    else:
-        form = UploadFileForm()
-
-        form.fields['project'].queryset = form.fields['project'].queryset.filter(ownedBy_id=request.user.id)
-        if project_id:
-            form.fields['project'].initial = project_id
-
-    template = "annotations/upload_file.html"
-    context = {
-        'user': request.user,
-        'form': form,
-        'subpath': settings.SUBPATH,
-    }
-    return render(request, template, context)
 
 
 def texts(request):
