@@ -3,7 +3,7 @@ from django.conf import settings
 from urllib.parse import urlparse
 
 from concepts.models import *
-
+from conceptpower import Conceptpower
 from requests.auth import HTTPBasicAuth
 import requests
 import json
@@ -45,6 +45,8 @@ class ConceptLifecycle(object):
 
     def __init__(self, instance):
         assert isinstance(instance, Concept)
+        self.conceptpower = Conceptpower(endpoint=settings.CONCEPTPOWER_ENDPOINT, namespace=settings.CONCEPTPOWER_NAMESPACE)
+
         self.instance = instance
         self.user = settings.CONCEPTPOWER_USERID
         self.password = settings.CONCEPTPOWER_PASSWORD
@@ -172,7 +174,6 @@ class ConceptLifecycle(object):
         children_queryset.update(merged_with=target)
 
     def add(self):
-        
         """
         Use data from the managed :class:`.Concept` instance to create a new
         native entry in Conceptpower.
@@ -209,26 +210,18 @@ class ConceptLifecycle(object):
         if not pos:
             pos = 'noun'
         try:
-            auth = HTTPBasicAuth(self.user,self.password)
-            url = f"{settings.CONCEPTPOWER_ENDPOINT}concept/add"
-            concept_data = {
-                "word": self.instance.label,
-                "pos": pos,
-                "conceptlist": self.DEFAULT_LIST,
-                "description": self.instance.description,
-                "type": concept_type,
-                "equal_to": equal_uri
-            }
-            response = requests.post(url=url, data=json.dumps(concept_data), auth=auth)
-            
-            if response.status_code != requests.codes.ok:
-                raise RuntimeError(response.status_code, response.text)
+            data = self.conceptpower.create(self.user, self.password,
+                                            self.instance.label, pos,
+                                            self.DEFAULT_LIST,
+                                            self.instance.description,
+                                            concept_type,
+                                            equal_to=equal_uri)
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
                                            " concept to Conceptpower:"
                                            " %s" % str(E))
         if not self.is_created:
-            target = ConceptLifecycle.create_from_raw(response.json()).instance
+            target = ConceptLifecycle.create_from_raw(data).instance
             self.instance.merged_with = target
             self.instance.concept_state = Concept.MERGED
         else:
@@ -253,23 +246,14 @@ class ConceptLifecycle(object):
         if not q:
             return []
         try:
-            url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
             parameters = {
                 'word': q,
                 'pos': None,
             }
             headers = {
-                'Accept': 'application/json',
+                    'Accept': 'application/json',
             }
-            response = requests.get(url, headers=headers, params=parameters)
-            
-            if response.status_code == 200:
-                data = response.json()
-                concepts = []
-                if 'conceptEntries' in data:
-                    for concept_entry in data['conceptEntries']:
-                        concept = self.parse_concept(concept_entry)
-                        concepts.append(concept)
+            concepts = self.conceptpower.search(params=parameters, headers=headers)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
         return concepts if not equals else equals
@@ -285,21 +269,13 @@ class ConceptLifecycle(object):
             A list of dicts with raw data from Conceptpower.
         """
         try:
-            url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
             parameters = {
                 'equal_to': self.instance.uri
             }
             headers = {
                 'Accept': 'application/json',
             }
-            response = requests.get(url, headers=headers, params=parameters)
-            if response.status_code == 200:
-                data = response.json()
-                concepts = []
-                if 'conceptEntries' in data:
-                    for concept_entry in data['conceptEntries']:
-                        concept = self.parse_concept(concept_entry)
-                        concepts.append(concept)
+            concepts = self.conceptpower.search(params=parameters, headers=headers)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
         return list(concepts)   
