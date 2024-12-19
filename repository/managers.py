@@ -212,17 +212,15 @@ class RepositoryManager:
 
            # Extract plain text from Giles extracted text if available
             extracted_text = upload.get('extractedText', {})
-            if extracted_text and extracted_text['content-type'] == 'text/plain':
+            if extracted_text and extracted_text.get('content-type') == 'text/plain':
                 text_content = get_giles_document_details(self.user, extracted_text['id'])
                 if text_content is None:
                     raise CitesphereAPIError(message="Failed to fetch document text from Giles, please try again later.", error_code="GILES_TEXT_ERROR", details="Failed to fetch document text from Giles")
     
             # Extract plain text from upload file if available
-            elif upload.get('uploadedFile')['content-type'] == 'text/plain' and upload.get('uploadedFile')['id']:
-                plain_text_content = get_giles_document_details(self.user, upload.get('uploadedFile')['id'])
-                if plain_text_content is not None:
-                    text_content += plain_text_content
-                else:
+            elif upload.get('uploadedFile').get('content-type') == 'text/plain' and upload.get('uploadedFile').get('id'):
+                text_content = get_giles_document_details(self.user, upload.get('uploadedFile')['id'])
+                if text_content is None:
                     raise CitesphereAPIError(message="Failed to fetch document text from Giles, please try again later.", error_code="GILES_UPLOAD_PLAIN_TEXT_ERROR", details=f"Failed to fetch text from plain text file {upload.get('uploadedFile')['id']}")
 
             # Fallback to extracting text from pages
