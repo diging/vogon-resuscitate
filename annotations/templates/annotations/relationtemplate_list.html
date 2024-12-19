@@ -108,6 +108,7 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {% if data.templates %}
                     {% for template in data.templates %}
                     <tr class='clickable-row' data-href='{% url 'get_relationtemplate' template.id %}'>
                         <td></td>
@@ -133,6 +134,17 @@
                         </td>
                     </tr>
                     {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center">
+                            {% if all_templates %}
+                                <p>No templates available. You can add new templates <a href="{% url "add_relationtemplate" %}">here</a>.</p>
+                            {% else %}
+                                <p>You have not created any templates yet. Start by adding one by clicking <a href="{% url "add_relationtemplate" %}">here</a> or switch to view all templates.</p>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
