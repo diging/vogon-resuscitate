@@ -298,36 +298,10 @@ class ConceptLifecycle(object):
 
     def get_concept(self, uri):
         try:
-            url = f"{settings.CONCEPTPOWER_ENDPOINT}Concept?id={uri}"
             headers = {
                 'Accept': 'application/json',
             }
-            response = requests.get(url, headers=headers)
-
-            if response.status_code == 200:
-                    data = response.json()
-                    concept_entry = data.get('conceptEntries', [{}])[0]
-            else:
-                raise ValueError(f"Error fetching concept data: {response.status_code}")
+            concept_entry = self.conceptpower.get(uri, headers=headers)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
         return concept_entry
-
-    def parse_concept(self,concept_entry):
-        """
-        Parse a concept and return a dictionary with the required fields.
-        """
-        concept = {}
-        concept['label'] = concept_entry.get('lemma', '')
-        concept['id'] = concept_entry.get('id', '')
-        concept['pos'] = concept_entry.get('pos', '')
-        concept['type'] = concept_entry.get('type','')
-        concept['conceptList'] = concept_entry.get('conceptList', '')
-        concept['uri'] = concept_entry.get('concept_uri', '')
-
-        description = concept_entry.get('description', '')
-        try:
-            concept['description'] = json.loads(f'"{description}"')
-        except json.JSONDecodeError:
-            concept['description'] = description
-        return concept
