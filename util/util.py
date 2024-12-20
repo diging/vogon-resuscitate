@@ -1,3 +1,5 @@
+from annotations.utils import tokenize
+
 def unescape(s):
     return s.replace('&amp;', '&')\
         .replace('&lt;', '<')\
@@ -40,7 +42,6 @@ def correctPosition(position):
     print(escaped[start:end], unescape(escaped)[start_o:end_o])
 
 
-from annotations.tasks import tokenize
 def correctTaggedPosition(position):
     text = position.occursIn
     manager = text.repository.manager(user)

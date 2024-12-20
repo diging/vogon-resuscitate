@@ -11,14 +11,12 @@ from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
 
 from annotations.forms import RepositorySearchForm
-from annotations.tasks import tokenize
 from repository.models import Repository
 from repository.auth import *
 from repository.managers import *
 from annotations.models import Text, TextCollection
 from annotations.annotators import supported_content_types
-from annotations.tasks import tokenize
-from annotations.utils import get_pagination_metadata
+from annotations.utils import get_pagination_metadata, tokenize
 
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
