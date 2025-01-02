@@ -171,8 +171,7 @@ ConceptCreator = {
             error: false,
             submitted: false,
             user: {
-                id: USER_ID,
-                username: USER_NAME
+                id: USER_ID
             },
         }
     },
