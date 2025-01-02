@@ -3,7 +3,7 @@ from django.conf import settings
 from urllib.parse import urlparse
 
 from concepts.models import *
-from conceptpower import Conceptpower
+from concepts.conceptpower import Conceptpower
 from requests.auth import HTTPBasicAuth
 import requests
 import json

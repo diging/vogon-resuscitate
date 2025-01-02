@@ -19,7 +19,7 @@ class Conceptpower:
             self.namespace = kwargs.get(
                "namespace", "{http://www.digitalhps.org/}")
 
-    def search (self, params=None, headers=None):
+    def search(self, params=None, headers=None):
         url = "{0}ConceptSearch".format(self.endpoint)
 
         response = requests.get(url, headers=headers, params=params)
