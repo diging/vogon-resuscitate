@@ -9,8 +9,7 @@ class Conceptpower:
     namespace = None
 
     def __init__(self, **kwargs):
-        # Give first priority to the class definition, if endpoint or namespace
-        #  are defined (and not None).
+        # Give first priority to the class definition, if endpoint or namespace are defined (and not None).
         if self.endpoint is None:
             self.endpoint = kwargs.get(
                 "endpoint", "http://chps.asu.edu/conceptpower/rest/")

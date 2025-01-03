@@ -116,6 +116,7 @@ def concept(request, concept_id):
 
 @staff_member_required
 def add_concept(request, concept_id):
+
     concept = get_object_or_404(Concept, pk=concept_id)
     manager = ConceptLifecycle(concept)
     next_page = request.GET.get('next', reverse('concepts'))
@@ -135,6 +136,7 @@ def add_concept(request, concept_id):
             return HttpResponse("Conceptpower is causing all kinds of problems"
                                 " right now: %s" % str(E), status=500)
         return HttpResponseRedirect(next_page)
+
 
     candidates = manager.get_similar()
     matches = manager.get_matching()
