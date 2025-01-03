@@ -378,7 +378,7 @@ def merge_concepts(modeladmin, request, queryset):
 class ConceptAdmin(admin.ModelAdmin):
     model = Concept
     search_fields = ('label',)
-    list_display = ('label', 'description', 'concept_state', 'typed',)
+    list_display = ('label', 'description', 'concept_state', 'typed', 'createdBy',)
     actions = (merge_concepts, approve_concepts, add_concepts_to_conceptpower,
                resolve)
     list_filter = ('concept_state', 'typed',)
