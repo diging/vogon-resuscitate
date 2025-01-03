@@ -48,7 +48,6 @@ def type(request, type_id):
     return render(request, template, context)
 
 
-@staff_member_required
 def approve_concept(request, concept_id):
     """
 
@@ -81,7 +80,6 @@ def approve_concept(request, concept_id):
     return render(request, 'annotations/concept_approve.html', context)
 
 
-@staff_member_required
 def merge_concepts(request, source_concept_id):
     source = get_object_or_404(Concept, pk=source_concept_id)
     manager = ConceptLifecycle(source)
@@ -97,8 +95,11 @@ def concepts(request):
     """
     List all concepts.
     """
-    qs = Concept.objects.filter(appellation__isnull=False).distinct('id').order_by('-id')
-
+    qs = None
+    if request.user.is_admin:
+        qs = Concept.objects.filter(appellation__isnull=False).distinct('id').order_by('-id')
+    else:
+        qs = Concept.objects.filter(appellation__isnull=False, createdBy=request.user).distinct('id').order_by('-id')
     filtered = ConceptFilter(request.GET, queryset=qs)
     qs = filtered.qs
 
@@ -148,7 +149,6 @@ def concept(request, concept_id):
 
 
 
-@staff_member_required
 def add_concept(request, concept_id):
 
     concept = get_object_or_404(Concept, pk=concept_id)
@@ -183,7 +183,6 @@ def add_concept(request, concept_id):
     return render(request, "annotations/concept_add.html", context)
 
 
-@staff_member_required
 def edit_concept(request, concept_id):
     from concepts.forms import ConceptForm
 

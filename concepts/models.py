@@ -61,6 +61,8 @@ class Concept(HeritableObject):
     merged_with = models.ForeignKey('Concept', related_name='merged_concepts',
                                     **optional, on_delete=models.CASCADE)
 
+    createdBy = models.ForeignKey('annotations.VogonUser', on_delete=models.CASCADE, null=True, blank=True)
+    
     @property
     def typed_label(self):
         if self.typed:
