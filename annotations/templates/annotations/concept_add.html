@@ -78,7 +78,7 @@
     {% endif %}
 
     <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
-    <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Approve{% endif %}</a>
+    <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}</a>
 </div>
 
 
