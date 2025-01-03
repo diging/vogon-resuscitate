@@ -211,12 +211,9 @@ ConceptCreator = {
             this.submitted = false;
         },
         createConcept: function () {
-            console.log("In concept");
             if (this.ready) {
                 this.submitted = true; // Immediately prevent further submissions.
                 self = this;
-                console.log("Creating concept");
-                console.log(this.user.id);
                 Concept.save({
                     uri: 'generate',
                     label: "this.label",
