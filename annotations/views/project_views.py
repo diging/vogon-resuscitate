@@ -8,60 +8,94 @@ from django.urls import reverse
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, HttpResponseRedirect
-from django.contrib.auth import login, authenticate
 from django.conf import settings
-from django.db.models import Q, Count
+from django.db.models import Q
 
-from annotations.models import TextCollection, RelationSet
+from annotations.models import TextCollection, VogonUser
 from annotations.forms import ProjectForm
 
+from django.contrib import messages
+from django.http import Http404
 
+from annotations.utils import get_ordering_metadata, get_user_project_stats, _annotate_project_counts
+
+@login_required
 def view_project(request, project_id):
     """
-    Shows details about a specific project owned by the current user.
+    Displays detailed information about a specific project that the current user has access to.
+
+    **Note:** 
+    - In the backend, projects are represented by the `TextCollection` model.
+    - In the UI and throughout the views, the term "project" is used to refer to instances of `TextCollection`.
+
+    This view retrieves a project based on the provided `project_id`, ensuring that the user
+    is either the owner or a collaborator of the project. It then gathers necessary data
+    such as texts within the project, applies ordering, handles pagination, and collects
+    statistics for both the owner and collaborators. Finally, it renders the project details
+    using the specified template.
 
     Parameters
     ----------
-    request : `django.http.requests.HttpRequest`
+    request : django.http.HttpRequest
+        The HTTP request object containing user information and query parameters.
     project_id : int
+        The unique identifier of the project to be viewed.
+
+    Raises
+    ------
+    PermissionDenied
+        If the current user is neither the owner nor a collaborator of the project.
+    Http404
+        If the project with the given `project_id` does not exist.
 
     Returns
-    ----------
-    :class:`django.http.response.HttpResponse`
+    -------
+    django.http.HttpResponse
+        The rendered project details page.
     """
+    # Retrieve the project with annotated counts (e.g., number of texts, relations, collaborators)
+    # The `_annotate_project_counts` function adds additional metadata to the queryset for efficiency
+    # the model is named `TextCollection` in the backend, it represents a "project" in the UI
+    project = get_object_or_404(
+        _annotate_project_counts(TextCollection.objects),
+        pk=project_id
+    )
 
-    project = get_object_or_404(TextCollection, pk=project_id)
+    # Check if user is owner or collaborator
+    if not (request.user == project.ownedBy or request.user in project.collaborators.all()):
+        raise PermissionDenied("Oops! Looks like you're trying to sneak a peek into someone else's project.")
+
     template = "annotations/project_details.html"
 
-    order_by = request.GET.get('order_by', 'title')
-    texts = project.texts.all().order_by(order_by)\
-                         .values('id', 'title', 'added', 'repository_source_id')
+    # Get ordering metadata
+    ordering = get_ordering_metadata(request, default_field='title', allowed_fields=['title', 'added'])
 
-    
-    paginator = Paginator(texts, 15)
+    # Apply ordering
+    texts = project.texts.all().order_by(ordering['order_param'])\
+                         .values('id', 'title', 'added')
+
+    paginator = Paginator(texts, settings.PROJECT_TEXT_PAGINATION_PAGE_SIZE)
     page = request.GET.get('page')
     try:
         texts = paginator.page(page)
     except PageNotAnInteger:
-        # If page is not an integer, deliver first page.
         texts = paginator.page(1)
     except EmptyPage:
-        # If page is out of range (e.g. 9999), deliver last page of results.
         texts = paginator.page(paginator.num_pages)
 
-    from annotations.filters import RelationSetFilter
-
-    # for now let's remove this; it takes long to load the pages and there is a bug somewhere
-    # that throws an error sometimes [VGNWB-215]
-    #filtered = RelationSetFilter({'project': project.id}, queryset=RelationSet.objects.all())
-    #relations = filtered.qs
+    # Get owner and collaborator stats
+    owner_stats = get_user_project_stats(project.ownedBy, project)
+    collaborator_stats = [get_user_project_stats(collaborator, project) for collaborator in project.collaborators.all()]
 
     context = {
         'user': request.user,
         'title': project.name,
         'project': project,
+        'owner_stats': owner_stats,
+        'collaborator_stats': collaborator_stats,
         'texts': texts,
-        # 'relations': relations,
+        'order_by': ordering['order_by'],
+        'DEFAULT_USER_IMAGE': settings.DEFAULT_USER_IMAGE,
     }
 
     return render(request, template, context)
@@ -143,7 +177,7 @@ def create_project(request):
     }
     return render(request, template, context)
 
-
+@login_required
 def list_projects(request):
     """
     All known projects.
@@ -160,17 +194,22 @@ def list_projects(request):
 
     fields = [
         'id',
-        'name',
+        'name', 
         'created',
         'ownedBy__id',
         'ownedBy__username',
         'description',
         'num_texts',
         'num_relations',
+        'num_collaborators',
     ]
-    qs = TextCollection.objects.all()
-    qs = qs.annotate(num_texts=Count('texts'),
-                     num_relations=Count('texts__relationsets'))
+    
+    # Get projects where user is owner or collaborator, and distinct to avoid duplicates
+    qs = TextCollection.objects.filter(
+        Q(ownedBy=request.user) | Q(collaborators=request.user)
+    ).distinct()
+    
+    qs = _annotate_project_counts(qs)
     qs = qs.values(*fields)
 
     template = "annotations/project_list.html"
@@ -178,5 +217,91 @@ def list_projects(request):
         'user': request.user,
         'title': 'Projects',
         'projects': qs,
+        'redirect_to_text_import': False,
     }
+
+    # Check if the user is redirected from the repository text import view, this will be used to select the project for the text import
+    if request.GET.get('redirect_to_text_import'):
+        repository_id = request.GET.get('repository_id')
+        group_id = request.GET.get('group_id')
+        text_key = request.GET.get('text_key')
+
+        context.update({
+            'redirect_to_text_import': True,
+            'repository_id': repository_id,
+            'group_id': group_id,
+            'title': 'Select a Project for to import this text:',
+            'text_key': text_key
+        })
+
     return render(request, template, context)
+
+
+@login_required
+def add_collaborator(request, project_id):
+    """
+    Add a collaborator to a project. Only the project owner can add collaborators.
+    
+    Parameters
+    ----------
+    project_id : int
+        ID of the project to add collaborator to
+    request : django.http.requests.HttpRequest
+        The request object containing the username of collaborator to add
+        
+    Returns
+    -------
+    django.http.response.HttpResponseRedirect
+        Redirects back to project detail page after adding collaborator
+        
+    Raises
+    ------
+    PermissionDenied
+        If user is not the project owner
+    Http404
+        If project or collaborator username not found
+    """
+    project = get_object_or_404(TextCollection, pk=project_id)
+    if project.ownedBy != request.user:
+        raise PermissionDenied("You do not have permission to add participants.")
+    
+    if request.method == 'POST':
+        collaborator_username = request.POST.get('username')
+        try:
+            collaborator = get_object_or_404(VogonUser, username=collaborator_username)
+            project.collaborators.add(collaborator)
+            project.save()
+            messages.success(request, f'Successfully added {collaborator_username} as a collaborator.', extra_tags='success')
+        except Http404:
+            messages.error(request, f'User {collaborator_username} not found.', extra_tags='danger')
+        return HttpResponseRedirect(reverse('view_project', args=[project_id]))
+
+@login_required
+def remove_collaborator(request, project_id):
+    """
+    Remove a collaborator from a project.
+
+    Parameters
+    ----------
+    project_id : int
+        ID of the project
+    request : `django.http.requests.HttpRequest`
+
+    Returns
+    ----------
+    :class:`django.http.response.HttpResponseRedirect`
+    """
+    project = get_object_or_404(TextCollection, pk=project_id)
+    if project.ownedBy != request.user:
+        raise PermissionDenied("You do not have permission to remove collaborators.")
+
+    if request.method == 'POST':
+        collaborator_username = request.POST.get('username')
+        try:
+            collaborator = get_object_or_404(VogonUser, username=collaborator_username)
+            project.collaborators.remove(collaborator)
+            project.save()
+            messages.success(request, f'Successfully removed {collaborator_username} from the project.')
+        except Http404:
+            messages.error(request, f'User {collaborator_username} not found.')
+        return HttpResponseRedirect(reverse('view_project', args=[project_id]))

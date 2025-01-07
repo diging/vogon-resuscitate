@@ -296,6 +296,8 @@ class TextCollection(models.Model):
     description = models.TextField()
 
     ownedBy = models.ForeignKey(VogonUser, related_name='collections', on_delete=models.CASCADE)
+    collaborators = models.ManyToManyField(VogonUser, related_name='collaborations', blank=True)
+
     texts = models.ManyToManyField('Text', related_name='partOf',
                                    blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True)
@@ -324,7 +326,6 @@ class TextCollection(models.Model):
 #     source_id = models.IntegerField(default=-1, blank=True, null=True)
 #     original_uri = models.CharField(max_length=255, unique=True)
 #
-
 
 class Text(models.Model):
     """
@@ -411,7 +412,18 @@ class Text(models.Model):
     """
 
     def get_absolute_url(self):
-        return reverse('annotate', args=[self.id])
+        """Get the absolute URL for viewing/annotating this text."""
+
+        project = self.partOf.filter(
+            models.Q(ownedBy=self.addedBy) | 
+            models.Q(participants=self.addedBy)
+        ).first()  # Get first project where user either owns or participates in
+
+        if project is None:
+            return None
+        
+        return reverse('annotate', kwargs={'text_id': self.id, 'project_id': project.id})
+        
 
 
     @property

@@ -152,7 +152,7 @@ ConceptCreator = {
                    </div>
                    <div v-if="ready()" class="clearfix">
                        <div class="pull-right btn-group">
-                           <a v-if="ready" class="btn btn-success btn-xs" v-on:click="createConcept">
+                           <a v-if="ready" class="btn btn-success btn-xs" v-on:click="createConcept" data-tooltip="Create concept">
                                 Create <span class="glyphicon glyphicon-grain"></span>
                            </a>
                            <span v-if="submitted" class="btn glyphicon glyphicon-hourglass"></span>
@@ -276,7 +276,7 @@ DateAppellationCreator = {
                         <input v-model="year" type="number" class="form-control input-sm" placeholder="YYYY" min="-9999" max="9999">
                         <input v-model="month" type="number" class="form-control input-sm" placeholder="MM" min="-100" max="12">
                         <input v-model="day" type="number" class="form-control input-sm" placeholder="DD" min="-100" max="31">
-                        <a v-if="ready()" v-on:click="createAppellation" class="btn btn-sm btn-success">Create</a>
+                        <a v-if="ready()" v-on:click="createAppellation" class="btn btn-sm btn-success" data-tooltip="Create date appellation">Create</a>
                     </div>
                     <div>
                         <a v-on:click="cancel" class="btn btn-xs btn-danger">Cancel</a>
@@ -620,7 +620,7 @@ RelationField = {
                             :id="'relation-part-' + field.part_id"
                             v-bind:placeholder="inputPlaceholder()" />
                         <span class="input-group-btn">
-                            <button v-if="selection == null"
+                            <a v-if="selection == null"
                                 v-on:click="listen"
                                 v-bind:class="{
                                         btn: true,
@@ -628,17 +628,20 @@ RelationField = {
                                         'btn-primary': !listening,
                                         'btn-warning': listening,
                                         'btn-default': isBlocked
-                                    }">
+                                    }"
+                                v-bind:data-tooltip="field.type === 'CO' ? 'Select text. Press ESC to cancel.' : (field.type === 'DT' ? 'Select the date for this relation.' : 'Select text or existing appellation. Press ESC to cancel.')">
+
                                 &nbsp;<span v-if="field.type == 'TP'" class=" glyphicon glyphicon-edit"></span>
                                 <i v-if="field.type == 'CO'" class="fa fa-i-cursor" aria-hidden="true"></i>
                                 <span v-if="field.type == 'DT'" class=" glyphicon glyphicon-calendar"></span>
-                            </button>
-                            <button
+                            </a>
+                            <a
                                 v-else
                                 v-on:click="clear"
-                                class="btn btn-sm btn-success">
+                                class="btn btn-sm btn-success"
+                                data-tooltip="Clear selection">
                                 &nbsp;<span class="glyphicon glyphicon-ok"></span>
-                            </button>
+                            </a>
                         </span>
                     </div>
                </div>`,
@@ -824,7 +827,8 @@ RelationDateAssignment = {
                                 'btn-xs': true,
                                 'btn-success': !collectStarted,
                                 'btn-danger': collectStarted
-                            }">
+                            }"
+                            v-bind:data-tooltip="collectStarted ? 'Cancel' : 'Select the start date for this relation'">
                             <span v-bind:class="{
                                     'glyphicon': true,
                                     'glyphicon-calendar': !collectStarted,
@@ -836,7 +840,8 @@ RelationDateAssignment = {
                                 'btn-xs': true,
                                 'btn-success': !collectOccurred,
                                 'btn-danger': collectOccurred
-                            }">
+                            }"
+                            v-bind:data-tooltip="collectOccurred ? 'Cancel' : 'Select the date when this relation occurred'">
                             <span v-bind:class="{
                                     'glyphicon': true,
                                     'glyphicon-calendar': !collectOccurred,
@@ -849,7 +854,8 @@ RelationDateAssignment = {
                                 'btn-xs': true,
                                 'btn-success': !collectEnded,
                                 'btn-danger': collectEnded
-                            }">
+                            }"
+                            v-bind:data-tooltip="collectEnded ? 'Cancel' : 'Select the end date for this relation'">
                             <span v-bind:class="{
                                     'glyphicon': true,
                                     'glyphicon-calendar': !collectEnded,
@@ -936,7 +942,7 @@ RelationCreator = {
                     </div>
                     <div class="clearfix">
                         <div v-if="ready" class="pull-right">
-                            <a v-on:click="create" class="btn btn-xs btn-success">Create</a>
+                            <a v-on:click="create" class="btn btn-xs btn-success" data-tooltip="Create relation">Create</a>
                         </div>
                         <div>
                             <a v-on:click="cancel" class="btn btn-xs btn-danger">Cancel</a>
@@ -1059,7 +1065,7 @@ RelationTemplateSelector = {
                                 v-model="query"
                                 placeholder="Search for a relation template..." />
                             <div class="input-group-btn">
-                                <a v-on:click="search" class="btn btn-sm btn-success">
+                                <a v-on:click="search" class="btn btn-sm btn-success" data-tooltip="Search relation templates">
                                     &nbsp;<span v-if="!searching" class="glyphicon glyphicon-search"></span>
                                     <span v-if="searching" class="glyphicon glyphicon-hourglass"></span>
                                 </a>
@@ -1539,8 +1545,8 @@ Appellator = new Vue({
             this.selected_relation = relation;
             this.selected = null;
             this.relations.forEach(function (r) {
-                r.selected = (r.id == relation.id);
-            });
+                this.$set(r, 'selected', (r.id == relation.id));
+            }, this);
             var appellation_ids = relation.appellations.map(function (appellation) {
                 return appellation.id;
             });
