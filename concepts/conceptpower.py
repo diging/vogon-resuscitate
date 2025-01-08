@@ -11,31 +11,31 @@ class Conceptpower:
     def __init__(self, **kwargs):
         # Give first priority to the class definition, if endpoint or namespace are defined (and not None).
         if self.endpoint is None:
-            self.endpoint = kwargs.get(
-                "endpoint", "http://chps.asu.edu/conceptpower/rest/")
+            self.endpoint = kwargs.get("endpoint")
 
         if self.namespace is None:
-            self.namespace = kwargs.get(
-               "namespace", "{http://www.digitalhps.org/}")
+            self.namespace = kwargs.get("namespace")
 
     def search(self, params=None, headers=None):
         url = "{0}ConceptSearch".format(self.endpoint)
 
         response = requests.get(url, headers=headers, params=params)
         concepts = []
-        if response.status_code == 200:
+        if response.status_code == requests.codes.ok:
                 data = response.json()
                 if 'conceptEntries' in data:
                     for concept_entry in data['conceptEntries']:
                         concept = self.parse_concept(concept_entry)
                         concepts.append(concept)
+        else:
+            raise ValueError(f"Error searching Conceptpower: {response.status_code}")
         return concepts
 
     def get(self, uri, headers):
         url = "{0}Concept?id={1}".format(self.endpoint, uri)
         response = requests.get(url, headers=headers)
         data = {}
-        if response.status_code == 200:
+        if response.status_code == requests.codes.ok:
             data = response.json()
             concept_entry = data.get('conceptEntries', [{}])[0]
         else:
