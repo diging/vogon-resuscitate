@@ -76,7 +76,7 @@ class ConceptSerializer(serializers.ModelSerializer):
     class Meta:
         model = Concept
         fields = ('id', 'url', 'uri', 'label', 'authority', 'typed',
-                  'description', 'pos', 'resolved', 'typed_label')
+                  'description', 'pos', 'resolved', 'typed_label', 'createdBy')
 
 
 class AppellationSerializer(serializers.ModelSerializer):
