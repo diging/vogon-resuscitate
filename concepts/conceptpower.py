@@ -70,6 +70,51 @@ class Conceptpower:
     def parse_concept(self,concept_entry):
         """
         Parse a concept and return a dictionary with the required fields.
+
+        Args:
+            concept_entry (dict): A dictionary representing a concept entry from the ConceptPower API. 
+            Example:
+            {
+                "id": "CONcQyweoHkr156",
+                "lemma": "kingdom",
+                "pos": "NOUN",
+                "description": "a domain in which something is dominant",
+                "conceptList": "list1",
+                "type": {
+                    "type_id": "52cbe154-1ee7-4ee1-861f-67fb3c7d9511",
+                    "type_uri": "http://www.digitalhps.org/types/TYPE_52cbe154-1ee7-4ee1-861f-67fb3c7d9511",
+                    "type_name": "test type"
+                },                
+                "deleted": false,
+                "concept_uri": "http://www.digitalhps.org/concepts/CONcQyweoHkr156",
+                "creator_id": "user1",
+                "equal_to": "",
+                "modified_by": "",
+                "similar_to": "",
+                "synonym_ids": "",
+                "wordnet_id": "WID-12504805-N-01-kingdom",
+                "alternativeIds": [
+                    { "concept_id": "CONcQyweoHkr156", "concept_uri": "http://www.digitalhps.org/concepts/CONcQyweoHkr156" },
+                    { "concept_id": "WID-12504805-N-01-kingdom", "concept_uri": "http://www.digitalhps.org/concepts/WID-12504805-N-01-kingdom" }
+                ]
+            }
+
+        Returns:
+            dict: A dictionary containing the parsed concept details with the required fields. 
+            Example:
+            {
+                "id": "CONcQyweoHkr056",
+                "label": "kingdom",
+                "pos": "NOUN",
+                "type": {
+                    "type_id": "52cbe154-1ee7-4ee1-861f-67fb3c7d9511",
+                    "type_uri": "http://www.digitalhps.org/types/TYPE_52cbe154-1ee7-4ee1-861f-67fb3c7d9511",
+                    "type_name": "test type"
+                },
+                "conceptList": "list1",
+                "uri": "http://www.digitalhps.org/concepts/CONcQyweoHkr056",
+                "description": "a domain in which something is dominant"
+            }
         """
         concept = {}
         concept['label'] = concept_entry.get('lemma', '')
