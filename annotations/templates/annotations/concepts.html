@@ -106,7 +106,7 @@
         <div class="list-group-item">
             <div class="pull-right">
                 <div class="btn-group">
-                    <a class="btn btn-xs btn-default glyphicon {% if concept_state  == concept.PENDING %}glyphicon-hourglass{% elif concept_state  == concept.REJECTED %}glyphicon-thumbs-down{% elif concept_state  == concept.MERGED %}glyphicon-arrow-right{% elif concept_state  == concept.APPROVED %}glyphicon-thumbs-up{% else %}glyphicon-ok-circle{% endif %}"
+                    <a class="btn btn-xs btn-default glyphicon {% if concept_state  == concept.PENDING %}glyphicon-hourglass{% elif concept_state  == concept.REJECTED %}glyphicon-thumbs-down{% elif concept_state  == concept.MERGED %}glyphicon-arrow-right{% elif concept_state  == concept.RESOLVED %}glyphicon-thumbs-up{% else %}glyphicon-ok-circle{% endif %}"
                         data-toggle="tooltip"
                         data-placement="left"
                         data-container="body"
@@ -116,7 +116,7 @@
                         ></a>
                 </div>
                 <div class="btn-group">
-                    {% if concept_state  == concept.PENDING and concept|is_conceptpower_namespaced is not True %}<a style="top: 1;" href="{% url "approve_concept" concept.id %}?next={{ path }}" class="btn btn-xs btn-success">Approve</a>{% endif %}
+                    {% if concept_state  == concept.PENDING and concept|is_conceptpower_namespaced is not True %}<a style="top: 1;" href="{% url "add_concept" concept.id %}?next={{ path }}" class="btn btn-xs btn-success">Resolve</a>{% endif %}
                     {% if concept_state  == concept.APPROVED %}{% if concept.typed %}<a style="top: 1;" href="{% url "add_concept" concept.id %}?next={{ path }}" class="btn btn-xs btn-success">Add</a>{% else %}<a href="{% url "edit_concept" concept.id %}?next={{ path }}" class="btn btn-xs btn-primary">Set Type</a>{% endif %}{% endif %}
                 </div>
             </div>

@@ -212,7 +212,7 @@ ConceptCreator = {
                 self = this;
                 Concept.save({
                     uri: 'generate',
-                    label: "this.label",
+                    label: this.name,
                     description: this.description,
                     pos: this.pos,
                     typed: this.concept_type
@@ -461,8 +461,7 @@ AppellationCreator = {
                         <span class="appellation-creator-representation">{{ position.representation }}</span>
                     </div>
                     <div v-if="concept != null" class="text-warning">
-                        {{ getConceptLabel() }}
-                        <span v-if="concept.authority != null">({{ concept.authority.name }})</span>
+                        <span v-if="concept.label != null">{{ concept.label }}</span>
                     </div>
 
                    <div v-if="isSaving()" style="position: absolute; top: 0px;">
