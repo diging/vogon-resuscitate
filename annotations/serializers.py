@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from annotations.models import VogonUser
+from annotations.utils import tokenize
 from .models import *
 from concepts.models import Concept, Type
 
@@ -122,7 +123,7 @@ class RelationSetSerializer(serializers.ModelSerializer):
         model = RelationSet
         fields = ('id', 'label', 'created', 'template', 'createdBy',
                   'occursIn', 'appellations', 'concepts', 'project',
-                  'representation', 'date_appellations')  #
+                  'representation', 'date_appellations', 'status')  #
 
 
 class TemporalBoundsSerializer(serializers.ModelSerializer):
