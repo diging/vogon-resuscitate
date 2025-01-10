@@ -21,4 +21,4 @@ exec gunicorn ${DJANGO_WSGI_MODULE}:application \
   --workers $NUM_WORKERS \
   --bind=0.0.0.0:8000 \
   --log-level=info \
-  --log-file=-
+  --log-file=/vogon/logs/gunicorn_access.log
