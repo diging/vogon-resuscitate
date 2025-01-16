@@ -20,12 +20,16 @@ from annotations.annotators import supported_content_types
 from annotations.tasks import tokenize
 from annotations.utils import get_pagination_metadata
 
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+
 from urllib.parse import urlparse, parse_qs
 from urllib.parse import urlencode
 from external_accounts.utils import parse_iso_datetimes
 
 from external_accounts.decorators import citesphere_authenticated
 from annotations.utils import get_pagination_metadata
+
+import traceback
 
 def _get_params(request):
     # The request may include parameters that should be passed along to the
@@ -77,7 +81,14 @@ def repository_collections(request, repository_id):
     manager = RepositoryManager(user=request.user, repository=repository)
     project_id = request.GET.get('project_id')
 
-    collections = manager.groups()  # Fetch collections
+    try:
+        collections = manager.groups()  # Fetch collections
+    except CitesphereAPIError as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     context = {
         'collections': collections,
@@ -100,12 +111,16 @@ def repository_collection(request, repository_id, group_id):
     page = int(request.GET.get('page', 1))
     
     try:
-        response_data = manager.collections(groupId=group_id)
+        response_data = manager.collections(group_id=group_id)
         group_info = response_data.get('group')
         collections = response_data.get('collections', [])
-        group_texts =  manager.group_items(groupId=group_id, page=page)
-    except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+        group_texts = manager.group_items(group_id=group_id, page=page)
+    except CitesphereAPIError as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     project_id = request.GET.get('project_id')
     
@@ -133,7 +148,6 @@ def repository_collection(request, repository_id, group_id):
     return render(request, 'annotations/repository_collection.html', context)
 
 
-
 @citesphere_authenticated
 def repository_browse(request, repository_id):
     params = _get_params(request)
@@ -143,8 +157,12 @@ def repository_browse(request, repository_id):
     project_id = request.GET.get('project_id')
     try:
         resources = manager.list(**params)
-    except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+    except CitesphereAPIError as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     base_url = reverse('repository_browse', args=(repository_id,))
     base_params = {}
@@ -158,7 +176,6 @@ def repository_browse(request, repository_id):
         'manager': manager,
         'title': 'Browse repository %s' % repository.name,
         'project_id': project_id,
-        'manager': manager,
         'resources': resources['resources'],
     }
     previous_page, next_page = _get_pagination(resources, base_url, base_params)
@@ -168,7 +185,6 @@ def repository_browse(request, repository_id):
         context.update({'previous_page': previous_page})
 
     return render(request, 'annotations/repository_browse.html', context)
-
 
 
 @citesphere_authenticated
@@ -219,22 +235,43 @@ def repository_list(request):
 @citesphere_authenticated
 def repository_details(request, repository_id):
     template = "annotations/repository_details.html"
-    user = None if isinstance(request.user, AnonymousUser) else request.user
     repository = get_object_or_404(Repository, pk=repository_id)
+    user = None if isinstance(request.user, AnonymousUser) else request.user
 
-    texts = repository.texts.all().order_by('-added')
+    texts_by_project = {}
+
+    # Get projects where user is owner or collaborator
+    user_collections = TextCollection.objects.filter(
+        Q(ownedBy=user) | Q(collaborators=user)
+    ).distinct()
+
+    for collection in user_collections:
+        # Filter texts within each collection that belong to the repository
+        collection_texts = collection.texts.filter(repository=repository).order_by('-added')
+        if collection_texts.exists():
+            paginator = Paginator(collection_texts, settings.REPOSITORY_TEXT_PAGINATION_PAGE_SIZE)
+            try:
+                paginated_texts = paginator.page(request.GET.get('page', 1))
+            except PageNotAnInteger:
+                paginated_texts = paginator.page(1)
+            except EmptyPage:
+                paginated_texts = paginator.page(paginator.num_pages)
+            texts_by_project[collection] = paginated_texts
+
     manager = RepositoryManager(user=user, repository=repository)
-    project_id = request.GET.get('project_id')
+
     context = {
         'user': user,
         'repository': repository,
         'manager': manager,
-        'title': 'Repository details: %s' % repository.name,
-        'texts':texts,
-        'project_id': project_id,
+        'title': f'Repository details: {repository.name}',
+        'texts_by_project': texts_by_project,
+        'project_id': request.GET.get('project_id'),
+        'page': request.GET.get('page', 1),
     }
 
     return render(request, template, context)
+
 
 @citesphere_authenticated
 def repository_collection_texts(request, repository_id, group_id, group_collection_id):
@@ -247,8 +284,12 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
     try:
         texts = manager.collection_items(group_id, group_collection_id, page=page)
-    except Exception as e:
+    except CitesphereAPIError as e:
+        print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     # retrieve items per page from settings and calculate pagination metadata from util function
     items_per_page = settings.PAGINATION_PAGE_SIZE
@@ -272,19 +313,28 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
 
 @citesphere_authenticated
-def repository_text_import(request, repository_id, group_id, text_key):
+def repository_text_import(request, repository_id, group_id, text_key, project_id=None):
+
+    if not project_id:
+        return redirect(f"{reverse('list_projects')}?redirect_to_text_import=True&repository_id={repository_id}&group_id={group_id}&text_key={text_key}")
+
+    # Retrieve the project directly using project_id from the URL
+    project = get_object_or_404(TextCollection, pk=project_id)
+    
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=request.user, repository=repository)
 
     try:
         result = manager.item(group_id, text_key)
-    except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+    except CitesphereAPIError as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
-    # Extracting item details and Giles details from the result
     item_details = result.get('item', {}).get('details', {})
     giles_text = result.get('item', {}).get('text', [])
-
     tokenized_content = tokenize(giles_text)
 
     defaults = {
@@ -292,7 +342,7 @@ def repository_text_import(request, repository_id, group_id, text_key):
         'content_type': 'text/plain',  # Explicitly set to 'text/plain'
         'tokenizedContent': tokenized_content,
         'repository': repository,
-        'repository_source_id':repository_id,
+        'repository_source_id': repository_id,
         'addedBy': request.user,
         #Parse date provides a list however we only provide one date, hence will provide only one date
         'created': parse_iso_datetimes([item_details.get('addedOn')])[0],
@@ -306,16 +356,12 @@ def repository_text_import(request, repository_id, group_id, text_key):
 
     master_text.save()
 
-    project_id = request.GET.get('project_id')
-    if project_id and master_text:
-        project = TextCollection.objects.get(pk=project_id)
+    # Add text to project only if it's not already present
+    if not project.texts.filter(pk=master_text.pk).exists():
         project.texts.add(master_text)
-        # Directly redirect to annotation page, skip repository_text view
-        return HttpResponseRedirect(reverse('annotate', args=[master_text.id]) + f'?project_id={project_id}')
 
-    # Directly redirect to annotation page, no need to redirect to repository_text
-    return HttpResponseRedirect(reverse('annotate', args=[master_text.id]))
-
+    # Redirect to the annotation page
+    return HttpResponseRedirect(reverse('annotate', args=[master_text.id, project.id]))
 
 @login_required
 def repository_text_content(request, repository_id, text_id, content_id):
@@ -328,8 +374,12 @@ def repository_text_content(request, repository_id, text_id, content_id):
     try:
         content = manager.content(id=int(content_id))
         resource = manager.resource(id=int(text_id))
-    except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+    except CitesphereAPIError as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
 
     content_type = content.get('content_type', None)
     from annotations import annotators
@@ -339,15 +389,17 @@ def repository_text_content(request, repository_id, text_id, content_id):
         'title': resource.get('title'),
         'created': resource.get('created'),
         'repository': repository,
-        'repository_source_id': text_id,
+        'repository_source_id': repository_id,
         'addedBy': request.user,
     }
     part_of_id = request.GET.get('part_of')
     if part_of_id:
         try:
             master = manager.resource(id=int(part_of_id))
-        except IOError:
-            return render(request, 'annotations/repository_ioerror.html', {}, status=500)
+        except CitesphereAPIError as e:
+            return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+        except Exception as e:
+            return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
         master_resource, _ = Text.objects.get_or_create(uri=master['uri'],
                                                         defaults={
             'title': master.get('title'),
@@ -381,6 +433,7 @@ def repository_text_content(request, repository_id, text_id, content_id):
         'addedBy': request.user,
         'content_type': content_type,
         'part_of': resource_text,
+        'project':project,
         'originalResource': getattr(resource.get('url'), 'value', None),
     }
     text, _ = Text.objects.get_or_create(uri=content['uri'], defaults=defaults)

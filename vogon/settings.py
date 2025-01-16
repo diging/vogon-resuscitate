@@ -11,12 +11,8 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 """
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-import os, sys, requests
+import os
 from urllib.parse  import urlparse
-import socket
-import dj_database_url
-# import djcelery
-from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -50,12 +46,10 @@ INSTALLED_APPS = (
     'allauth.socialaccount',
     'django_inlinecss',
     'concepts',
-    'giles',
     'annotations',
     'external_accounts',
     'rest_framework',
     'corsheaders',
-    'djcelery',
     'repository',
     'oauth2_provider',
 )
@@ -105,11 +99,6 @@ REST_FRAMEWORK = {
 
 WSGI_APPLICATION = 'vogon.wsgi.application'
 
-# Database
-# https://docs.djangoproject.com/en/1.8/ref/settings/#databases
-
-# DATABASES = {'default': dj_database_url.config()}
-# DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql_psycopg2'
 
 DATABASES = {
     'default': {
@@ -123,14 +112,12 @@ DATABASES = {
 }
 
 
-# print DATABASES
-
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend', # default
     'allauth.account.auth_backends.AuthenticationBackend', #Allauth
 )
 
-ACCOUNT_AUTHENTICATED_LOGIN_REDIRECTS =True
+ACCOUNT_AUTHENTICATED_LOGIN_REDIRECTS = True
 ANONYMOUS_USER_ID = -1
 
 # Allauth Email Settings
@@ -168,9 +155,6 @@ SUBPATH = '/'
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Allow all host headers
-ALLOWED_HOSTS = ['*']
-
 # Static asset configuration
 BASE_PATH = os.environ.get('BASE_PATH', '/')
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -180,16 +164,12 @@ STATIC_ROOT = os.environ.get('STATIC_ROOT',
 
 STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'), )
 
-JARS_KEY = '050814a54ac5c81b990140c3c43278031d391676'
 AUTH_USER_MODEL = 'annotations.VogonUser'
 
 es = urlparse(os.environ.get('SEARCHBOX_URL') or 'http://127.0.0.1:9200/')
 port = es.port or 80
 
-# AWS Access Key and Secret Key credentials
-AWS_ACCESS_KEY = os.environ.get('AWS_ACCESS_KEY', None)
-AWS_SECRET_KEY = os.environ.get('AWS_SECRET_KEY', None)
-S3_BUCKET = 'vogonweb-test'
+# User profile default image
 DEFAULT_USER_IMAGE = 'https://s3-us-west-2.amazonaws.com/vogonweb-test/defaultprofile.png'
 
 TEMPORAL_PREDICATES = {
@@ -216,8 +196,8 @@ CACHES = {
     }
 }
 
-CONCEPTPOWER_USERID = os.environ.get('CONCEPTPOWER_USERID', None)
-CONCEPTPOWER_PASSWORD = os.environ.get('CONCEPTPOWER_PASSWORD', None)
+CONCEPTPOWER_USERID = os.environ.get('CONCEPTPOWER_USERID')
+CONCEPTPOWER_PASSWORD = os.environ.get('CONCEPTPOWER_PASSWORD')
 CONCEPTPOWER_ENDPOINT = os.environ.get('CONCEPTPOWER_ENDPOINT')
 CONCEPTPOWER_NAMESPACE = os.environ.get('CONCEPTPOWER_NAMESPACE')
 
@@ -229,24 +209,9 @@ QUADRIGA_PROJECT = os.environ.get('QUADRIGA_PROJECT', 'vogonweb')
 
 BASE_URI_NAMESPACE = u'http://www.vogonweb.net'
 
-# Celery config.
-
-# djcelery.setup_loader()
-# CELERYBEAT_SCHEDULE = {
-#     'accession_ready_relationsets': {
-#         'task': 'annotations.tasks.accession_ready_relationsets',
-#         'schedule': timedelta(minutes=10, seconds=0),
-#     },
-# }
-
-CELERY_TIMEZONE = 'UTC'
-
 GOOGLE_ANALYTICS_ID = os.environ.get('GOOGLE_ANALYTICS_ID', None)
 
 VERSION = '0.4'
-
-GOAT = os.environ.get('GOAT', 'http://127.0.0.1:8000')
-GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN')
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
 
@@ -270,16 +235,9 @@ CONCEPT_TYPES = {
     'viaf:geographic': GEOGRAPHIC_CONCEPT_TYPE,  # E53 Place
 }
 
-SUBMIT_WAIT_TIME = {'days': 3, 'hours': 0, 'minutes': 0}
-
 # Giles Credentials
 GILES_ENDPOINT = os.environ.get('GILES_ENDPOINT')
-IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
-GET = requests.get
-POST = requests.post
-GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
-GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
-MAX_GILES_UPLOADS = 20
+
 
 CONCEPT_URI_PREFIXES = [
     'http://www.digitalhps.org/',
@@ -299,5 +257,6 @@ ACCOUNT_UNIQUE_EMAIL = True
 BASE_URL = os.path.join(os.getenv('BASE_URL', '/'), APP_ROOT)
 
 PAGINATION_PAGE_SIZE = 50
-
 CITESPHERE_ITEM_PAGE = 50
+REPOSITORY_TEXT_PAGINATION_PAGE_SIZE = 20
+PROJECT_TEXT_PAGINATION_PAGE_SIZE = 20
