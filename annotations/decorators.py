@@ -2,19 +2,6 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from functools import wraps
 
-def vogon_admin_required(view_func):
-    """
-    Decorator for views that checks if the user is logged in and has vogon_admin access.
-    """
-    @wraps(view_func)
-    @login_required  # Ensures the user is logged in before checking permissions, this allows us not to nest this decorator in the view
-    def _wrapped_view(request, *args, **kwargs):
-        if request.user.is_vogon_admin:
-            return view_func(request, *args, **kwargs)
-        raise PermissionDenied("You do not have permission to access this page.")
-    return _wrapped_view
-
-
 def vogon_admin_or_staff_required(view_func):
     """
     Decorator for views that checks if the user is logged in and has either
