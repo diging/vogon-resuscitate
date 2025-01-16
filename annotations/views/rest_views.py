@@ -600,6 +600,7 @@ class ConceptViewSet(viewsets.ModelViewSet):
         
         try:
             response = requests.get(url)
+            print(response.text) # DEBUG
             if response.status_code == 200:
                 data = response.json()
                 concepts = []
@@ -720,28 +721,37 @@ def parse_concept(concept_entry):
 
 def parse_viaf_concept(record_data):
     """
-    Parse a VIAF record and return a dictionary with standardized fields.
+      - Handle 'mainHeadings.data' as either a dict or list
+      - If no 'mainHeadings' field, safely fall back to ''
     """
     concept = {}
-    
+
     viaf_id = record_data.get('viafID', '')
-    concept['uri'] = f'http://viaf.org/viaf/{viaf_id}'
-    
-    if 'mainHeadings' in record_data:
-        main_heading = record_data['mainHeadings'].get('data', {})
-        if isinstance(main_heading, dict):
-            concept['label'] = main_heading.get('text', '').split('|')[0].strip()
-    
+    concept['uri'] = f'https://viaf.org/viaf/{viaf_id}'
+
+    main_headings = record_data.get('mainHeadings', {})
+    data_field = main_headings.get('data', {})
+    label = ''
+
+    # 'data' is a dict with a 'text' key, parse it
+    if isinstance(data_field, dict):
+        label = data_field.get('text', '')
+
+    # 'data' is a list, parse the first entry that has 'text'
+    elif isinstance(data_field, list) and len(data_field) > 0:
+        first_heading = data_field[0] or {}
+        label = first_heading.get('text', '')
+
+    concept['label'] = label.split('|')[0].strip() if label else ''
+
     concept['id'] = viaf_id
     concept['pos'] = ''
-    
-    # Get type from nameType if available
+
+    # Name type from VIAF (e.g., "Personal", "Corporate", etc.), fallback "Person"
     concept['concept_type'] = record_data.get('nameType', 'Person')
-    
-    # Build description from available data
-    description_parts = []
-    
-    concept['description'] = ' | '.join(description_parts) if description_parts else ''
+
+    # Build optional description (here it's just empty, but you could parse more)
+    concept['description'] = ''
     concept['authority'] = {'name': 'VIAF'}
-    
+
     return concept
