@@ -156,8 +156,7 @@ class AutocompleteWidget(widgets.TextInput):
         classes = 'autocomplete'
         if 'class' in final_attrs:
             classes += ' ' + final_attrs['class']
-        print("in render")
-        print(format_html('<input class="' + classes + '"{} />', flatatt(final_attrs)))
+
         return format_html('<input class="' + classes + '"{} />', flatatt(final_attrs))
 
 
@@ -389,12 +388,14 @@ class RelationTemplatePartForm(forms.ModelForm):
         for field_name in concept_fields:
             concept_uri = cleaned_data.get(field_name)
             if not concept_uri:
+                cleaned_data[field_name] = None  # Set to None if concept_uri is empty
                 continue
             try:
                 concept = Concept.objects.get(uri=concept_uri)
             except Concept.DoesNotExist:
-                concept = ConceptLifecycle.create(uri=concept_uri, label=concept_uri).instance
-            print(concept)
+                if concept_uri:
+                    concept = ConceptLifecycle.create(uri=concept_uri, label=concept_uri).instance
+            # print(concept)
             cleaned_data[field_name] = concept
             # concept = cleaned_data.get(field_name)
             # if not concept:
