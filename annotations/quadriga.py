@@ -307,6 +307,9 @@ def generate_graph_data(relationset, user):
     node_counter = 0
     source_uri = relationset.occursIn.uri
 
+    print(relationset.occursIn) #DEBUG
+    # Position and the annotated text expression not in this object
+
     def get_node_id():
         nonlocal node_counter
         node_id = str(node_counter)
