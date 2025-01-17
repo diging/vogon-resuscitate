@@ -326,8 +326,7 @@ def repository_text_files(request, repository_id, group_id, item_id):
     manager = RepositoryManager(user=user, repository=repository)
 
     try:
-        item_data = manager.item_files(group_id, item_id)
-        return JsonResponse(item_data)
+        return JsonResponse(manager.item_files(group_id, item_id))
     except Exception as e:
         logger.error(f"Error accessing repository files: {str(e)}")
         return render(request, 'annotations/repository_ioerror.html', {'error': 'An error occurred while accessing the repository.'}, status=500)
