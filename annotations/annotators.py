@@ -50,9 +50,9 @@ by :mod:`annotations.views.relationtemplate_views` should be used to generate
 
 """
 
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import render
 from django.http import Http404
-from annotations.models import TextCollection, Text
+from annotations.models import TextCollection
 
 
 class Annotator(object):
