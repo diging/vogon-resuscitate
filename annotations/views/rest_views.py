@@ -20,11 +20,11 @@ from rest_framework.pagination import (LimitOffsetPagination,
 
 from annotations.serializers import *
 from annotations.models import *
-from annotations.quadriga import generate_graph_data
 from concepts.models import Concept, Type
 from concepts.lifecycle import *
 
 from external_accounts.models import CitesphereAccount
+from annotations.quadriga import submit_to_quadriga
 
 import uuid
 
@@ -382,69 +382,78 @@ class RelationSetViewSet(viewsets.ModelViewSet):
 
         return queryset.order_by('-created')
     
-    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_name='submit')
-    def submit(self, request):
+@action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_name='submit')
+def submit(self, request):
+    user = request.user
+    pk = request.data.get('pk')
+    
+    project_id = request.data.get('project_id')
+    project = TextCollection.objects.get(pk=project_id)
 
-        user = request.user
-        pk = request.data.get('pk')
-        
-        project_id = request.data.get('project_id')
-        project = TextCollection.objects.get(pk=project_id)
-        
-        try:
-            relationset = RelationSet.objects.get(pk=pk)
+    try:
+        relationset = RelationSet.objects.get(pk=pk)
+    except RelationSet.DoesNotExist:
+        return Response(
+            {'error': 'RelationSet not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
-        except RelationSet.DoesNotExist:
-            return Response({'error': 'RelationSet not found.'}, status=status.HTTP_404_NOT_FOUND)
+    # Check user authorization
+    if relationset.createdBy != user:
+        return Response(
+            {'error': 'You are not authorized to submit this RelationSet.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
 
-        if relationset.createdBy != user:
-            return Response({'error': 'You are not authorized to submit this RelationSet.'},
-                            status=status.HTTP_403_FORBIDDEN)
+    # Check if the RelationSet status is correct for submission
+    if relationset.status != RelationSet.STATUS_READY_TO_SUBMIT:
+        return Response(
+            {'error': 'Quadruple(s) is not ready to submit.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-        if relationset.status != RelationSet.STATUS_READY_TO_SUBMIT:
-            return Response({'error': 'Quadruple(s) is not ready to submit.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+    # Check if it is already submitted
+    if relationset.submitted:
+        return Response(
+            {'error': 'Quadruple(s) has already been submitted.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-        if relationset.submitted:
-            return Response({'error': 'Quadruple(s) has already been submitted.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+    # Check that the project has a Quadriga ID
+    if not project.quadriga_id:
+        return Response(
+            {'error': 'Project does not have a Quadriga ID configured. '
+                      'Please configure a Quadriga ID in the project settings.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        response = submit_to_quadriga(relationset, user, project)
 
-        if not project.quadriga_id:
-            return Response({'error': 'Project does not have a Quadriga ID configured. Please configure a Quadriga ID in the project settings.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        # If submission was successful, update the RelationSet status
+        relationset.status = 'submitted'
+        relationset.submitted = True
+        relationset.submittedOn = timezone.now()
+        relationset.save()
 
-        try:
-            citesphere_account = CitesphereAccount.objects.get(user=user, repository=relationset.occursIn.repository)
-            access_token = citesphere_account.access_token
+        return Response(
+            {'success': 'Quadruples submitted successfully.'},
+            status=status.HTTP_200_OK
+        )
 
-            headers = {
-                'Authorization': f'Bearer {access_token}',
-                'Content-Type': 'application/json',
-            }
+    except CitesphereAccount.DoesNotExist:
+        return Response(
+            {'error': 'No Citesphere account found.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-            collection_id = project.quadriga_id
-            endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
+    except requests.RequestException as e:
+        print("ERROR", e)
+        return Response(
+            {'error': 'Internal Server Error Occured. Please try again later!'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
-            graph_data = generate_graph_data(relationset, user)
-
-            response = requests.post(endpoint, json=graph_data, headers=headers)
-            response.raise_for_status()
-
-            # Update the status of the RelationSet
-            relationset.status = 'submitted'
-            relationset.submitted = True
-            relationset.submittedOn = timezone.now()
-            relationset.save()
-
-            return Response({'success': 'Quadruples submitted successfully.'}, status=status.HTTP_200_OK)
-
-        except CitesphereAccount.DoesNotExist:
-            return Response({'error': 'No Citesphere account found.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-        except requests.RequestException as e:
-            print("ERROR", e)
-            return Response({'error': 'Internal Server Error Occured. Please try again later!'},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class RelationViewSet(viewsets.ModelViewSet):

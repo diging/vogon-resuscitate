@@ -3,11 +3,12 @@ from django.conf import settings
 from django.utils import timezone
 
 from annotations.models import Relation, Appellation, DateAppellation, DocumentPosition
+from external_accounts.models import CitesphereAccount
 
 import xml.etree.ElementTree as ET
 import datetime
+import requests
 import re
-import uuid
 
 def _created_element(element, annotation):
     ET.SubElement(element, 'id')
@@ -362,3 +363,38 @@ def generate_graph_data(relationset, user):
             "edges": edges
         }
     }
+
+
+def submit_to_quadriga(self, relationset, user, project):
+    """
+    Helper function to handle all Quadriga-related submission logic for a RelationSet.
+    
+    Raises:
+        CitesphereAccount.DoesNotExist: If the user does not have a Citesphere account.
+        requests.RequestException: If there is an error when making the request to Quadriga.
+    
+    Returns:
+        requests.Response: The response object returned by the Quadriga submission request.
+    """
+    citesphere_account = CitesphereAccount.objects.get(
+        user=user,
+        repository=relationset.occursIn.repository
+    )
+    access_token = citesphere_account.access_token
+
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json',
+    }
+
+    collection_id = project.quadriga_id
+    endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
+
+    # Prepare the data payload (the graph data) for Quadriga
+    graph_data = generate_graph_data(relationset, user)
+
+    # Submit to Quadriga
+    response = requests.post(endpoint, json=graph_data, headers=headers)
+    response.raise_for_status()  # Will raise a requests.RequestException on HTTP error codes
+
+    return response
