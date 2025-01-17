@@ -134,18 +134,9 @@ var bindTypeField = function() {
 }
 
 var bindAutocomplete = function(input_elem, pos) {
-    // console.log(input_elem);
-    var resultsTargetId = $('#' + input_elem.attr('id').replace('source_concept_text', 'source_concept_results_elem'));
-
-    var statusTargetId = input_elem.attr('status-target');
-    
-    if (!resultsTargetId || !statusTargetId) {
-        console.error('input_elem is missing results-target or status-target attribute');
-    }
-    console.log(resultsTargetId);
-    var results_elem = $('#' + input_elem.attr('id').replace('source_concept_text', 'source_concept_results_elem'));
+    var results_elem = $('#' + input_elem.attr('results-target'));
     var status_elem = $('#' + input_elem.attr('status-target'));
-    var target = $('#' + input_elem.attr('id').replace('source_concept_text', 'source_concept'));
+    var target = $('#' + input_elem.attr('target'));
 
     status_elem.removeClass('glyphicon-time');
     status_elem.removeClass('glyphicon-exclamation-sign');
@@ -176,9 +167,6 @@ var bindAutocomplete = function(input_elem, pos) {
                     remote: true,
                 })
                 .done(function(response) {
-                    // console.log(response);
-                    // console.log(results_elem);
-                    // console.log(status_elem);
                     status_elem.removeClass('glyphicon-time');
                     status_elem.removeClass('glyphicon-exclamation-sign');
                     status_elem.removeClass('glyphicon-ok');
@@ -200,7 +188,6 @@ var bindAutocomplete = function(input_elem, pos) {
                             .append("" + result.label + "<br><span class='text-muted'>" + result.description + "</span>" )
                             .appendTo(results_elem);
                     });
-                    // console.log(results_elem);
                 })
                 .fail(function(xhr, status, error) {
                     console.log(xhr, status, error);
@@ -238,7 +225,6 @@ $('.autocomplete').each(function() {
     if (this.id.indexOf('predicate') > -1) {
         pos = 'verb';
     }
-    console.log(this.id, "in hereee");
     bindAutocomplete($('#' + this.id), pos);
 });
 
