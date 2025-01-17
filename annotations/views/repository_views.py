@@ -348,13 +348,13 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id, 
         result = manager.item(group_id, text_key, file_id)
     except IOError as e:
         logger.error(f"Error accessing repository: {str(e)}")
-        return JsonResponse({'error': 'An error occurred while accessing the repository.'}, status=500)
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'There was an error accessing the repository.'}, status=500)
 
     item_details = result.get('item', {}).get('details', {})
     giles_text = result.get('item', {}).get('text')
 
     if not giles_text:
-        return JsonResponse({'error': 'Failed to retrieve the content from Giles.'}, status=400)
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'There was an error retrieving the content from Giles.'}, status=400)
 
     tokenized_content = tokenize(giles_text)
 
@@ -389,11 +389,8 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id, 
     # Add text to project only if it's not already present
     if not project.texts.filter(pk=master_text.pk).exists():
         project.texts.add(master_text)
-
-    redirect_url = reverse('annotate', args=[master_text.id, project_id])
     
-    # Using json response as in repository_collections_text_list template this view is being called via AJAX
-    return JsonResponse({'success': True, 'redirect_url': redirect_url})
+    return redirect(reverse('annotate', args=[master_text.id, project_id]))
 
 @login_required
 def repository_text_content(request, repository_id, text_id, content_id):

@@ -65,30 +65,9 @@ function importFile(itemKey, fileId, repositoryId, groupId, csrfToken) {
         window.location.href = `/${window.config.APP_ROOT}project/?${returnParams.toString()}`;
         return;
     }
-
+    
     // Add project ID to URL
     const url = `${baseUrl}/project/${projectId}/`;
 
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': csrfToken
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Import failed. Please try again.');
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success && data.redirect_url) {
-            window.location.href = data.redirect_url;
-        } else {
-            throw new Error('Failed to import file. Please try again.');
-        }
-    })
-    .catch(error => {
-        console.error('Error importing file:', error);
-    });
+    window.location.href = url;
 }

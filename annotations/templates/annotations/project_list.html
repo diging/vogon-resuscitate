@@ -8,31 +8,9 @@
 
 <script>
 $(document).ready(function() {
-    // Handle clicks on project links for text import
+    // Show loading spinner when clicking on a project link for text import
     $('.project-import-link').click(function(e) {
-        e.preventDefault();
-        var url = $(this).attr('href');
-        
-        // loading spinner
         $(this).spin();
-        
-        // Make AJAX call to import text
-        $.ajax({
-            url: url,
-            method: 'GET',
-            success: function(response) {
-                if (response.success && response.redirect_url) {
-                    // Redirect to annotation page
-                    window.location.href = response.redirect_url;
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Error importing text:', error);
-                alert('Failed to import text. Redirecting to projects page...');
-                window.location.href = "{% url 'list_projects' %}";
-                $(this).spin(false);
-            }
-        });
     });
 });
 </script>
