@@ -1,6 +1,5 @@
 from django.contrib.auth.forms import UserChangeForm
 from annotations.models import *
-from concepts.lifecycle import ConceptLifecycle
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 from django import forms
