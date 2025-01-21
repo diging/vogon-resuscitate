@@ -7,8 +7,8 @@ from django.views import View
 
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import PermissionDenied
+from annotations.decorators import admin_required
 
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q, Count
@@ -403,7 +403,7 @@ def list_user(request):
     }
     return render(request, template, context)
 
-@staff_member_required
+@admin_required
 def list_vogon_admin_users(request):
     """
     Displays a paginated list of Vogon users with option to toggle Vogon Admin
@@ -416,7 +416,7 @@ def list_vogon_admin_users(request):
 
     return render(request, 'annotations/user_vogon_admin_list.html', {'page_obj': current_page})
 
-@staff_member_required
+@admin_required
 def toggle_vogon_admin_status(request, user_id):
     """
     Toggles the vogon_admin status of a user.
