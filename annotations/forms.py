@@ -156,6 +156,7 @@ class AutocompleteWidget(widgets.TextInput):
         classes = 'autocomplete'
         if 'class' in final_attrs:
             classes += ' ' + final_attrs['class']
+
         return format_html('<input class="' + classes + '"{} />', flatatt(final_attrs))
 
 
@@ -196,7 +197,6 @@ class ConceptField(forms.CharField):
                 ctype_data = concept_entry.get('type','')
                 if ctype_data:
                     data.update({'typed': Type.objects.get_or_create(uri=ctype_data['type_uri'])[0]})
-
                 py_value = Concept.objects.create(**data)
             return py_value
         return py_value
