@@ -10,6 +10,8 @@ from datetime import timedelta
 from .models import CitesphereAccount
 from repository.models import Repository
 
+from django.contrib import messages
+
 import requests
 import secrets
 
@@ -81,7 +83,8 @@ def citesphere_callback(request):
     expires_at = now() + timedelta(seconds=int(expires_in))
 
     # Store the tokens in the CitesphereAccount model
-    CitesphereAccount.objects.update_or_create(
+    # `update_or_create` returns (object, created). If created = True, we will redirect them to their dashboard
+    account, created = CitesphereAccount.objects.update_or_create(
         user=request.user,
         repository=repository,
         defaults={
@@ -97,8 +100,13 @@ def citesphere_callback(request):
     del request.session['oauth_next']
     del request.session['repository_id']
 
-    # Redirect back to the original page
-    return redirect(next_url)
+    if created:
+        # First time user connecting to Citesphere
+        messages.success(request, "You have successfully connected to Citesphere!")
+        return redirect('dashboard')
+    else:
+        # Returning user re-authenticated: go to next_url
+        return redirect(next_url)
 
 @login_required
 def citesphere_refresh_token(request, repository_id):
