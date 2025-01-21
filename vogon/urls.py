@@ -147,6 +147,7 @@ urlpatterns = [
     re_path(r'^sandbox/(?P<text_id>[0-9]+)/$', conceptViews.sandbox, name='sandbox'),
 
     path('login/citesphere/', externalAccountViews.citesphere_login, name='citesphere_login'),
+    path('citesphere/disconnect/<int:repository_id>/', externalAccountViews.citesphere_disconnect, name='citesphere_disconnect'),
     path('oauth/callback/citesphere/', externalAccountViews.citesphere_callback, name='citesphere_callback'),
     path('citesphere/refresh/<int:repository_id>/', externalAccountViews.citesphere_refresh_token, name='citesphere_refresh_token'),
     ])),
