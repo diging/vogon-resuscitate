@@ -13,6 +13,10 @@ cd $DJANGODIR
 source .env_app
 export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
 export PYTHONPATH=$DJANGODIR:$PYTHONPATH
+mkdir -p /vogon/logs
+python -m pip install -r requirements.txt
+python manage.py migrate
+python manage.py collectstatic --noinput
 
 # Start your Django Unicorn
 # Programs meant to be run under supervisor should not daemonize themselves (do not use --daemon)
@@ -21,4 +25,4 @@ exec gunicorn ${DJANGO_WSGI_MODULE}:application \
   --workers $NUM_WORKERS \
   --bind=0.0.0.0:8000 \
   --log-level=info \
-  --log-file=/vogon/logs/gunicorn_access.log
+  --log-file /vogon/logs/vogon_supervisor.log

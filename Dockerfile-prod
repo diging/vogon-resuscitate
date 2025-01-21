@@ -5,12 +5,9 @@ WORKDIR /vogon
 RUN apt-get update && apt-get install -y supervisor && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-COPY startup-prod.sh /vogon/startup-prod.sh
 COPY vogon-gunicorn.sh /vogon/vogon-gunicorn.sh
-
-RUN chmod u+x /vogon/startup-prod.sh
-RUN chmod u+x /vogon/vogon-gunicorn.sh
+COPY supervisor.service /etc/systemd/system/supervisor.service
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY startup-prod.sh /vogon/startup-prod.sh
 
 ENTRYPOINT ["/vogon/startup-prod.sh"]
