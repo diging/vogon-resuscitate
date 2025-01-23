@@ -102,7 +102,7 @@ def citesphere_callback(request):
 
     if created:
         # First time user connecting to Citesphere
-        messages.success(request, "You have successfully connected to Citesphere!")
+        messages.success(request, "You have successfully connected to a Citesphere Repository!")
         return redirect('dashboard')
     else:
         # Returning user go to next_url
@@ -150,7 +150,7 @@ def citesphere_refresh_token(request, repository_id):
 def citesphere_disconnect(request, repository_id):
     try:
         CitesphereAccount.objects.filter(user=request.user, repository_id=repository_id).delete()
-        messages.success(request, "Successfully disconnected from Citesphere.")
+        messages.success(request, "Successfully disconnected from Citesphere Repository.")
     except Exception as e:
         print(f"Error disconnecting Citesphere account: {e}")
         return render(request, 'citesphere/error.html', {
