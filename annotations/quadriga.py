@@ -310,7 +310,9 @@ def generate_graph_data(relationset, user):
     node_counter = 0
     source_uri = relationset.occursIn.uri
 
-    print(relationset.occursIn) #DEBUG
+    #DEBUG
+    print(relationset.__dict__)
+    # print(relationset.occursIn.__dict__)
     # Position and the annotated text expression not in this object
 
     def get_node_id():
@@ -323,6 +325,15 @@ def generate_graph_data(relationset, user):
         subject = getattr(relation.source_content_object, 'interpretation', None)
         obj = getattr(relation.object_content_object, 'interpretation', None)
         predicate = getattr(relation.predicate, 'interpretation', None)
+
+        # DEBUG
+        print("TEST")
+        if subject is not None:
+            print("Subject:", subject.__dict__)
+        if obj is not None:
+            print("Object:", obj.__dict__) 
+        if predicate is not None:
+            print("Predicate:", predicate.__dict__)
         
         # Extract the creation time from the appellation
         creation_time = relationset.occursIn.created
