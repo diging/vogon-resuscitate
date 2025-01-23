@@ -83,7 +83,7 @@ def citesphere_callback(request):
     expires_at = now() + timedelta(seconds=int(expires_in))
 
     # Store the tokens in the CitesphereAccount model
-    # `update_or_create` returns (object, created). If created = True, we will redirect them to their dashboard
+    # `update_or_create` returns (object, created). If created = True, we will redirect them to their dashboard with success message
     account, created = CitesphereAccount.objects.update_or_create(
         user=request.user,
         repository=repository,
@@ -105,7 +105,7 @@ def citesphere_callback(request):
         messages.success(request, "You have successfully connected to Citesphere!")
         return redirect('dashboard')
     else:
-        # Returning user re-authenticated: go to next_url
+        # Returning user go to next_url
         return redirect(next_url)
 
 @login_required
