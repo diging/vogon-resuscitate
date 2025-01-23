@@ -10,6 +10,9 @@ import datetime
 import requests
 import re
 
+from rest_framework.response import Response
+from rest_framework import status
+
 def _created_element(element, annotation):
     ET.SubElement(element, 'id')
     creator = ET.SubElement(element, 'creator')
@@ -368,7 +371,7 @@ def generate_graph_data(relationset, user):
     }
 
 
-def submit_to_quadriga(self, relationset, user, project):
+def submit_to_quadriga(relationset, user, project):
     """
     Helper function to handle all Quadriga-related submission logic for a RelationSet.
     
@@ -379,10 +382,7 @@ def submit_to_quadriga(self, relationset, user, project):
     Returns:
         requests.Response: The response object returned by the Quadriga submission request.
     """
-    citesphere_account = CitesphereAccount.objects.get(
-        user=user,
-        repository=relationset.occursIn.repository
-    )
+    citesphere_account = CitesphereAccount.objects.get(user=user, repository=relationset.occursIn.repository)
     access_token = citesphere_account.access_token
 
     headers = {
@@ -393,11 +393,13 @@ def submit_to_quadriga(self, relationset, user, project):
     collection_id = project.quadriga_id
     endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
 
-    # Prepare the data payload (the graph data) for Quadriga
     graph_data = generate_graph_data(relationset, user)
 
-    # Submit to Quadriga
     response = requests.post(endpoint, json=graph_data, headers=headers)
-    response.raise_for_status()  # Will raise a requests.RequestException on HTTP error codes
+    response.raise_for_status()
 
-    return response
+    # Update the status of the RelationSet
+    relationset.status = 'submitted'
+    relationset.submitted = True
+    relationset.submittedOn = timezone.now()
+    relationset.save()
