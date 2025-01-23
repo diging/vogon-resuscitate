@@ -10,3 +10,7 @@ class ConceptForm(forms.ModelForm):
 
 class ConceptTypeForm(forms.Form):
     typed = forms.ModelChoiceField(queryset=Type.objects.all())
+
+class ConceptpowerAuthForm(forms.Form):
+    username = forms.CharField(label='Conceptpower Username')
+    password = forms.CharField(label='Conceptpower Password', widget=forms.PasswordInput)

@@ -7,13 +7,14 @@ from concepts.models import Concept, Type
 from concepts.filters import *
 from concepts.lifecycle import *
 from annotations.models import RelationSet, Appellation, TextCollection, VogonUserDefaultProject
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from concepts.authorities import ConceptpowerAuthority, update_instance
 from django.contrib.auth.decorators import login_required
 import re, urllib.request, urllib.parse, urllib.error, string
 from unidecode import unidecode
 from urllib.parse import urlencode
-
+from concepts.forms import ConceptpowerAuthForm
+from external_accounts.models import ConceptpowerAccount
 
 
 
@@ -177,3 +178,21 @@ def sandbox(request, text_id):
     from annotations.models import RelationTemplate
 
     return render(request, "annotations/relationtemplate_creator.html", {})
+
+@login_required
+def conceptpower_auth(request):
+    if request.method == 'POST':
+        form = ConceptpowerAuthForm(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data['username']
+            password = form.cleaned_data['password']
+            # Save the username and password to the database
+            conceptpower_account, created = ConceptpowerAccount.objects.get_or_create(
+                user=request.user,
+                defaults={'username': username, 'password': password}
+            )
+            # Redirect the user to the dashboard or another page
+            return redirect('dashboard')
+    else:
+        form = ConceptpowerAuthForm()
+    return render(request, 'conceptpower_auth.html', {'form': form})

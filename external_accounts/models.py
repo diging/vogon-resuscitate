@@ -54,3 +54,8 @@ def fetch_citesphere_user_id(sender, instance, created, **kwargs):
             print(f"Failed to fetch citesphere_user_id due to network error: {str(e)}")
         except ValueError as e:
             print(f"Failed to decode JSON: {str(e)}")
+            
+class ConceptpowerAccount(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conceptpower_account')
+    username = models.CharField(max_length=255, help_text="Conceptpower username")
+    # conceptpower_password = EncryptedCharField(max_length=100)  # Secure storage
