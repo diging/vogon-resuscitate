@@ -3,14 +3,22 @@ Provides user-oriented views, including dashboard, registration, etc.
 """
 
 from django.conf import settings
+from django.views import View
+
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
-from django.urls import reverse
+from django.core.exceptions import PermissionDenied
+from annotations.decorators import admin_required
+
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q, Count
 from django.db import models
-from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, render
+
+
+from django.http import HttpResponseRedirect
+from django.shortcuts import render, redirect, get_object_or_404, render
+from django.urls import reverse
+
 from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth.forms import AuthenticationForm
 
@@ -395,3 +403,40 @@ def list_user(request):
         'title': 'Contributors'
     }
     return render(request, template, context)
+
+@admin_required
+def list_vogon_admin_users(request):
+    """
+    Displays a paginated list of Vogon users with option to toggle Vogon Admin
+    """
+    all_users = VogonUser.objects.all().order_by('username')
+    paginator = Paginator(all_users, settings.VOGON_ADMIN_PAGE_SIZE)
+
+    current_page_number = request.GET.get('page')
+    current_page = paginator.get_page(current_page_number)
+
+    return render(request, 'annotations/user_vogon_admin_list.html', {'page_obj': current_page})
+
+@admin_required
+def toggle_vogon_admin_status(request, user_id):
+    """
+    Toggles the vogon_admin status of a user.
+
+    Parameters
+    ----------
+    request : `django.http.requests.HttpRequest`
+    user_id : int
+
+    Returns
+    ----------
+    :class:`django.http.response.HttpResponseRedirect`
+        Redirects to the user vogon admin list view.
+    """
+    if not request.user.is_admin and not request.user.is_staff:
+        raise PermissionDenied("You do not have permission to perform this action.")
+    
+    user = get_object_or_404(VogonUser, id=user_id)
+    user.vogon_admin = not user.vogon_admin # Toggles the value of vogon_admin.
+    user.save()
+    
+    return redirect(reverse('user_vogon_admin_list'))

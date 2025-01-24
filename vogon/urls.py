@@ -71,6 +71,9 @@ urlpatterns = [
 
     path('admin/', admin.site.urls),
 
+    path('vogon-admin-management/users/', views.user_views.list_vogon_admin_users, name='user_vogon_admin_list'),
+    path('vogon-admin-management/users/toggle/<int:user_id>/', views.user_views.toggle_vogon_admin_status, name='toggle_vogon_admin_status'),
+
     re_path(r'^rest/', include(router.urls)),
 
     # url(r'^text/$', views.search_views.TextSearchView.as_view(), name='text_search'),
