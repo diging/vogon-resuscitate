@@ -264,6 +264,10 @@ def build_concept_node(concept, user, creation_time, source_uri):
     """
     Helper function to build a concept node dictionary.
     """
+    # Get the appellation that created this concept and add stringRep (annotated text)
+    appellation = Appellation.objects.filter(interpretation=concept).first()
+    expression = appellation.stringRep or ""
+    
     return {
         "label": concept.label or "",
         "metadata": {
@@ -272,7 +276,7 @@ def build_concept_node(concept, user, creation_time, source_uri):
             "termParts": [
                 {
                     "position": 1,
-                    "expression": concept.label or "",
+                    "expression": expression,
                     "normalization": "",
                     "formattedPointer": "",
                     "format": ""
@@ -286,7 +290,6 @@ def build_concept_node(concept, user, creation_time, source_uri):
             "sourceUri": source_uri
         }
     }
-
 def get_relation_node(user, creation_time, source_uri):
     """
     Helper function to build a relation node.
@@ -310,11 +313,6 @@ def generate_graph_data(relationset, user):
     node_counter = 0
     source_uri = relationset.occursIn.uri
 
-    #DEBUG
-    print(relationset.__dict__)
-    # print(relationset.occursIn.__dict__)
-    # Position and the annotated text expression not in this object
-
     def get_node_id():
         nonlocal node_counter
         node_id = str(node_counter)
@@ -326,15 +324,6 @@ def generate_graph_data(relationset, user):
         obj = getattr(relation.object_content_object, 'interpretation', None)
         predicate = getattr(relation.predicate, 'interpretation', None)
 
-        # DEBUG
-        print("TEST")
-        if subject is not None:
-            print("Subject:", subject.__dict__)
-        if obj is not None:
-            print("Object:", obj.__dict__) 
-        if predicate is not None:
-            print("Predicate:", predicate.__dict__)
-        
         # Extract the creation time from the appellation
         creation_time = relationset.occursIn.created
 

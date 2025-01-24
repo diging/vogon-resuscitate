@@ -785,7 +785,6 @@ class RelationSet(models.Model):
     A :class:`.RelationSet` organizes :class:`.Relation`\s into complete
     statements.
     """
-    # RelationSet statuses
     STATUS_NOT_READY = 'not_ready'
     STATUS_READY_TO_SUBMIT = 'ready_to_submit'
     STATUS_SUBMITTED = 'submitted'
