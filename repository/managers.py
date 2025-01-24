@@ -235,7 +235,7 @@ class RepositoryManager:
         try:
             text = get_giles_document_details(self.user, fileId, repository)
             if text is None:
-                raise GilesTextExtractionError("Failed to retrieve text content from Giles")
+                raise GilesTextExtractionError("Failed to retrieve text content from Giles, the file does not exist.")
         except requests.RequestException as e:
             raise CitesphereAPIError(message=f"Error accessing Giles API: {str(e)}", 
                                    error_code="GILES_API_ERROR",
