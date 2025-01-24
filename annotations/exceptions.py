@@ -29,5 +29,5 @@ def custom_403_handler(request, exception):
         'userid': request.user.id,
         'error_message': error_message
     }
-
+    
     return render(request, 'annotations/forbidden_error_page.html', context, status=403)
