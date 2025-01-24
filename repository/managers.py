@@ -232,6 +232,8 @@ class RepositoryManager:
 
         # Extract Giles uploads and their text if available
         text = get_giles_document_details(self.user, fileId)
+        if text is None:
+            raise IOError("The file you're trying to import doesn't exist. Please try another file.")
         item_data['item']['text'] = text
 
         item_data['item']['details'] = item_details
