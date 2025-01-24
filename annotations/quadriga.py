@@ -275,7 +275,7 @@ def build_concept_node(concept, user, creation_time, source_uri):
             "interpretation": concept.uri,
             "termParts": [
                 {
-                    "position": 1,
+                    "position": appellation.position.position_value if appellation.position else 0,
                     "expression": expression,
                     "normalization": "",
                     "formattedPointer": "",
