@@ -211,7 +211,6 @@ def list_projects(request):
     
     qs = _annotate_project_counts(qs)
     qs = qs.values(*fields)
-
     template = "annotations/project_list.html"
     context = {
         'user': request.user,
@@ -225,13 +224,15 @@ def list_projects(request):
         repository_id = request.GET.get('repository_id')
         group_id = request.GET.get('group_id')
         text_key = request.GET.get('text_key')
+        file_id = request.GET.get('file_id')
 
         context.update({
             'redirect_to_text_import': True,
             'repository_id': repository_id,
             'group_id': group_id,
             'title': 'Select a Project for to import this text:',
-            'text_key': text_key
+            'text_key': text_key,
+            'file_id': file_id
         })
 
     return render(request, template, context)

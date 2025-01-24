@@ -5,6 +5,9 @@ from .exceptions import GilesUploadError, GilesTextExtractionError
 from requests.exceptions import RequestException
 
 import requests
+from django.http import JsonResponse
+
+import traceback
 
 class CitesphereAPIError(Exception):
     """Base exception class for Citesphere API errors"""
@@ -155,7 +158,51 @@ class RepositoryManager:
         except StopIteration:
             raise CitesphereAPIError(message="Collection not found", error_code="COLLECTION_NOT_FOUND", details=f"Collection {collection_id} not found in group {group_id}")
 
-    def item(self, groupId, itemId, repository):
+    def item_files(self, groupId, itemId):
+        """
+        Fetch individual item from repository's endpoint and list all associated files for import.
+
+        Args:
+            groupId: The group ID in the repository
+            itemId: The item ID in the repository
+
+        Returns:
+            A dictionary containing a list of files with their respective details and processing status.
+        """
+        headers = auth.citesphere_auth(self.user, self.repository)
+        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            item_data = response.json()
+
+            files = []
+            is_file_processing = False
+            
+            # Extract Giles upload file details if available
+            giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
+            if giles_uploads:
+                for giles_upload in giles_uploads:
+                    extracted_text = giles_upload.get('extractedText', {})
+                    if extracted_text and extracted_text.get('content-type') == 'text/plain':
+                        files.append({
+                            'id': extracted_text.get('id'),
+                            'filename': extracted_text.get('filename'),
+                            'url': extracted_text.get('url')
+                        })
+                    else:
+                        upload_id = giles_upload.get("progressId")
+                        if upload_id:
+                            is_file_processing = True
+
+            return {
+                "files": files,
+                "is_file_processing": is_file_processing
+            }
+        else:
+            response.raise_for_status()
+
+    def item(self, groupId, itemId, fileId):
         """
         Fetch individual item from repository's endpoint and get Giles document details for documents of type 'text/plain'
 
