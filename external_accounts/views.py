@@ -39,6 +39,31 @@ def citesphere_login(request):
     url = f"{repository.endpoint}/api/oauth/authorize/?{urlencode(params)}"
     return redirect(url)
 
+@login_required
+def conceptpower_login(request):
+    next_url = request.GET.get('next', reverse('home'))
+
+    if not repository_id:
+        return redirect('repository_list')
+    repository = get_object_or_404(Repository, pk=repository_id)
+
+    state = secrets.token_urlsafe()
+    # Store state and next_url in the session
+    request.session['oauth_state'] = state
+    request.session['oauth_next'] = next_url
+    request.session['repository_id'] = repository_id
+
+    params = {
+        'client_id': repository.client_id,
+        'scope': 'read',
+        'response_type': 'code',
+        'redirect_uri': f"{settings.BASE_URL}oauth/callback/citesphere/",
+        'state': state
+    }
+
+    url = f"{repository.endpoint}/api/oauth/authorize/?{urlencode(params)}"
+    return redirect(url)
+
 def citesphere_callback(request):
     code = request.GET.get('code')
     state = request.GET.get('state')
