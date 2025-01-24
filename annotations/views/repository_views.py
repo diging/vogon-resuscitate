@@ -345,7 +345,7 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id, 
     manager = RepositoryManager(user=request.user, repository=repository)
 
     try:
-        result = manager.item(group_id, text_key, repository)
+        result = manager.item(group_id, text_key, file_id, repository)
     except IOError:
         return render(request, 'annotations/repository_ioerror.html', {'error': "IOError occurred while accessing the repository."}, status=500)
     except GilesUploadError as e:

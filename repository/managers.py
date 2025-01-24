@@ -1,11 +1,9 @@
-from external_accounts.giles import GilesAPI, get_giles_document_details, check_giles_upload_status_details
+from external_accounts.giles import get_giles_document_details
+from repository.exceptions import GilesTextExtractionError
 from repository import auth
-
-from .exceptions import GilesUploadError, GilesTextExtractionError
 from requests.exceptions import RequestException
 
 import requests
-from django.http import JsonResponse
 
 import traceback
 
@@ -202,61 +200,56 @@ class RepositoryManager:
         else:
             response.raise_for_status()
 
-    def item(self, groupId, itemId, fileId):
+    def item(self, groupId, itemId, fileId, repository):
         """
-        Fetch individual item from repository's endpoint and get Giles document details for documents of type 'text/plain'
+        Fetch individual item details from the repository and extract Giles document text.
 
         Args:
-            groupId: The group ID in the repository
-            itemId: The item ID in the repository
+            group_id: The group ID from which the item is fetched.
+            item_id: The item ID to fetch.
 
         Returns:
-            A dictionary containing item details from repository, and Giles document details with extracted text
-        """
-        headers = auth.citesphere_auth(self.user, self.repository)
-        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"
-        response = requests.get(url, headers=headers)
-
-        if response.status_code == 200:
-            item_data = response.json()
-
-            item_details = {
-                'key': item_data.get('item', {}).get('key'),
-                'title': item_data.get('item', {}).get('title'),
-                'authors': item_data.get('item', {}).get('authors', []),
-                'itemType': item_data.get('item', {}).get('itemType'),
-                'addedOn': item_data.get('item', {}).get('dateAdded', 'Unknown date'),
-                'url': item_data.get('item', {}).get('url')
-            }
-
-            giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
-
-            if not giles_uploads:
-                raise GilesUploadError("No Giles uploads available for this item.")
+            A dictionary containing item details and Giles document text.
             
-            extracted_text = giles_uploads[0].get('extractedText', {})
+        Raises:
+            CitesphereAPIError
+        """
+        # Fetch item details using CitesphereAPIv1
+        item_data = self.api.get_item_details(groupId, itemId)
+        
+        if not item_data or 'item' not in item_data:
+            raise CitesphereAPIError(message="Invalid item data", error_code="INVALID_ITEM_DATA", details="Response missing item data")
 
-            if extracted_text and extracted_text.get('content-type') == 'text/plain':
-                extracted_text_data = get_giles_document_details(self.user, extracted_text.get('id'), repository)
-                item_data['item']['text'] = extracted_text_data
-            else:
-                # Check upload status and get extracted text if processing is complete
-                giles_upload_progress_id = giles_uploads[0].get('progressId')
-                if giles_upload_progress_id:
-                    giles_processing_status = check_giles_upload_status_details(self.user, giles_upload_progress_id, repository)
-                    
-                    if giles_processing_status['status'] == 'complete':
-                        item_data['item']['text'] = giles_processing_status['extracted_text']
-                        return item_data
-                    elif giles_processing_status['status'] == 'processing':
-                        raise GilesUploadError(giles_processing_status['message'])
-                    else:
-                        raise GilesTextExtractionError(giles_processing_status['message'])
-                    
-                raise GilesTextExtractionError("No valid text/plain content found for this text!")
+        # Extract core item details
+        item = item_data.get('item', {})
+        item_details = {
+            'key': item.get('key'),
+            'title': item.get('title'),
+            'authors': item.get('authors', []),
+            'itemType': item.get('itemType'),
+            'addedOn': item.get('dateAdded', 'Unknown date'),
+            'url': item.get('url')
+        }
 
-            item_data['item']['details'] = item_details
+        # Extract Giles uploads and their text if available
+        try:
+            text = get_giles_document_details(self.user, fileId, repository)
+            if text is None:
+                raise GilesTextExtractionError("Failed to retrieve text content from Giles")
+        except requests.RequestException as e:
+            raise CitesphereAPIError(message=f"Error accessing Giles API: {str(e)}", 
+                                   error_code="GILES_API_ERROR",
+                                   details=str(e))
+        except ValueError as e:
+            raise CitesphereAPIError(message=f"Authentication error: {str(e)}",
+                                   error_code="AUTH_ERROR", 
+                                   details=str(e))
+        except Exception as e:
+            raise CitesphereAPIError(message=f"Unexpected error retrieving Giles document: {str(e)}",
+                                   error_code="GILES_ERROR",
+                                   details=str(e))
+        
+        item_data['item']['text'] = text
 
-            return item_data
-        else:
-            response.raise_for_status()
+        item_data['item']['details'] = item_details
+        return item_data
