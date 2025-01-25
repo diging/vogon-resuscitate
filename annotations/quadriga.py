@@ -268,21 +268,20 @@ def build_concept_node(concept, user, creation_time, source_uri):
     appellation = Appellation.objects.filter(interpretation=concept).first()
     expression = appellation.stringRep or ""
     
-    term_parts = []
-    term_parts.append({
-        "position": appellation.position.position_value if appellation.position else 0,
-        "expression": expression,
-        "normalization": "",
-        "formattedPointer": "",
-        "format": ""
-    })
-
     return {
         "label": concept.label or "",
         "metadata": {
-            "type": "appellation_event",
+            "type": "appellation_event", 
             "interpretation": concept.uri,
-            "termParts": term_parts
+            "termParts": [
+                {
+                    "position": appellation.startPos if appellation.startPos else 0,
+                    "expression": expression,
+                    "normalization": "",
+                    "formattedPointer": "",
+                    "format": ""
+                }
+            ]
         },
         "context": {
             "creator": user.username,
@@ -291,7 +290,6 @@ def build_concept_node(concept, user, creation_time, source_uri):
             "sourceUri": source_uri
         }
     }
-
 def get_relation_node(user, creation_time, source_uri):
     """
     Helper function to build a relation node.
