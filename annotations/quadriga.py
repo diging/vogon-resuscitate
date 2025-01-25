@@ -264,24 +264,25 @@ def build_concept_node(concept, user, creation_time, source_uri):
     """
     Helper function to build a concept node dictionary.
     """
-    # Get the appellation that created this concept and add stringRep (annotated text)
-    appellation = Appellation.objects.filter(interpretation=concept).first()
-    expression = appellation.stringRep or ""
+    # Get all appellations that created this concept and add stringRep (annotated text)
+    appellations = Appellation.objects.filter(interpretation=concept)
+    
+    term_parts = []
+    for appellation in appellations:
+        term_parts.append({
+            "position": appellation.startPos if appellation.startPos else 0,
+            "expression": appellation.stringRep or "",
+            "normalization": "",
+            "formattedPointer": "",
+            "format": ""
+        })
     
     return {
         "label": concept.label or "",
         "metadata": {
             "type": "appellation_event", 
             "interpretation": concept.uri,
-            "termParts": [
-                {
-                    "position": appellation.startPos if appellation.startPos else 0,
-                    "expression": expression,
-                    "normalization": "",
-                    "formattedPointer": "",
-                    "format": ""
-                }
-            ]
+            "termParts": term_parts
         },
         "context": {
             "creator": user.username,
