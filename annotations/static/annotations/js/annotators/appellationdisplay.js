@@ -1,8 +1,7 @@
 AppellationDisplayItem = {
     props: ['appellation'],
-    template: `<div v-show="appellation.visible && !isDeleted">
+    template: `<div v-show="shouldShow">
                 <li v-tooltip="getLabel()"
-                    v-show="appellation.visible && !isDeleted"
                     v-on:click="selectAppellation"
                     v-bind:style="{
                         top: position.top,
@@ -11,13 +10,15 @@ AppellationDisplayItem = {
                         width: position.width,
                         height: line_height,
                         'z-index': 2,
-                        transition: 'opacity 0.2s ease',
-                        opacity: isDeleted ? 0 : 1
+                        transition: 'all 0.2s ease',
+                        opacity: isDeleted ? 0 : 1,
+                        visibility: shouldShow ? 'visible' : 'hidden',
+                        pointerEvents: isDeleted ? 'none' : 'auto'
                     }"
                     v-bind:class="{
                         'appellation': appellation.interpretation != null,
                         'date-appellation': appellation.dateRepresentation != null,
-                        'appellation-selected': appellation.selected
+                        'appellation-selected': appellation.selected && !isDeleted
                     }">
                 </li>
                 <li v-if="manyLinesAreSelected()"
@@ -69,33 +70,55 @@ AppellationDisplayItem = {
             multi_line: null,
             mid_lines: [],
             end_position: {},
-            isDeleted: false
+            isDeleted: false,
+            cleanupTimeout: null
         }
     },
-    mounted: function () {
-        this.updatePosition();
-        window.addEventListener('resize', this.updatePosition);
-        // Listen for deletion events
-        this.$root.$on('appellationDeleted', (deletedAppellation) => {
-            if (deletedAppellation.id === this.appellation.id) {
-                this.isDeleted = true;
-                // Remove from store if it exists
-                store.commit('removeAppellation', deletedAppellation);
-                // Clear interpretation and selected state
-                if (this.appellation.interpretation) {
-                    this.appellation.interpretation = null;
-                }
-                this.appellation.selected = false;
-                // Clear from text appellation store
-                store.commit('setTextAppellation', []);
-            }
-        });
+    computed: {
+        shouldShow() {
+            return this.appellation.visible && !this.isDeleted;
+        }
     },
-    beforeDestroy() {
-        // Clean up event listener
-        this.$root.$off('appellationDeleted');
+    watch: {
+        'appellation.visible': function(newVal, oldVal) {
+            if (!newVal && this.cleanupTimeout) {
+                // If visibility is turned off and we're waiting to cleanup,
+                // do it immediately
+                clearTimeout(this.cleanupTimeout);
+                this.cleanupComponent();
+            }
+        }
     },
     methods: {
+        cleanupComponent() {
+            // Remove the element from DOM
+            if (this.$el && this.$el.parentNode) {
+                this.$el.parentNode.removeChild(this.$el);
+            }
+            this.$destroy();
+        },
+        
+        handleDeletion(deletedAppellation) {
+            if (deletedAppellation.id === this.appellation.id) {
+                // Immediately remove selection and highlighting
+                this.isDeleted = true;
+                this.appellation.visible = false;
+                this.appellation.selected = false;
+                
+                // Force remove from DOM immediately for newly created annotations
+                if (this.$el && this.$el.parentNode) {
+                    this.$el.parentNode.removeChild(this.$el);
+                }
+                
+                // Clear all stores
+                store.commit('removeAppellation', deletedAppellation);
+                store.commit('setTextAppellation', []);
+                store.commit('resetCreateAppelltionsToText');
+                
+                // Emit deselection event
+                this.$root.$emit('appellationDeselected', this.appellation);
+            }
+        },
         getLabel: function () {
             if (this.appellation.interpretation) {
                 return this.appellation.interpretation.label;
@@ -109,8 +132,11 @@ AppellationDisplayItem = {
         manyLinesAreSelected: function () {
             return this.mid_lines.length > 0;
         },
-        selectAppellation: function () {
-            this.$emit('selectappellation', this.appellation);
+        selectAppellation() {
+            if (!this.isDeleted) {
+                // Only allow selection if not being deleted
+                this.$emit('selectappellation', this.appellation);
+            }
         },
         updatePosition: function () {
             this.mid_lines = [];
@@ -149,6 +175,26 @@ AppellationDisplayItem = {
             } else {
                 this.end_position = {};
             }
+        }
+    },
+    mounted() {
+        this.updatePosition();
+        window.addEventListener('resize', this.updatePosition);
+        
+        // Listen for both deletion and cleanup events
+        this.$root.$on('appellationDeleted', this.handleDeletion);
+        this.$root.$on('forceCleanupAppellation', (id) => {
+            if (id === this.appellation.id) {
+                this.handleDeletion(this.appellation);
+            }
+        });
+    },
+    beforeDestroy() {
+        window.removeEventListener('resize', this.updatePosition);
+        this.$root.$off('appellationDeleted', this.handleDeletion);
+        this.$root.$off('forceCleanupAppellation');
+        if (this.cleanupTimeout) {
+            clearTimeout(this.cleanupTimeout);
         }
     }
 }
@@ -191,5 +237,18 @@ AppellationDisplay = {
             this.$root.$emit('appellationClicked', appellation);
             this.$emit('selectappellation', appellation);
         }
+    },
+    mounted() {
+        this.$root.$on('appellationDeselected', (appellation) => {
+            // Remove from current selections
+            const index = this.current_appellations.findIndex(a => a.id === appellation.id);
+            if (index > -1) {
+                this.current_appellations[index].selected = false;
+                this.current_appellations[index].visible = false;
+            }
+        });
+    },
+    beforeDestroy() {
+        this.$root.$off('appellationDeselected');
     }
 }

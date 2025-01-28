@@ -97,37 +97,35 @@ var AppellationListItem = {
             if (this.isDeleting) return;
             this.error = null;
             this.isDeleting = true;
-            
-            // If this appellation is selected, deselect it first and clear store
+
+            // First clear all states and stores
             if (this.appellation.selected) {
-                this.appellation.selected = false;  // Clear selected state
-                store.commit('setTextAppellation', []); // Clear from store
-                store.commit('resetCreateAppelltionsToText'); // Reset store state
-                this.$emit('selectappellation', null); // Notify parent
+                this.appellation.selected = false;
+                store.commit('setTextAppellation', []);
+                store.commit('resetCreateAppelltionsToText');
+                this.$root.$emit('appellationDeselected', this.appellation);
             }
-            
-            // Hide the highlight immediately
-            this.$emit('hideappellation', this.appellation);
+
+            // Immediately hide and notify about deletion
+            this.appellation.visible = false;
             this.$root.$emit('appellationDeleted', this.appellation);
-            
+            this.$emit('hideappellation', this.appellation);
+
             Appellation.delete({id: this.appellation.id})
                 .then(response => {
-                    setTimeout(() => {
-                        // Clear from store if it's there
-                        store.commit('removeAppellation', this.index);
-                        this.$emit('deletedappellation', this.appellation);
-                    }, 300);
+                    // Force cleanup immediately for newly created annotations
+                    this.$root.$emit('forceCleanupAppellation', this.appellation.id);
+                    
+                    // Remove from lists
+                    store.commit('removeAppellation', this.index);
+                    this.$emit('deletedappellation', this.appellation);
                 })
                 .catch(error => {
+                    // Restore visibility on error
+                    this.appellation.visible = true;
                     this.isDeleting = false;
-                    if (error.response?.data?.detail) {
-                        this.error = error.response.data.detail;
-                    } else {
-                        this.error = 'Failed to delete annotation';
-                    }
-                    setTimeout(() => {
-                        this.error = null;
-                    }, 3000);
+                    this.error = error.response?.data?.detail || 'Failed to delete annotation';
+                    setTimeout(() => this.error = null, 3000);
                 });
           },
         watchCheckStore: function () {
@@ -156,10 +154,15 @@ var AppellationListItem = {
             this.$emit("showappellation", this.appellation);
         },
         toggle: function () {
-            // If the appellation is selected, deselect it first
+            if (this.isDeleting) return;
+            
+            // Clear selection if toggling visibility
             if (this.appellation.selected) {
-                this.$emit('selectappellation', this.appellation);
+                this.appellation.selected = false;
+                store.commit('setTextAppellation', []);
+                this.$root.$emit('appellationDeselected', this.appellation);
             }
+            
             if (this.appellation.visible) {
                 this.hide();
             } else {
@@ -170,6 +173,7 @@ var AppellationListItem = {
             return this.appellation.selected;
         },
         select: function () {
+            if (this.isDeleting) return;
             this.$emit('selectappellation', this.appellation);
         },
         label: function () {
