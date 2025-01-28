@@ -321,6 +321,38 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
         headers = self.get_success_headers(serializer.data)
         return Response(reserializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+    def update(self, request, *args, **kwargs):
+        # The default DRF permission checks alr done
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    # NEW: Overriding the destroy() method to block deletions when in a Relation
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        # Check if this Appellation is part of a Relation
+        # `source`, `object`, or `predicate`
+        in_relations = (
+            RelationSet.objects.filter(
+                relations__in=Relation.objects.filter(
+                    Q(source=instance) | Q(object=instance) | Q(predicate=instance)
+                )
+            ).exists()
+        )
+
+        print("in relation bool", in_relations)
+
+        if in_relations:
+            return Response(
+                {"detail": "Cannot delete an Appellation used in a Relation."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def get_queryset(self, *args, **kwargs):
         queryset = AnnotationFilterMixin.get_queryset(self, *args, **kwargs)
 

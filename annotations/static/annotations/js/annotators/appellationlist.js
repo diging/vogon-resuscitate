@@ -15,6 +15,17 @@ var AppellationListItem = {
 						<span v-else class="glyphicon glyphicon glyphicon-eye-close"></span>
 					</a>
 				</span>
+
+                      <!-- EDIT button (NEW) -->
+                    <a class="btn btn-xs" @click="editAppellation" data-tooltip="Edit Appellation">
+                        <span class="glyphicon glyphicon-pencil"></span>
+                    </a>
+
+                    <!-- DELETE button (NEW) -->
+                    <a class="btn btn-xs btn-danger" @click="deleteAppellation" data-tooltip="Delete Appellation">
+                        <span class="glyphicon glyphicon-trash"></span>
+                    </a>
+                    </span>
 				
 				{{ label() }}
 				<div class="text-warning">
@@ -67,6 +78,23 @@ var AppellationListItem = {
                 },
             );
         },
+        editAppellation() {
+            // Logic
+            console.log('Edit button clicked for Appellation ID:', this.appellation.id);
+            this.$emit('editappellation', this.appellation);
+          },
+      
+          deleteAppellation() {
+            const self = this;
+            Appellation.delete(this.appellation.id).then(response => {
+              // Let the parent or store know to remove it from the list
+              self.$emit('deletedappellation', this.appellation);
+            })
+            .catch(error => {
+              console.error('Failed to delete Appellation', error);
+            //   alert(error.body?.detail || 'Cannot delete annotation');
+            });
+          },
         watchCheckStore: function () {
             store.watch(
                 (state) => {
