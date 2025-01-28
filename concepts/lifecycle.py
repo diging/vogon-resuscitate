@@ -45,7 +45,7 @@ class ConceptLifecycle(object):
 
     def __init__(self, instance):
         assert isinstance(instance, Concept)
-        self.conceptpower = Conceptpower(endpoint=settings.CONCEPTPOWER_ENDPOINT, namespace=settings.CONCEPTPOWER_NAMESPACE)
+        self.conceptpower = Conceptpower(settings.CONCEPTPOWER_ENDPOINT, settings.CONCEPTPOWER_NAMESPACE)
 
         self.instance = instance
         self.user = settings.CONCEPTPOWER_USERID
