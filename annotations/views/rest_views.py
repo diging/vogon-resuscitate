@@ -44,15 +44,17 @@ class ProjectOwnerOrCollaboratorAccessOrReadOnly(IsAuthenticatedOrReadOnly):
         if not super().has_permission(request, view):
             return False
             
-        # Allow GET requests for authenticated users
         if request.method in ['GET', 'HEAD', 'OPTIONS']:
             return True
 
-        # check if user is owner or collaborator For POST/PUT/DELETE 
+        if request.method == 'DELETE':
+            return True  # Let has_object_permission handle it
+
+        # check if user is owner or collaborator For POST/PUT
         text_id = None
         if request.method == 'POST':
             text_id = request.data.get('occursIn')
-        elif request.method in ['PUT', 'DELETE']:
+        elif request.method == 'PUT':
             text_id = request.query_params.get('text')
             
         if text_id:
@@ -69,10 +71,16 @@ class ProjectOwnerOrCollaboratorAccessOrReadOnly(IsAuthenticatedOrReadOnly):
         return False
 
     def has_object_permission(self, request, view, annotation):
-        # Allow GET requests for authenticated users
+        logger.debug(f"Checking object permission for {request.method} request by user {request.user}")
+        
         if request.method in ['GET', 'HEAD', 'OPTIONS']:
             return True
             
+        # Allow users to delete their own annotations
+        if request.method == 'DELETE' and annotation.createdBy == request.user:
+            logger.debug(f"User {request.user} is creator of annotation - allowing delete")
+            return True
+
         # Check if user is owner or collaborator of the text's collection
         text = None
         if hasattr(annotation, 'occursIn'):
@@ -83,8 +91,10 @@ class ProjectOwnerOrCollaboratorAccessOrReadOnly(IsAuthenticatedOrReadOnly):
             for collection in collections:
                 if (request.user == collection.ownedBy or 
                     request.user in collection.collaborators.all()):
+                    logger.debug(f"User {request.user} has permission through collection {collection.id}")
                     return True
-                    
+        
+        logger.debug(f"User {request.user} does not have permission")
         return False
 
 # http://stackoverflow.com/questions/17769814/django-rest-framework-model-serializers-read-nested-write-flat
@@ -328,30 +338,39 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
     def partial_update(self, request, *args, **kwargs):
         return super().partial_update(request, *args, **kwargs)
 
-    # NEW: Overriding the destroy() method to block deletions when in a Relation
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-
-        # Check if this Appellation is part of a Relation
-        # `source`, `object`, or `predicate`
-        in_relations = (
-            RelationSet.objects.filter(
-                relations__in=Relation.objects.filter(
-                    Q(source=instance) | Q(object=instance) | Q(predicate=instance)
-                )
-            ).exists()
-        )
-
-        print("in relation bool", in_relations)
-
-        if in_relations:
-            return Response(
-                {"detail": "Cannot delete an Appellation used in a Relation."},
-                status=status.HTTP_403_FORBIDDEN
+        try:
+            instance = self.get_object()
+            logger.debug(f"Attempting to delete appellation {instance.id}")
+            
+            # Check if this Appellation is part of a Relation
+            in_relations = (
+                RelationSet.objects.filter(
+                    constituents__in=Relation.objects.filter(
+                        Q(source_content_type=ContentType.objects.get_for_model(Appellation), 
+                          source_object_id=instance.id) |
+                        Q(object_content_type=ContentType.objects.get_for_model(Appellation),
+                          object_object_id=instance.id) |
+                        Q(predicate=instance)
+                    )
+                ).exists()
             )
 
-        self.perform_destroy(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+            if in_relations:
+                return Response(
+                    {"detail": "Cannot delete an Appellation used in a Relation."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        
+        except Exception as e:
+            logger.error(f"Error deleting appellation: {str(e)}", exc_info=True)
+            return Response(
+                {"detail": f"Error deleting appellation: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     def get_queryset(self, *args, **kwargs):
         queryset = AnnotationFilterMixin.get_queryset(self, *args, **kwargs)

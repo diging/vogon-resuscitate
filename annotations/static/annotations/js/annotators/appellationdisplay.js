@@ -1,8 +1,8 @@
 AppellationDisplayItem = {
     props: ['appellation'],
-    template: `<div v-if="appellation.visible">
+    template: `<div v-show="appellation.visible && !isDeleted">
                 <li v-tooltip="getLabel()"
-                    v-if="appellation.visible"
+                    v-show="appellation.visible && !isDeleted"
                     v-on:click="selectAppellation"
                     v-bind:style="{
                         top: position.top,
@@ -10,7 +10,9 @@ AppellationDisplayItem = {
                         position: 'absolute',
                         width: position.width,
                         height: line_height,
-                        'z-index': 2
+                        'z-index': 2,
+                        transition: 'opacity 0.2s ease',
+                        opacity: isDeleted ? 0 : 1
                     }"
                     v-bind:class="{
                         'appellation': appellation.interpretation != null,
@@ -66,12 +68,32 @@ AppellationDisplayItem = {
             line_height: 0,
             multi_line: null,
             mid_lines: [],
-            end_position: {}
+            end_position: {},
+            isDeleted: false
         }
     },
     mounted: function () {
         this.updatePosition();
         window.addEventListener('resize', this.updatePosition);
+        // Listen for deletion events
+        this.$root.$on('appellationDeleted', (deletedAppellation) => {
+            if (deletedAppellation.id === this.appellation.id) {
+                this.isDeleted = true;
+                // Remove from store if it exists
+                store.commit('removeAppellation', deletedAppellation);
+                // Clear interpretation and selected state
+                if (this.appellation.interpretation) {
+                    this.appellation.interpretation = null;
+                }
+                this.appellation.selected = false;
+                // Clear from text appellation store
+                store.commit('setTextAppellation', []);
+            }
+        });
+    },
+    beforeDestroy() {
+        // Clean up event listener
+        this.$root.$off('appellationDeleted');
     },
     methods: {
         getLabel: function () {

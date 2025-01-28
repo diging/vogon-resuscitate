@@ -1,4 +1,3 @@
-
 /******************************************************************************
   *         Resources!
   *****************************************************************************/
@@ -22,8 +21,14 @@ function getCookie(name) {
 
 Vue.http.headers.common['X-CSRFToken'] = getCookie('csrftoken');
 
+const REST_URL = BASE_URL + '/rest/';
 
-var Appellation = Vue.resource(BASE_URL + '/rest/appellation{/id}');
+var Appellation = Vue.resource(REST_URL + 'appellation{/id}', {}, {
+    delete: {
+        method: 'DELETE',
+        url: REST_URL + 'appellation{/id}/'
+    }
+});
 var DateAppellation = Vue.resource(BASE_URL + '/rest/dateappellation{/id}');
 var Relation = Vue.resource(BASE_URL + '/rest/relationset{/id}');
 var Concept = Vue.resource(BASE_URL + '/rest/concept{/id}', {}, {
