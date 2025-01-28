@@ -124,7 +124,7 @@ var AppellationListItem = {
                     // Restore visibility on error
                     this.appellation.visible = true;
                     this.isDeleting = false;
-                    this.error = error.response?.data?.detail || 'Failed to delete annotation';
+                    this.error = error.response?.data?.detail || 'This annotation is part of a relation and cannot be deleted';
                     setTimeout(() => this.error = null, 3000);
                 });
           },
