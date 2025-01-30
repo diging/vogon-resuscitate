@@ -162,3 +162,15 @@ def citesphere_refresh_token(request, repository_id):
         return redirect(
             reverse('citesphere_login') + f'?repository_id={repository_id}&next={next_url}'
         )
+    
+@login_required
+def citesphere_disconnect(request, repository_id):
+    try:
+        CitesphereAccount.objects.filter(user=request.user, repository_id=repository_id).delete()
+    except Exception as e:
+        print(f"Error disconnecting Citesphere account: {e}")
+        return render(request, 'citesphere/error.html', {
+            'message': 'Error disconnecting Citesphere account. Please try again or contact support if the issue persists.'
+        })
+
+    return redirect(reverse('dashboard'))
