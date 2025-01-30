@@ -381,8 +381,14 @@ class RelationTemplatePartForm(forms.ModelForm):
                 field.widget.attrs['description'] = 'id_{0}-'.format(self.prefix) + field.widget.attrs['description']
 
     def clean(self, *args, **kwargs):
-        super(RelationTemplatePartForm, self).clean(*args, **kwargs)
+        cleaned_data = super(RelationTemplatePartForm, self).clean(*args, **kwargs)
 
+        concept_fields = ['source_concept', 'predicate_concept', 'object_concept']
+        for field_name in concept_fields:
+            concept = cleaned_data.get(field_name)
+            if not concept:
+                cleaned_data[field_name] = None
+            
         for field in ['source', 'object']:
             selected_node_type = self.cleaned_data.get('%s_node_type' % field)
             # If the user has selected the "Concept type" field, then they must
