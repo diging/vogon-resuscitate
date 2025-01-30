@@ -109,6 +109,21 @@ TextSelectionDisplay = {
 TextDisplay = {
     props: ['appellations', 'dateappellations'],
     template: `<div style="position: relative;">
+                   <div v-if="isEditing" 
+                        class="edit-mode-message alert alert-info" 
+                        style="position: fixed; top: 20px; right: 20px; z-index: 1000; 
+                               padding: 10px 15px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                       <span class="glyphicon glyphicon-info-sign"></span>
+                       Edit Mode: Select new text position 
+                       <span class="text-muted">(Press ESC to cancel)</span>
+                   </div>
+                   <div v-if="showSuccessMessage"
+                        class="edit-success-message alert alert-success"
+                        style="position: fixed; top: 20px; right: 20px; z-index: 1000;
+                               padding: 10px 15px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                       <span class="glyphicon glyphicon-ok"></span>
+                       Successfully updated annotation
+                   </div>
                    <pre id="text-content"
                         v-on:mouseup="handleMouseup">{{ text }}</pre>
                    <appellation-display
@@ -138,7 +153,9 @@ TextDisplay = {
             selected_multi_line: false,
             selected_mid_lines: null,
             selected_end_position: null,
-            isEditing: false  // Add this to track edit state
+            isEditing: false,
+            showSuccessMessage: false,
+            successMessageTimeout: null
         }
     },
     mounted: function() {
@@ -147,14 +164,26 @@ TextDisplay = {
         // Listen for edit mode
         EventBus.$on('startEdit', () => {
             this.isEditing = true;
+            
+            // Add ESC key listener when entering edit mode
+            document.addEventListener('keydown', this.handleEscKey);
         });
         
         EventBus.$on('cancelEdit', () => {
             this.isEditing = false;
             localStorage.removeItem('editingAppellation');
+            
+            // Remove ESC key listener when exiting edit mode
+            document.removeEventListener('keydown', this.handleEscKey);
         });
     },
     methods: {
+        handleEscKey: function(e) {
+            if (e.key === 'Escape' && this.isEditing) {
+                EventBus.$emit('cancelEdit');
+                this.resetTextSelection();
+            }
+        },
         resetTextSelection: function() {
             this.selected = {
                 startOffset: null,
@@ -173,6 +202,20 @@ TextDisplay = {
         selectAppellation: function(appellation) { this.$emit('selectappellation', appellation); },
         selectDateAppellation: function(appellation) { this.$emit('selectdateappellation', appellation); },
         textIsSelected: function() { return this.selected.startOffset != null; },
+        showTemporarySuccessMessage() {
+            // Clear any existing timeout
+            if (this.successMessageTimeout) {
+                clearTimeout(this.successMessageTimeout);
+            }
+            
+            // Show the message
+            this.showSuccessMessage = true;
+            
+            // Hide after 3 seconds
+            this.successMessageTimeout = setTimeout(() => {
+                this.showSuccessMessage = false;
+            }, 3000);
+        },
         handleMouseup: function(e) {
             if (e.target.id != 'text-content') return;
             e.stopPropagation();
@@ -209,6 +252,9 @@ TextDisplay = {
                         localStorage.removeItem('editingAppellation');
                         this.isEditing = false;
                         
+                        // Show success message
+                        this.showTemporarySuccessMessage();
+                        
                         // Make sure the updated appellation is visible
                         response.body.visible = true;
                         
@@ -243,5 +289,13 @@ TextDisplay = {
         EventBus.$off('cleartextselection');
         EventBus.$off('startEdit');
         EventBus.$off('cancelEdit');
+        
+        // Clean up ESC key listener
+        document.removeEventListener('keydown', this.handleEscKey);
+        
+        // Clear any pending success message timeout
+        if (this.successMessageTimeout) {
+            clearTimeout(this.successMessageTimeout);
+        }
     }
 }
