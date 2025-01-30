@@ -49,6 +49,7 @@ def type(request, type_id):
     return render(request, template, context)
 
 @staff_member_required
+@login_required(login_url='/login/conceptpower/')
 def merge_concepts(request, source_concept_id):
     source = get_object_or_404(Concept, pk=source_concept_id)
     manager = ConceptLifecycle(source)

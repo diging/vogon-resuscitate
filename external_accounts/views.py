@@ -13,6 +13,11 @@ from repository.models import Repository
 import requests
 import secrets
 
+from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth import login, authenticate, logout
+from django.http import HttpResponseRedirect
+
+
 @login_required
 def citesphere_login(request):
     repository_id = request.GET.get('repository_id')
@@ -41,28 +46,18 @@ def citesphere_login(request):
 
 @login_required
 def conceptpower_login(request):
-    next_url = request.GET.get('next', reverse('home'))
-
-    if not repository_id:
-        return redirect('repository_list')
-    repository = get_object_or_404(Repository, pk=repository_id)
-
-    state = secrets.token_urlsafe()
-    # Store state and next_url in the session
-    request.session['oauth_state'] = state
-    request.session['oauth_next'] = next_url
-    request.session['repository_id'] = repository_id
-
-    params = {
-        'client_id': repository.client_id,
-        'scope': 'read',
-        'response_type': 'code',
-        'redirect_uri': f"{settings.BASE_URL}oauth/callback/citesphere/",
-        'state': state
-    }
-
-    url = f"{repository.endpoint}/api/oauth/authorize/?{urlencode(params)}"
-    return redirect(url)
+    # We're just using the AuthenticationForm to build the HTML input elements.
+    form = AuthenticationForm()
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        user = authenticate(username=username, password=password)
+        if user:
+            login(request, user)
+            next_page = request.GET.get('next', reverse('dashboard'))
+            return HttpResponseRedirect(next_page)
+    context = {'form': form}
+    return render(request, 'login/login.html', context)
 
 def citesphere_callback(request):
     code = request.GET.get('code')
