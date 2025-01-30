@@ -106,41 +106,51 @@ var AppellationListItem = {
             });
         },
       
-          deleteAppellation() {
+        deleteAppellation() {
+            // Prevent multiple delete attempts
             if (this.isDeleting) return;
             this.error = null;
             this.isDeleting = true;
 
-            // First clear all states and stores
+            // First clear all states and stores if the appellation was selected
             if (this.appellation.selected) {
+                // Deselect the appellation
                 this.appellation.selected = false;
+                // Clear from text appellation store
                 store.commit('setTextAppellation', []);
+                // Reset creation state
                 store.commit('resetCreateAppelltionsToText');
+                // Notify components about deselection
                 this.$root.$emit('appellationDeselected', this.appellation);
             }
 
-            // Immediately hide and notify about deletion
+            // Immediately hide the appellation from view and notify components
             this.appellation.visible = false;
+            // Emit event for AppellationDisplay to handle visual removal
             this.$root.$emit('appellationDeleted', this.appellation);
+            // Hide from the list view
             this.$emit('hideappellation', this.appellation);
 
+            // Make API call to delete the appellation
             Appellation.delete({id: this.appellation.id})
                 .then(response => {
-                    // Force cleanup immediately for newly created annotations
+                    // Force immediate cleanup of the appellation from DOM
                     this.$root.$emit('forceCleanupAppellation', this.appellation.id);
                     
-                    // Remove from lists
+                    // Remove from store and list
                     store.commit('removeAppellation', this.index);
                     this.$emit('deletedappellation', this.appellation);
                 })
                 .catch(error => {
-                    // Restore visibility on error
+                    // If deletion fails, restore visibility
                     this.appellation.visible = true;
                     this.isDeleting = false;
+                    // Show error message (e.g., if appellation is part of a relation)
                     this.error = error.response?.data?.detail || 'This annotation is part of a relation and cannot be deleted';
+                    // Clear error after 3 seconds
                     setTimeout(() => this.error = null, 3000);
                 });
-          },
+        },
         watchCheckStore: function () {
             store.watch(
                 (state) => {

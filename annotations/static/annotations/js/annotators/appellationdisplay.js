@@ -101,6 +101,7 @@ AppellationDisplayItem = {
         },
         
         handleDeletion(deletedAppellation) {
+            // Only handle if this is the appellation being deleted
             if (deletedAppellation.id === this.appellation.id) {
                 // Immediately remove selection and highlighting
                 this.isDeleted = true;
@@ -112,12 +113,12 @@ AppellationDisplayItem = {
                     this.$el.parentNode.removeChild(this.$el);
                 }
                 
-                // Clear all stores
+                // Clear all stores to ensure clean state
                 store.commit('removeAppellation', deletedAppellation);
                 store.commit('setTextAppellation', []);
                 store.commit('resetCreateAppelltionsToText');
                 
-                // Emit deselection event
+                // Notify parent components about deselection
                 this.$root.$emit('appellationDeselected', this.appellation);
             }
         },
@@ -200,8 +201,9 @@ AppellationDisplayItem = {
         this.updatePosition();
         window.addEventListener('resize', this.updatePosition);
         
-        // Listen for both deletion and cleanup events
+        // Listen for deletion events
         this.$root.$on('appellationDeleted', this.handleDeletion);
+        // Listen for forced cleanup (e.g., after successful deletion)
         this.$root.$on('forceCleanupAppellation', (id) => {
             if (id === this.appellation.id) {
                 this.handleDeletion(this.appellation);
@@ -291,6 +293,26 @@ AppellationDisplay = {
     methods: {
         selectAppellation: function (appellation) {
             this.$emit('selectappellation', appellation);
+        },
+        // Handle complete removal of appellation from display
+        handleDeletedAppellation(appellation) {
+            // Remove from current_appellations array
+            const index = this.current_appellations.findIndex(a => a.id === appellation.id);
+            if (index > -1) {
+                // Create new array without the deleted appellation
+                const newAppellations = [...this.current_appellations];
+                newAppellations.splice(index, 1);
+                this.current_appellations = newAppellations;
+            }
+            
+            // Update the parent component's appellations array
+            const parentIndex = this.appellations.findIndex(a => a.id === appellation.id);
+            if (parentIndex > -1) {
+                const newParentAppellations = [...this.appellations];
+                newParentAppellations.splice(parentIndex, 1);
+                // Emit update to parent
+                this.$emit('update:appellations', newParentAppellations);
+            }
         }
     }
 }
