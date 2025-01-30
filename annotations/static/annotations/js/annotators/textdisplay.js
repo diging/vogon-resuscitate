@@ -252,22 +252,14 @@ TextDisplay = {
                         localStorage.removeItem('editingAppellation');
                         this.isEditing = false;
                         
-                        // Show success message
-                        this.showTemporarySuccessMessage();
+                        // Show success message briefly before refresh
+                        this.showSuccessMessage = true;
                         
-                        // Make sure the updated appellation is visible
-                        response.body.visible = true;
+                        // Wait a brief moment to show the success message, then refresh
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
                         
-                        // Update UI
-                        this.$root.$emit('appellationUpdated', response.body);
-                        
-                        // Clear selection
-                        EventBus.$emit('cleartextselection');
-                        
-                        // Force a refresh of all positions
-                        this.$nextTick(() => {
-                            EventBus.$emit('updatepositions');
-                        });
                     }).catch(error => {
                         console.error('Failed to update appellation:', error);
                         alert('Failed to update appellation. Please try again.');
