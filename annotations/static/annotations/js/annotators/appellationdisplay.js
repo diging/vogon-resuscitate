@@ -11,7 +11,7 @@ AppellationDisplayItem = {
                         height: line_height,
                         'z-index': 2,
                         transition: 'all 0.2s ease',
-                        opacity: isDeleted ? 0 : 1,
+                        opacity: isDeleted ? 0 : (appellation.selected ? 0.5 : 0.3),
                         visibility: shouldShow ? 'visible' : 'hidden',
                         pointerEvents: isDeleted ? 'none' : 'auto'
                     }"
@@ -36,7 +36,8 @@ AppellationDisplayItem = {
                        left: line.left,
                        position: 'absolute',
                        width: line.width,
-                       'z-index': 2
+                       'z-index': 2,
+                       opacity: appellation.selected ? 0.5 : 0.3
                    }">
                 </li>
                 <li v-if="multipleLinesAreSelected()"
@@ -48,7 +49,8 @@ AppellationDisplayItem = {
                          left: end_position.left,
                          position: 'absolute',
                          width: end_position.width,
-                         'z-index': 2
+                         'z-index': 2,
+                         opacity: appellation.selected ? 0.5 : 0.3
                      }"
                      v-bind:class="{
                          'appellation': appellation.interpretation != null,

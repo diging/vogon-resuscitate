@@ -26,7 +26,7 @@ const REST_URL = BASE_URL + '/rest/';
 var Appellation = Vue.resource(REST_URL + 'appellation{/id}', {}, {
     delete: {
         method: 'DELETE',
-        url: REST_URL + 'appellation{/id}/'
+        url: REST_URL + 'appellation{/id}'
     }
 });
 var DateAppellation = Vue.resource(BASE_URL + '/rest/dateappellation{/id}');
