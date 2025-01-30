@@ -169,11 +169,22 @@ ConceptCreator = {
             pos: "",
             concept_types: [],
             error: false,
-            submitted: false
+            submitted: false,
+            editingAppellation: null
         }
     },
     mounted: function () {
         this.updateTypes();
+        this.$root.$on('startAppellationEdit', (data) => {
+            this.editingAppellation = data.appellation;
+            this.position = data.position;
+            
+            this.concept = data.appellation.interpretation;
+            
+            this.create = false;
+            this.search = false;
+            this.display = true;
+        });
     },
     watch: {
         name: function () {
@@ -205,24 +216,55 @@ ConceptCreator = {
             this.pos = "noun";
             this.error = false;
             this.submitted = false;
+            this.editingAppellation = null;
         },
         createConcept: function () {
             if (this.ready) {
                 this.submitted = true; // Immediately prevent further submissions.
-                self = this;
-                Concept.save({
-                    uri: 'generate',
-                    label: "this.label",
-                    description: this.description,
-                    pos: this.pos,
-                    typed: this.concept_type
-                }).then(function (response) {
-                    self.clear();
-                    self.$emit("createdconcept", response.body);
-                }).catch(function (error) {
-                    console.log('ConceptCreator:: failed to create concept', error);
-                    self.error = true;
-                });
+                const self = this;
+                const payload = {
+                    position: {
+                        occursIn: this.text.id,
+                        position_type: "CO",
+                        position_value: [this.position.startOffset,
+                            this.position.endOffset
+                        ].join(",")
+                    },
+                    stringRep: this.position.representation,
+                    startPos: this.position.startOffset,
+                    endPos: this.position.endOffset,
+                    occursIn: this.text.id,
+                    createdBy: this.user.id,
+                    project: this.project.id,
+                    interpretation: this.concept.uri || this.concept.interpretation.uri,
+                    pos: this.concept.pos || this.concept.interpretation.pos,
+                    label: this.concept.label || this.concept.interpretation.label
+                };
+
+                if (this.editingAppellation) {
+                    Appellation.update({id: this.editingAppellation.id}, payload)
+                        .then(response => {
+                            self.reset();
+                            self.$emit('updatedappellation', response.body);
+                            self.$root.$emit('appellationUpdated', response.body);
+                        })
+                        .catch(error => {
+                            console.error('Failed to update appellation:', error);
+                            self.saving = false;
+                            self.submitted = false;
+                        });
+                } else {
+                    Appellation.save(payload)
+                        .then(response => {
+                            self.reset();
+                            self.$emit('createdappellation', response.body);
+                        })
+                        .catch(error => {
+                            console.error('Failed to create appellation:', error);
+                            self.saving = false;
+                            self.submitted = false;
+                        });
+                }
             }
         },
         updateTypes: function () {
@@ -242,6 +284,9 @@ ConceptCreator = {
                 }
             }
         }
+    },
+    beforeDestroy() {
+        this.$root.$off('startAppellationEdit');
     }
 }
 
@@ -298,8 +343,8 @@ DateAppellationCreator = {
         },
         createAppellation: function () {
             if (!(this.submitted || this.saving)) {
-                // this.submitted = true;      // Prevent multiple submissions.
-                // this.saving = true;
+                this.submitted = true;
+                this.saving = true;
                 self = this;
                 DateAppellation.save({
                     position: {

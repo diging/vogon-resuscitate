@@ -137,11 +137,22 @@ TextDisplay = {
             },
             selected_multi_line: false,
             selected_mid_lines: null,
-            selected_end_position: null
+            selected_end_position: null,
+            isEditing: false  // Add this to track edit state
         }
     },
     mounted: function() {
         EventBus.$on('cleartextselection', this.resetTextSelection);
+        
+        // Listen for edit mode
+        EventBus.$on('startEdit', () => {
+            this.isEditing = true;
+        });
+        
+        EventBus.$on('cancelEdit', () => {
+            this.isEditing = false;
+            localStorage.removeItem('editingAppellation');
+        });
     },
     methods: {
         resetTextSelection: function() {
@@ -163,39 +174,74 @@ TextDisplay = {
         selectDateAppellation: function(appellation) { this.$emit('selectdateappellation', appellation); },
         textIsSelected: function() { return this.selected.startOffset != null; },
         handleMouseup: function(e) {
-            // We're looking for an event in which the user has selected some
-            //  text.
-            if (e.target.id != 'text-content') return;    // Out of scope.
+            if (e.target.id != 'text-content') return;
             e.stopPropagation();
 
-            // Get the start and end position of the selection. The selection
-            //  may have been left-to-right or right-to-left.
             var selection = document.getSelection();
             var startOffset = Math.min(selection.anchorOffset, selection.focusOffset);
             var endOffset = Math.max(selection.anchorOffset, selection.focusOffset);
 
-            // If the user double-clicks (e.g. to select a whole word), the
-            // first mouse-up will get as far as here, even though no text has
-            // actually been selected.
             if (endOffset == startOffset) return;
 
             var raw = document.getElementById('text-content').childNodes[0].textContent.slice(startOffset, endOffset);
-            this.selected = {    // Notifies TextSelectionDisplay.
-                    startOffset: startOffset,
-                    endOffset: endOffset,
-                    representation: raw
+            this.selected = {
+                startOffset: startOffset,
+                endOffset: endOffset,
+                representation: raw
             }
-            this.selected_position = getTextPosition(this.selected);
-            this.$emit('selecttext', this.selected);   // Fire!
 
-            // Now that we have registered the selection, we can clear the
-            //  original browser highlighting, so that only our overlay is
-            //  displayed.
+            if (this.isEditing) {
+                const editingAppellation = localStorage.getItem('editingAppellation');
+                if (editingAppellation) {
+                    const appellation = JSON.parse(editingAppellation);
+                    
+                    // Update the appellation with new position
+                    Appellation.update({ id: appellation.id }, {
+                        position: {
+                            occursIn: this.text.id,
+                            position_type: "CO",
+                            position_value: [startOffset, endOffset].join(",")
+                        },
+                        stringRep: raw,
+                        interpretation: appellation.interpretation.uri
+                    }).then(response => {
+                        // Clear editing state
+                        localStorage.removeItem('editingAppellation');
+                        this.isEditing = false;
+                        
+                        // Make sure the updated appellation is visible
+                        response.body.visible = true;
+                        
+                        // Update UI
+                        this.$root.$emit('appellationUpdated', response.body);
+                        
+                        // Clear selection
+                        EventBus.$emit('cleartextselection');
+                        
+                        // Force a refresh of all positions
+                        this.$nextTick(() => {
+                            EventBus.$emit('updatepositions');
+                        });
+                    }).catch(error => {
+                        console.error('Failed to update appellation:', error);
+                        alert('Failed to update appellation. Please try again.');
+                    });
+                }
+            } else {
+                // Normal text selection handling
+                this.$emit('selecttext', this.selected);
+            }
+            
             clearMouseTextSelection();
         },
     },
     components: {
         'appellation-display': AppellationDisplay,
         'text-selection-display': TextSelectionDisplay
+    },
+    beforeDestroy() {
+        EventBus.$off('cleartextselection');
+        EventBus.$off('startEdit');
+        EventBus.$off('cancelEdit');
     }
 }

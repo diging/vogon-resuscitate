@@ -88,10 +88,23 @@ var AppellationListItem = {
             );
         },
         editAppellation() {
-            // Logic
-            console.log('Edit button clicked for Appellation ID:', this.appellation.id);
-            this.$emit('editappellation', this.appellation);
-          },
+            if (this.isDeleting) return;
+            
+            // Store the appellation to edit
+            localStorage.setItem('editingAppellation', JSON.stringify(this.appellation));
+            
+            // Deselect current appellation
+            this.appellation.selected = false;
+            
+            // Enter edit mode
+            EventBus.$emit('startEdit');
+            
+            // Show message to user
+            EventBus.$emit('showMessage', {
+                text: 'Please select the new text position. Press ESC to cancel.',
+                type: 'info'
+            });
+        },
       
           deleteAppellation() {
             if (this.isDeleting) return;
@@ -241,6 +254,7 @@ AppellationList = {
 									v-on:hideappellation="hideAppellation"
 									v-on:showappellation="showAppellation"
 									v-on:selectappellation="selectAppellation"
+									v-on:editappellation="handleEditAppellation"
 									v-on:removeAppellation="removeAppellation($event)"
 									v-on:addAppellation="addAppellation($event)"
 									v-for="(appellation, index) in current_appellations"
@@ -393,6 +407,23 @@ AppellationList = {
                 newParentAppellations.splice(parentIndex, 1);
                 this.$emit('update:appellations', newParentAppellations);
             }
+        },
+        handleEditAppellation(data) {
+            // Clear any existing selections
+            this.appellations.forEach(a => {
+                if (a.id !== data.appellation.id) {
+                    a.selected = false;
+                }
+            });
+            
+            // Select the text
+            EventBus.$emit('selecttext', data.position);
+            
+            // Store the current appellation for editing
+            store.commit('setEditingAppellation', data.appellation);
+            
+            // Emit event to start editing
+            this.$root.$emit('startAppellationEdit', data);
         }
     }
 }

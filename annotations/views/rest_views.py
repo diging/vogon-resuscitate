@@ -50,12 +50,13 @@ class ProjectOwnerOrCollaboratorAccessOrReadOnly(IsAuthenticatedOrReadOnly):
         if request.method == 'DELETE':
             return True  # Let has_object_permission handle it
 
-        # check if user is owner or collaborator For POST/PUT
+        if request.method in ['PUT', 'PATCH']:
+            return True  # Let has_object_permission handle it
+
+        # check if user is owner or collaborator For POST
         text_id = None
         if request.method == 'POST':
             text_id = request.data.get('occursIn')
-        elif request.method == 'PUT':
-            text_id = request.query_params.get('text')
             
         if text_id:
             try:
@@ -76,10 +77,11 @@ class ProjectOwnerOrCollaboratorAccessOrReadOnly(IsAuthenticatedOrReadOnly):
         if request.method in ['GET', 'HEAD', 'OPTIONS']:
             return True
             
-        # Allow users to delete their own annotations
-        if request.method == 'DELETE' and annotation.createdBy == request.user:
-            logger.debug(f"User {request.user} is creator of annotation - allowing delete")
-            return True
+        # Allow users to delete or edit their own annotations
+        if request.method in ['DELETE', 'PUT', 'PATCH']:
+            if annotation.createdBy == request.user:
+                logger.debug(f"User {request.user} is creator of annotation - allowing {request.method}")
+                return True
 
         # Check if user is owner or collaborator of the text's collection
         text = None
@@ -332,11 +334,48 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
         return Response(reserializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def update(self, request, *args, **kwargs):
-        # The default DRF permission checks alr done
-        return super().update(request, *args, **kwargs)
+        try:
+            logger.debug(f"Update request from user {request.user.id} for appellation {kwargs.get('pk')}")
+            instance = self.get_object()
+            logger.debug(f"Appellation creator: {instance.createdBy.id}")
+            
+            # Get the position data
+            position_value = request.data.get('position', {}).get('position_value')
+            if position_value:
+                # Update position
+                if not instance.position:
+                    instance.position = DocumentPosition.objects.create(
+                        occursIn_id=request.data['position']['occursIn'],
+                        position_type=request.data['position']['position_type'],
+                        position_value=position_value
+                    )
+                else:
+                    instance.position.position_value = position_value
+                    instance.position.save()
 
-    def partial_update(self, request, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
+            # Update string representation
+            if 'stringRep' in request.data:
+                instance.stringRep = request.data['stringRep']
+            
+            # Update interpretation if provided
+            if 'interpretation' in request.data:
+                try:
+                    concept = Concept.objects.get(uri=request.data['interpretation'])
+                    instance.interpretation = concept
+                except Concept.DoesNotExist:
+                    pass
+            
+            instance.save()
+            
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+            
+        except Exception as e:
+            logger.error(f"Error updating appellation: {str(e)}", exc_info=True)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     def destroy(self, request, *args, **kwargs):
         try:

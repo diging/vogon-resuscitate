@@ -143,39 +143,56 @@ AppellationDisplayItem = {
         updatePosition: function () {
             this.mid_lines = [];
             var lineHeight = parseInt(getStyle('text-content', 'line-height'));
-            this.position = getTextPosition(this.appellation.position);
             this.line_height = lineHeight - 1;
-            var endPoint = getPointPosition(this.appellation.position.endOffset);
-            var nLines = 1 + (endPoint.bottom - this.position.bottom) / lineHeight;
-            if (nLines > 1) { // The selection may span several lines.
-                // clientLeft/clientWidth don't account for inner padding.
-                var _padding = parseInt(getStyle('text-content', 'padding'));
-                if (!_padding) { // Firefox.
-                    _padding = parseInt(getStyle('text-content', 'paddingLeft'));
-                }
-                var _left = parseInt(document.getElementById('text-content').clientLeft);
-                var _width = parseInt(document.getElementById('text-content').clientWidth);
-                var left = _left + _padding;
-                var width = _width - (2 * _padding);
 
-                this.end_position = { // This is the last line, running from
-                    top: endPoint.top, //  far left to the end of the
-                    left: left, //   selection.
-                    width: endPoint.right - left
-                }
+            // Parse position values
+            if (this.appellation.position && this.appellation.position.position_value) {
+                const [startOffset, endOffset] = this.appellation.position.position_value.split(',').map(Number);
+                
+                // Get start and end points
+                const startPoint = getPointPosition(startOffset);
+                const endPoint = getPointPosition(endOffset);
+                
+                // Update position
+                this.position = {
+                    top: startPoint.top,
+                    left: startPoint.left,
+                    width: endPoint.right - startPoint.left,
+                    bottom: startPoint.bottom,
+                    right: endPoint.right
+                };
 
-                // If the selection spans more than two lines, we need to
-                //  highlight the intermediate lines at full width.
-                for (i = 0; i < Math.max(0, nLines - 2); i++) {
-                    this.mid_lines.push({
-                        top: this.position.top + (i + 1) * lineHeight,
-                        left: left,
-                        width: width,
-                        height: lineHeight - 1
-                    })
+                var nLines = 1 + (endPoint.bottom - this.position.bottom) / lineHeight;
+                if (nLines > 1) {
+                    // clientLeft/clientWidth don't account for inner padding.
+                    var _padding = parseInt(getStyle('text-content', 'padding'));
+                    if (!_padding) { // Firefox.
+                        _padding = parseInt(getStyle('text-content', 'paddingLeft'));
+                    }
+                    var _left = parseInt(document.getElementById('text-content').clientLeft);
+                    var _width = parseInt(document.getElementById('text-content').clientWidth);
+                    var left = _left + _padding;
+                    var width = _width - (2 * _padding);
+
+                    this.end_position = { // This is the last line, running from
+                        top: endPoint.top, //  far left to the end of the
+                        left: left, //   selection.
+                        width: endPoint.right - left
+                    }
+
+                    // If the selection spans more than two lines, we need to
+                    //  highlight the intermediate lines at full width.
+                    for (i = 0; i < Math.max(0, nLines - 2); i++) {
+                        this.mid_lines.push({
+                            top: this.position.top + (i + 1) * lineHeight,
+                            left: left,
+                            width: width,
+                            height: lineHeight - 1
+                        })
+                    }
+                } else {
+                    this.end_position = {};
                 }
-            } else {
-                this.end_position = {};
             }
         }
     },
@@ -190,11 +207,30 @@ AppellationDisplayItem = {
                 this.handleDeletion(this.appellation);
             }
         });
+        
+        // Listen for appellation updates
+        this.$root.$on('appellationUpdated', (updatedAppellation) => {
+            if (updatedAppellation.id === this.appellation.id) {
+                // Update the appellation data
+                Object.assign(this.appellation, updatedAppellation);
+                this.appellation.visible = true; // Force visibility
+                
+                // Force position recalculation
+                this.$nextTick(() => {
+                    this.updatePosition();
+                    // Force another update after a brief delay to ensure rendering
+                    setTimeout(() => {
+                        this.updatePosition();
+                    }, 100);
+                });
+            }
+        });
     },
     beforeDestroy() {
         window.removeEventListener('resize', this.updatePosition);
         this.$root.$off('appellationDeleted', this.handleDeletion);
         this.$root.$off('forceCleanupAppellation');
+        this.$root.$off('appellationUpdated');
         if (this.cleanupTimeout) {
             clearTimeout(this.cleanupTimeout);
         }
@@ -218,6 +254,24 @@ AppellationDisplay = {
             current_appellations: this.appellations
         }
     },
+    mounted() {
+        // Listen for appellation updates
+        this.$root.$on('appellationUpdated', (updatedAppellation) => {
+            const index = this.current_appellations.findIndex(a => a.id === updatedAppellation.id);
+            if (index !== -1) {
+                // Update the appellation in the list
+                Vue.set(this.current_appellations, index, updatedAppellation);
+                
+                // Force a refresh
+                this.$nextTick(() => {
+                    EventBus.$emit('updatepositions');
+                });
+            }
+        });
+    },
+    beforeDestroy() {
+        this.$root.$off('appellationUpdated');
+    },
     watch: {
         appellations: function (value) {
             // Replace an array prop wholesale doesn't seem to trigger a
@@ -236,21 +290,7 @@ AppellationDisplay = {
     },
     methods: {
         selectAppellation: function (appellation) {
-            this.$root.$emit('appellationClicked', appellation);
             this.$emit('selectappellation', appellation);
         }
-    },
-    mounted() {
-        this.$root.$on('appellationDeselected', (appellation) => {
-            // Remove from current selections
-            const index = this.current_appellations.findIndex(a => a.id === appellation.id);
-            if (index > -1) {
-                this.current_appellations[index].selected = false;
-                this.current_appellations[index].visible = false;
-            }
-        });
-    },
-    beforeDestroy() {
-        this.$root.$off('appellationDeselected');
     }
 }
