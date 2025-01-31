@@ -69,11 +69,29 @@ var AppellationListItem = {
                 this.checked = !this.checked;
             }
         });
+        
+        // Listen for appellation updates
+        this.$root.$on('appellationUpdated', (updatedAppellation) => {
+            if (updatedAppellation.id === this.appellation.id) {
+                // Update the appellation data
+                Object.assign(this.appellation, updatedAppellation);
+                
+                // Reset edit mode
+                this.isEditMode = false;
+                
+                // Ensure visibility is on
+                this.appellation.visible = true;
+                
+                // Force a re-render of the component
+                this.$forceUpdate();
+            }
+        });
     },
     beforeDestroy() {
         // Clean up event listeners
         EventBus.$off('startEdit');
         EventBus.$off('cancelEdit');
+        this.$root.$off('appellationUpdated');
     },
     watch: {
         checked: function () {
@@ -88,7 +106,12 @@ var AppellationListItem = {
                 store.commit('setDeselectFalse')
             }
         },
-
+        isEditMode: function(newVal) {
+            if (!newVal) {
+                // When edit mode is disabled, ensure buttons are re-enabled
+                this.$forceUpdate();
+            }
+        }
     },
     methods: {
         watchUncheckStore: function () {

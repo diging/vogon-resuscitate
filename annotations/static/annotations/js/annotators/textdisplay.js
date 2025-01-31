@@ -268,15 +268,27 @@ TextDisplay = {
                         localStorage.removeItem('editingAppellation');
                         this.isEditing = false;
                         
-                        // Show success message and refresh page
-                        this.showSuccessMessage = true;
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1000);
+                        // Emit cancel edit to clear edit mode for all components
+                        EventBus.$emit('cancelEdit');
+                        
+                        // Emit update event with updated appellation
+                        this.$root.$emit('appellationUpdated', response.body);
+                        
+                        // Clear selection
+                        this.resetTextSelection();
+                        
+                        // Show success message
+                        EventBus.$emit('showMessage', {
+                            text: 'Successfully updated annotation',
+                            type: 'success'
+                        });
                         
                     }).catch(error => {
                         console.error('Failed to update appellation:', error);
-                        alert('Failed to update appellation. Please try again.');
+                        EventBus.$emit('showMessage', {
+                            text: 'Failed to update annotation. Please try again.',
+                            type: 'error'
+                        });
                     });
                 }
             } else {

@@ -4,11 +4,11 @@ AppellationDisplayItem = {
                 <li v-tooltip="getLabel()"
                     v-on:click="selectAppellation"
                     v-bind:style="{
-                        top: position.top,
-                        left: position.left,
+                        top: position.top + 'px',
+                        left: position.left + 'px',
                         position: 'absolute',
-                        width: position.width,
-                        height: line_height,
+                        width: position.width + 'px',
+                        height: line_height + 'px',
                         'z-index': 2,
                         transition: 'all 0.2s ease',
                         opacity: isDeleted ? 0 : (appellation.selected ? 0.5 : 0.3),
@@ -65,8 +65,8 @@ AppellationDisplayItem = {
                 top: 0,
                 left: 0,
                 width: 0,
-                right: 0,
-                bottom: 0
+                bottom: 0,
+                right: 0
             },
             line_height: 0,
             multi_line: null,
@@ -89,6 +89,14 @@ AppellationDisplayItem = {
                 clearTimeout(this.cleanupTimeout);
                 this.cleanupComponent();
             }
+        },
+        'appellation.position.position_value': {
+            handler() {
+                this.$nextTick(() => {
+                    this.updatePosition();
+                });
+            },
+            immediate: true
         }
     },
     methods: {
@@ -143,57 +151,54 @@ AppellationDisplayItem = {
         },
         updatePosition: function () {
             this.mid_lines = [];
-            var lineHeight = parseInt(getStyle('text-content', 'line-height'));
+            const lineHeight = parseInt(getStyle('text-content', 'line-height'));
             this.line_height = lineHeight - 1;
 
-            // Parse position values
-            if (this.appellation.position && this.appellation.position.position_value) {
-                const [startOffset, endOffset] = this.appellation.position.position_value.split(',').map(Number);
-                
-                // Get start and end points
-                const startPoint = getPointPosition(startOffset);
-                const endPoint = getPointPosition(endOffset);
-                
-                // Update position
-                this.position = {
-                    top: startPoint.top,
-                    left: startPoint.left,
-                    width: endPoint.right - startPoint.left,
-                    bottom: startPoint.bottom,
-                    right: endPoint.right
-                };
+            if (!this.appellation.position || !this.appellation.position.position_value) return;
+            
+            const [startOffset, endOffset] = this.appellation.position.position_value.split(',').map(Number);
+            const startPoint = getPointPosition(startOffset);
+            const endPoint = getPointPosition(endOffset);
+            
+            if (!startPoint || !endPoint) return;
 
-                var nLines = 1 + (endPoint.bottom - this.position.bottom) / lineHeight;
-                if (nLines > 1) {
-                    // clientLeft/clientWidth don't account for inner padding.
-                    var _padding = parseInt(getStyle('text-content', 'padding'));
-                    if (!_padding) { // Firefox.
-                        _padding = parseInt(getStyle('text-content', 'paddingLeft'));
-                    }
-                    var _left = parseInt(document.getElementById('text-content').clientLeft);
-                    var _width = parseInt(document.getElementById('text-content').clientWidth);
-                    var left = _left + _padding;
-                    var width = _width - (2 * _padding);
+            this.position = {
+                top: startPoint.top,
+                left: startPoint.left,
+                width: endPoint.right - startPoint.left,
+                bottom: startPoint.bottom,
+                right: endPoint.right
+            };
 
-                    this.end_position = { // This is the last line, running from
-                        top: endPoint.top, //  far left to the end of the
-                        left: left, //   selection.
-                        width: endPoint.right - left
-                    }
-
-                    // If the selection spans more than two lines, we need to
-                    //  highlight the intermediate lines at full width.
-                    for (i = 0; i < Math.max(0, nLines - 2); i++) {
-                        this.mid_lines.push({
-                            top: this.position.top + (i + 1) * lineHeight,
-                            left: left,
-                            width: width,
-                            height: lineHeight - 1
-                        })
-                    }
-                } else {
-                    this.end_position = {};
+            var nLines = 1 + (endPoint.bottom - this.position.bottom) / lineHeight;
+            if (nLines > 1) {
+                // Handle multi-line highlights
+                var _padding = parseInt(getStyle('text-content', 'padding'));
+                if (!_padding) {
+                    _padding = parseInt(getStyle('text-content', 'paddingLeft'));
                 }
+                var _left = parseInt(document.getElementById('text-content').clientLeft);
+                var _width = parseInt(document.getElementById('text-content').clientWidth);
+                var left = _left + _padding;
+                var width = _width - (2 * _padding);
+
+                this.end_position = {
+                    top: endPoint.top,
+                    left: left,
+                    width: endPoint.right - left
+                }
+
+                for (var i = 0; i < Math.max(0, nLines - 2); i++) {
+                    this.mid_lines.push({
+                        top: this.position.top + (i + 1) * lineHeight,
+                        left: left,
+                        width: width,
+                        height: lineHeight - 1
+                    });
+                }
+            } else {
+                this.end_position = {};
+                this.mid_lines = [];
             }
         }
     },
@@ -210,29 +215,18 @@ AppellationDisplayItem = {
             }
         });
         
-        // Listen for appellation updates
-        this.$root.$on('appellationUpdated', (updatedAppellation) => {
-            if (updatedAppellation.id === this.appellation.id) {
-                // Update the appellation data
-                Object.assign(this.appellation, updatedAppellation);
-                this.appellation.visible = true; // Force visibility
-                
-                // Force position recalculation
-                this.$nextTick(() => {
-                    this.updatePosition();
-                    // Force another update after a brief delay to ensure rendering
-                    setTimeout(() => {
-                        this.updatePosition();
-                    }, 100);
-                });
-            }
+        // Listen for position updates
+        EventBus.$on('updatepositions', () => {
+            this.$nextTick(() => {
+                this.updatePosition();
+            });
         });
     },
     beforeDestroy() {
         window.removeEventListener('resize', this.updatePosition);
         this.$root.$off('appellationDeleted', this.handleDeletion);
         this.$root.$off('forceCleanupAppellation');
-        this.$root.$off('appellationUpdated');
+        EventBus.$off('updatepositions');
         if (this.cleanupTimeout) {
             clearTimeout(this.cleanupTimeout);
         }
@@ -246,6 +240,7 @@ AppellationDisplay = {
                 <appellation-display-item
                     v-on:selectappellation="selectAppellation"
                     v-bind:appellation=appellation
+                    v-bind:key="appellation.id + '-' + appellation.position.position_value"
                     v-for="appellation in current_appellations"></appellation-display-item>
                 </ul>`,
     components: {
@@ -261,10 +256,14 @@ AppellationDisplay = {
         this.$root.$on('appellationUpdated', (updatedAppellation) => {
             const index = this.current_appellations.findIndex(a => a.id === updatedAppellation.id);
             if (index !== -1) {
-                // Update the appellation in the list
-                Vue.set(this.current_appellations, index, updatedAppellation);
+                // Create a new array with the updated appellation
+                const newAppellations = [...this.current_appellations];
+                newAppellations[index] = updatedAppellation;
                 
-                // Force a refresh
+                // Force Vue to re-render by replacing the entire array
+                this.current_appellations = newAppellations;
+                
+                // Force a refresh of positions
                 this.$nextTick(() => {
                     EventBus.$emit('updatepositions');
                 });
@@ -275,44 +274,16 @@ AppellationDisplay = {
         this.$root.$off('appellationUpdated');
     },
     watch: {
-        appellations: function (value) {
-            // Replace an array prop wholesale doesn't seem to trigger a
-            //  DOM update in the v-for binding, but a push() does; so we'll
-            //  just push the appellations that aren't already in the array.
-            var current_ids = this.current_appellations.map(function (elem) {
-                return elem.id;
-            });
-            var self = this;
-            this.appellations.forEach(function (elem) {
-                if (current_ids.indexOf(elem.id) < 0) {
-                    self.current_appellations.push(elem);
-                }
-            });
+        appellations: {
+            handler(newVal) {
+                this.current_appellations = [...newVal];
+            },
+            deep: true
         }
     },
     methods: {
         selectAppellation: function (appellation) {
             this.$emit('selectappellation', appellation);
-        },
-        // Handle complete removal of appellation from display
-        handleDeletedAppellation(appellation) {
-            // Remove from current_appellations array
-            const index = this.current_appellations.findIndex(a => a.id === appellation.id);
-            if (index > -1) {
-                // Create new array without the deleted appellation
-                const newAppellations = [...this.current_appellations];
-                newAppellations.splice(index, 1);
-                this.current_appellations = newAppellations;
-            }
-            
-            // Update the parent component's appellations array
-            const parentIndex = this.appellations.findIndex(a => a.id === appellation.id);
-            if (parentIndex > -1) {
-                const newParentAppellations = [...this.appellations];
-                newParentAppellations.splice(parentIndex, 1);
-                // Emit update to parent
-                this.$emit('update:appellations', newParentAppellations);
-            }
         }
     }
 }
