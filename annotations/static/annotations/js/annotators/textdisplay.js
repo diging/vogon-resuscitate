@@ -187,6 +187,10 @@ TextDisplay = {
             if (e.key === 'Escape') {
                 this.resetTextSelection();
                 this.listening = false;
+                // Cancel concept selection
+                EventBus.$emit('cleartextselection');
+                EventBus.$emit('cancelappellation');
+                clearMouseTextSelection();
             }
         },
         handleMouseup: function(e) {
