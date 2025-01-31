@@ -109,6 +109,19 @@ TextSelectionDisplay = {
 TextDisplay = {
     props: ['appellations', 'dateappellations'],
     template: `<div style="position: relative;">
+                   <div v-if="listening" 
+                        style="position: fixed; 
+                               top: 20px; 
+                               left: 50%; 
+                               transform: translateX(-50%);
+                               padding: 10px 20px;
+                               background: rgba(0,0,0,0.8);
+                               color: white;
+                               border-radius: 4px;
+                               z-index: 1000;
+                               font-size: 14px;">
+                       Select text to create an appellation. Press ESC to cancel.
+                   </div>
                    <pre id="text-content"
                         v-on:mouseup="handleMouseup">{{ text }}</pre>
                    <appellation-display
@@ -137,11 +150,18 @@ TextDisplay = {
             },
             selected_multi_line: false,
             selected_mid_lines: null,
-            selected_end_position: null
+            selected_end_position: null,
+            listening: false
         }
     },
     mounted: function() {
         EventBus.$on('cleartextselection', this.resetTextSelection);
+        // Add ESC key listener
+        window.addEventListener('keyup', this.handleKeyup);
+    },
+    beforeDestroy: function() {
+        // Clean up event listener
+        window.removeEventListener('keyup', this.handleKeyup); 
     },
     methods: {
         resetTextSelection: function() {
@@ -158,11 +178,21 @@ TextDisplay = {
             this.selected_multi_line = false;
             this.selected_mid_lines = null;
             this.selected_end_position = null;
+            this.listening = false;
         },
         selectAppellation: function(appellation) { this.$emit('selectappellation', appellation); },
         selectDateAppellation: function(appellation) { this.$emit('selectdateappellation', appellation); },
         textIsSelected: function() { return this.selected.startOffset != null; },
+        handleKeyup: function(e) {
+            if (e.key === 'Escape') {
+                this.resetTextSelection();
+                this.listening = false;
+            }
+        },
         handleMouseup: function(e) {
+            // Show the instruction message when starting selection
+            this.listening = true;
+
             // We're looking for an event in which the user has selected some
             //  text.
             if (e.target.id != 'text-content') return;    // Out of scope.
