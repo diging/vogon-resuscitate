@@ -151,28 +151,24 @@ var AppellationListItem = {
             this.error = null;
             this.isDeleting = true;
 
-            // First clear all states and stores if the appellation was selected
-            if (this.appellation.selected) {
-                // Deselect the appellation
-                this.appellation.selected = false;
-                // Clear from text appellation store
-                store.commit('setTextAppellation', []);
-                // Reset creation state
-                store.commit('resetCreateAppelltionsToText');
-                // Notify components about deselection
-                this.$root.$emit('appellationDeselected', this.appellation);
-            }
-
-            // Immediately hide the appellation from view and notify components
-            this.appellation.visible = false;
-            // Emit event for AppellationDisplay to handle visual removal
-            this.$root.$emit('appellationDeleted', this.appellation);
-            // Hide from the list view
-            this.$emit('hideappellation', this.appellation);
-
-            // Make API call to delete the appellation
+            // Make API call to delete the appellation first
             Appellation.delete({id: this.appellation.id})
                 .then(response => {
+                    // Only after successful deletion:
+
+                    // Clear states if appellation was selected
+                    if (this.appellation.selected) {
+                        this.appellation.selected = false;
+                        store.commit('setTextAppellation', []);
+                        store.commit('resetCreateAppelltionsToText');
+                        this.$root.$emit('appellationDeselected', this.appellation);
+                    }
+
+                    // Now hide the appellation and notify components
+                    this.appellation.visible = false;
+                    this.$root.$emit('appellationDeleted', this.appellation);
+                    this.$emit('hideappellation', this.appellation);
+
                     // Force immediate cleanup of the appellation from DOM
                     this.$root.$emit('forceCleanupAppellation', this.appellation.id);
                     
@@ -181,8 +177,6 @@ var AppellationListItem = {
                     this.$emit('deletedappellation', this.appellation);
                 })
                 .catch(error => {
-                    // If deletion fails, restore visibility
-                    this.appellation.visible = true;
                     this.isDeleting = false;
                     // Show error message (e.g., if appellation is part of a relation)
                     this.error = error.response?.data?.detail || 'This annotation is part of a relation and cannot be deleted';
