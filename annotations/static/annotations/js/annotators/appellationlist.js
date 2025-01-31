@@ -13,25 +13,26 @@ var AppellationListItem = {
 						<div>
 							{{ label() }}
 							<div class="text-warning">
-								<input v-if="sidebar == 'submitAllAppellations'" type="checkbox" v-model="checked" aria-label="...">
+								<input v-if="sidebar == 'submitAllAppellations'" type="checkbox" v-model="checked" :disabled="isEditMode" aria-label="...">
 								Created by <strong>{{ getCreatorName(appellation.createdBy) }}</strong> on {{ getFormattedDate(appellation.created) }}
 							</div>
 						</div>
 						
 						<div class="btn-group">
-							<a class="btn btn-xs btn-default" v-on:click="select" data-tooltip="Select appellation">
+							<a class="btn btn-xs btn-default" v-on:click="select" :disabled="isEditMode" :class="{'disabled': isEditMode}" data-tooltip="Select appellation">
 								<span class="glyphicon glyphicon-hand-down"></span>
 							</a>
-							<a class="btn btn-xs btn-default" v-on:click="toggle" v-bind:data-tooltip="appellation.visible ? 'Hide appellation' : 'Show appellation'">
+							<a class="btn btn-xs btn-default" v-on:click="toggle" :disabled="isEditMode" :class="{'disabled': isEditMode}" v-bind:data-tooltip="appellation.visible ? 'Hide appellation' : 'Show appellation'">
 								<span v-if="appellation.visible" class="glyphicon glyphicon glyphicon-eye-open"></span>
 								<span v-else class="glyphicon glyphicon glyphicon-eye-close"></span>
 							</a>
-							<a class="btn btn-xs btn-default" @click="editAppellation" data-tooltip="Edit Appellation">
+							<a class="btn btn-xs btn-default" @click="editAppellation" :disabled="isEditMode" :class="{'disabled': isEditMode}" data-tooltip="Edit Appellation">
 								<span class="glyphicon glyphicon-pencil"></span>
 							</a>
 							<a class="btn btn-xs btn-danger" 
 							   @click="deleteAppellation" 
-							   :disabled="isDeleting"
+							   :disabled="isDeleting || isEditMode"
+							   :class="{'disabled': isEditMode}"
 							   data-tooltip="Delete Appellation">
 								<span class="glyphicon" 
 								  :class="{'glyphicon-trash': !isDeleting, 'glyphicon-hourglass': isDeleting}">
@@ -46,17 +47,33 @@ var AppellationListItem = {
             canUncheckAll: false,
             canCheckAll: false,
             isDeleting: false,
-            error: null
+            error: null,
+            isEditMode: false
         }
     },
     mounted: function () {
         this.watchUncheckStore();
         this.watchCheckStore();
+        
+        // Listen for edit mode changes
+        EventBus.$on('startEdit', () => {
+            this.isEditMode = true;
+        });
+        
+        EventBus.$on('cancelEdit', () => {
+            this.isEditMode = false;
+        });
+        
         this.$root.$on('appellationClicked', data => {
             if (data === this.appellation) {
                 this.checked = !this.checked;
             }
         });
+    },
+    beforeDestroy() {
+        // Clean up event listeners
+        EventBus.$off('startEdit');
+        EventBus.$off('cancelEdit');
     },
     watch: {
         checked: function () {
@@ -88,7 +105,7 @@ var AppellationListItem = {
             );
         },
         editAppellation() {
-            if (this.isDeleting) return;
+            if (this.isDeleting || this.isEditMode) return;
             
             // Store the appellation to edit
             localStorage.setItem('editingAppellation', JSON.stringify(this.appellation));
@@ -107,8 +124,7 @@ var AppellationListItem = {
         },
       
         deleteAppellation() {
-            // Prevent multiple delete attempts
-            if (this.isDeleting) return;
+            if (this.isDeleting || this.isEditMode) return;
             this.error = null;
             this.isDeleting = true;
 
@@ -177,7 +193,7 @@ var AppellationListItem = {
             this.$emit("showappellation", this.appellation);
         },
         toggle: function () {
-            if (this.isDeleting) return;
+            if (this.isDeleting || this.isEditMode) return;
             
             // Clear selection if toggling visibility
             if (this.appellation.selected) {
@@ -196,7 +212,7 @@ var AppellationListItem = {
             return this.appellation.selected;
         },
         select: function () {
-            if (this.isDeleting) return;
+            if (this.isDeleting || this.isEditMode) return;
             this.$emit('selectappellation', this.appellation);
         },
         label: function () {
@@ -504,6 +520,18 @@ style.textContent = `
     .btn-danger:hover:not([disabled]) {
         background-color: #c82333;
         border-color: #bd2130;
+    }
+
+    .btn.disabled,
+    .btn[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    
+    input[type="checkbox"][disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
 `;
 document.head.appendChild(style);
