@@ -1,20 +1,25 @@
 import requests,json
-import xml.etree.ElementTree as ET
 from requests.auth import HTTPBasicAuth
 
 
 class Conceptpower:
-    # Default behavior is to leave these to the constructor.
-    endpoint = None
-    namespace = None
 
-    def __init__(self, **kwargs):
-        # Give first priority to the class definition, if endpoint or namespace are defined (and not None).
-        if self.endpoint is None:
-            self.endpoint = kwargs.get("endpoint")
+    def __init__(self, endpoint, namespace):
+        """
+        Initialize a Conceptpower instance.
 
-        if self.namespace is None:
-            self.namespace = kwargs.get("namespace")
+        Args:
+            endpoint (str): The base URL for the Conceptpower API.
+            namespace (str): The namespace for the API.
+
+        Raises:
+            ValueError: If either 'endpoint' or 'namespace' is missing or invalid.
+        """
+        
+        if not endpoint or not namespace:
+            raise ValueError("Conceptpower endpoint and namespace are required and must be a non-empty string.")
+        self.endpoint = endpoint
+        self.namespace = namespace
 
     def search(self, params=None, headers=None):
         url = "{0}ConceptSearch".format(self.endpoint)
@@ -23,10 +28,12 @@ class Conceptpower:
         concepts = []
         if response.status_code == requests.codes.ok:
                 data = response.json()
-                if 'conceptEntries' in data:
-                    for concept_entry in data['conceptEntries']:
-                        concept = self.parse_concept(concept_entry)
-                        concepts.append(concept)
+                if not data or 'conceptEntries' not in data:
+                    return concepts  # Return an empty list if no concept entries exist
+
+                for concept_entry in data.get('conceptEntries', []):
+                    concepts.append(self.parse_concept(concept_entry))
+                return concepts
         else:
             raise ValueError(f"Error searching Conceptpower: {response.status_code}")
         return concepts
@@ -37,10 +44,10 @@ class Conceptpower:
         data = {}
         if response.status_code == requests.codes.ok:
             data = response.json()
-            concept_entry = data.get('conceptEntries', [{}])[0]
+            concept_entries = data.get('conceptEntries', [])
         else:
             raise ValueError(f"Error fetching concept data: {response.status_code}")
-        return concept_entry
+        return concept_entries[0] if concept_entries else {}
 
     def create(self, user, password, label, pos, conceptlist, description,
                concepttype, synonym_ids=[], equal_to=[], similar_uris=[]):

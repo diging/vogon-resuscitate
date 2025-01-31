@@ -552,8 +552,9 @@ class ConceptViewSet(viewsets.ModelViewSet):
             try:
                 # Parse the JSON response
                 data = response.json()
+                concept_entries = data.get('conceptEntries', [])
                 concepts = []
-                for concept_entry in data['conceptEntries']:
+                for concept_entry in concept_entries:
                     concept = parse_concept(concept_entry)
                     # Now relabel the fields
                     concept = _relabel(concept)
