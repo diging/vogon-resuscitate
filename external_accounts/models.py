@@ -1,7 +1,6 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
-from django.conf import settings
 from requests.exceptions import RequestException
 from django.db.models.signals import post_save
 from repository.models import Repository
@@ -55,7 +54,3 @@ def fetch_citesphere_user_id(sender, instance, created, **kwargs):
         except ValueError as e:
             print(f"Failed to decode JSON: {str(e)}")
             
-class ConceptpowerAccount(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conceptpower_account')
-    username = models.CharField(max_length=255, help_text="Conceptpower username")
-    # conceptpower_password = EncryptedCharField(max_length=100)  # Secure storage

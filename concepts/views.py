@@ -10,11 +10,13 @@ from annotations.models import RelationSet, Appellation, TextCollection, VogonUs
 from django.shortcuts import render, get_object_or_404, redirect
 from concepts.authorities import ConceptpowerAuthority, update_instance
 from django.contrib.auth.decorators import login_required
+from concepts.decorators import conceptpower_login_required
 import re, urllib.request, urllib.parse, urllib.error, string
 from unidecode import unidecode
 from urllib.parse import urlencode
 from concepts.forms import ConceptpowerAuthForm
-from external_accounts.models import ConceptpowerAccount
+from .models import ConceptpowerAccount
+from django.contrib import messages
 
 
 
@@ -49,7 +51,7 @@ def type(request, type_id):
     return render(request, template, context)
 
 @staff_member_required
-@login_required(login_url='/login/conceptpower/')
+@conceptpower_login_required
 def merge_concepts(request, source_concept_id):
     source = get_object_or_404(Concept, pk=source_concept_id)
     manager = ConceptLifecycle(source)
@@ -115,7 +117,7 @@ def concept(request, concept_id):
     return render(request, "annotations/concept_details.html", context)
 
 
-
+@conceptpower_login_required
 @staff_member_required
 def add_concept(request, concept_id):
 
@@ -152,6 +154,7 @@ def add_concept(request, concept_id):
 
 
 @staff_member_required
+@conceptpower_login_required
 def edit_concept(request, concept_id):
     from concepts.forms import ConceptForm
 
@@ -181,19 +184,39 @@ def sandbox(request, text_id):
     return render(request, "annotations/relationtemplate_creator.html", {})
 
 @login_required
-def conceptpower_auth(request):
+def conceptpower_login(request):
     if request.method == 'POST':
-        form = ConceptpowerAuthForm(request.POST)
-        if form.is_valid():
-            username = form.cleaned_data['username']
-            password = form.cleaned_data['password']
-            # Save the username and password to the database
-            conceptpower_account, created = ConceptpowerAccount.objects.get_or_create(
-                user=request.user,
-                defaults={'username': username, 'password': password}
-            )
-            # Redirect the user to the dashboard or another page
-            return redirect('dashboard')
+        # If using a custom Django Form:
+        # form = ConceptPowerLoginForm(request.POST)
+        # if form.is_valid():
+        #     username = form.cleaned_data['username']
+        #     password = form.cleaned_data['password']
+        # else:
+        #     messages.error(request, "Invalid form submission.")
+        #     return render(request, 'conceptpower/login.html', {'form': form})
+
+        # Or if not using a form:
+        print(request.POST,"in conceptpower_login")
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        print(username, password)   
+
+        if not username or not password:
+            messages.error(request, "Username and password are required.")
+            return render(request, 'login/login.html')
+
+        # You can now do your logic: store or validate with a remote service, etc.
+        # If storing locally:
+        account, created = ConceptpowerAccount.objects.get_or_create(user=request.user)
+        account.username = username
+        account.set_conceptpower_password(password)
+        account.save()
+
+        messages.success(request, "ConceptPower credentials saved!")
+        next_url = request.POST.get('next', reverse('concepts'))
+        return redirect(next_url)
+
     else:
-        form = ConceptpowerAuthForm()
-    return render(request, 'conceptpower_auth.html', {'form': form})
+        # If GET request, just show the empty form
+        # form = ConceptPowerLoginForm()
+        return render(request, 'login/login.html')

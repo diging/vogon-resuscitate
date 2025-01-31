@@ -54,10 +54,12 @@ def conceptpower_login(request):
         user = authenticate(username=username, password=password)
         if user:
             login(request, user)
-            next_page = request.GET.get('next', reverse('dashboard'))
+            next_page = request.GET.get('next', reverse('concepts'))
             return HttpResponseRedirect(next_page)
+        else:
+            return render(request, 'login/login.html', {'error': 'Invalid credentials'})
     context = {'form': form}
-    return render(request, 'login/login.html', context)
+    return render(request, 'conceptpower/login.html', context)
 
 def citesphere_callback(request):
     code = request.GET.get('code')

@@ -2,23 +2,95 @@
 
 {% load i18n %}
 
-{% block head_links %} 
+{% block head_links %}
+<title>{% trans "Sign In to ConceptPower" %}</title>
 
-<title>{% trans "Sign In" %}</title>
+<style>
+    /* ConceptPower Theme Colors */
+    :root {
+        --cp-primary: #3b6ea5;  /* Blue */
+        --cp-secondary: #f5f5f5; /* Light Gray */
+        --cp-dark: #1d1d1d; /* Dark Gray */
+        --cp-button: #2b579a; /* Slightly darker blue */
+    }
 
+    /* Page container */
+    .conceptpower-container {
+        margin-top: 50px;
+    }
+
+    /* Card styles */
+    .conceptpower-card {
+        border-radius: 8px;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        background-color: var(--cp-secondary);
+        border: 1px solid var(--cp-dark);
+    }
+
+    /* Header styling */
+    .conceptpower-header {
+        background-color: var(--cp-primary);
+        color: white;
+        border-radius: 8px 8px 0 0;
+        padding: 15px;
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    /* Form elements */
+    .form-group label {
+        font-weight: bold;
+        color: var(--cp-dark);
+    }
+
+    .form-control {
+        border-radius: 5px;
+        border: 1px solid var(--cp-dark);
+        padding: 8px;
+    }
+
+    .btn-cp {
+        background-color: var(--cp-button);
+        border: none;
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        width: 100%;
+        font-size: 16px;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn-cp:hover {
+        background-color: var(--cp-primary);
+    }
+
+    /* Forgot password link */
+    .forgot-password {
+        text-align: center;
+        display: block;
+        margin-top: 10px;
+        color: var(--cp-dark);
+    }
+
+    .forgot-password:hover {
+        color: var(--cp-primary);
+        text-decoration: underline;
+    }
+</style>
 {% endblock %}
 
-{% block head_title %}{% trans "Sign In" %} {% endblock %}
+{% block head_title %}{% trans "ConceptPower Sign In" %}{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container conceptpower-container">
     {% block messages %}
     {% if messages %}
     <div>
         <ul>
         {% for message in messages %}
         <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            <strong>{{message}}</strong>
+            <strong>{{ message }}</strong>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                 <span aria-hidden="true">&times;</span>
             </button>
@@ -30,27 +102,45 @@
     {% endblock %}
 
     <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-4">
-            <div class="card">
-                <div class="card-header text-center bg-primary text-white">
-                    <h3 class="h3" id="head_banner">{% trans "Sign In" %}</h3>
+        <div class="col-md-5">
+            <div class="card conceptpower-card">
+                <div class="conceptpower-header">
+                    {% trans "ConceptPower Sign In" %}
                 </div>
                 <div class="card-body">
-                    <form class="login" method="POST" action="{% url 'account_login' %}">
+                    <p class="text-center">
+                        {% trans "Enter your ConceptPower credentials to continue." %}
+                    </p>
+
+                    <form class="login" method="POST" action="{% url 'conceptpower_login' %}">
                         {% csrf_token %}
 
+                        <!-- If using Django Form -->
                         {{ form.as_p }}
 
-                        {% if redirect_field_value %}
-                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                        <!-- Manual input fields -->
+                        <div class="form-group mb-3">
+                            <label for="username">{% trans "ConceptPower Username" %}</label>
+                            <input type="text" name="username" class="form-control" id="username" required placeholder="{% trans 'Enter your username' %}">
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="password">{% trans "ConceptPower Password" %}</label>
+                            <input type="password" name="password" class="form-control" id="password" required placeholder="{% trans 'Enter your password' %}">
+                        </div>
+
+                        {% if request.GET.next %}
+                        <input type="hidden" name="next" value="{{ request.GET.next }}">
                         {% endif %}
-                        <div class="form-group text-center">
-                            <a class="btn btn-link" href="{% url 'account_reset_password' %}">{% trans "Forgot Password?" %}</a>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button class="mt-3 btn btn-primary btn-block" type="submit">{% trans "Sign In" %}</button>
-                        </div>
+
+                        <button class="btn btn-cp mt-3" type="submit">
+                            {% trans "Sign In" %}
+                        </button>
                     </form>
+
+                    <a class="forgot-password" href="{% url 'account_reset_password' %}">
+                        {% trans "Forgot Password?" %}
+                    </a>
                 </div>
             </div>
         </div>
