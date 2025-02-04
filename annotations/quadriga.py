@@ -264,18 +264,20 @@ def build_concept_node(concept, user, creation_time, source_uri):
     """
     Helper function to build a concept node dictionary.
     """
-    # Get all appellations that created this concept and add stringRep (annotated text)
-    appellations = Appellation.objects.filter(interpretation=concept)
-    
+    appellation = Appellation.objects.filter(interpretation=concept).first()
     term_parts = []
-    for appellation in appellations:
-        term_parts.append({
-            "position": appellation.startPos if appellation.startPos else 0,
-            "expression": appellation.stringRep or "",
-            "normalization": "",
-            "formattedPointer": "",
-            "format": ""
-        })
+    
+    if appellation:
+        term_parts_data = [
+            {
+                "position": appellation.startPos if appellation.startPos else 0,
+                "expression": appellation.stringRep or "",
+                "normalization": "",
+                "formattedPointer": "",
+                "format": ""
+            }
+        ]
+        term_parts.extend(term_parts_data)
     
     return {
         "label": concept.label or "",
@@ -291,6 +293,7 @@ def build_concept_node(concept, user, creation_time, source_uri):
             "sourceUri": source_uri
         }
     }
+
 def get_relation_node(user, creation_time, source_uri):
     """
     Helper function to build a relation node.
