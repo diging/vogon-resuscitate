@@ -785,9 +785,6 @@ class RelationSet(models.Model):
     A :class:`.RelationSet` organizes :class:`.Relation`\s into complete
     statements.
     """
-    STATUS_NOT_READY = 'not_ready'
-    STATUS_READY_TO_SUBMIT = 'ready_to_submit'
-    STATUS_SUBMITTED = 'submitted'
 
     project = models.ForeignKey('TextCollection', related_name='relationsets',
                                 null=True, blank=True, on_delete=models.CASCADE)
@@ -810,6 +807,10 @@ class RelationSet(models.Model):
 
     occursIn = models.ForeignKey('Text', related_name='relationsets', on_delete=models.CASCADE)
     """The text on which this RelationSet is based."""
+
+    STATUS_NOT_READY = 'not_ready'
+    STATUS_READY_TO_SUBMIT = 'ready_to_submit'
+    STATUS_SUBMITTED = 'submitted'
 
     STATUS_CHOICES = [
         (STATUS_NOT_READY, 'Not Ready'),
