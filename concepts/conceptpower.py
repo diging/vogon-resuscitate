@@ -1,7 +1,10 @@
 import requests,json
 from requests.auth import HTTPBasicAuth
+from concepts.models import ConceptpowerAccount
 
-
+class ConceptPowerCredentialsMissingException(Exception):
+    """Raised when ConceptPower credentials for a user are missing."""
+        
 class Conceptpower:
 
     def __init__(self, endpoint, namespace):
@@ -49,10 +52,22 @@ class Conceptpower:
             raise ValueError(f"Error fetching concept data: {response.status_code}")
         return concept_entries[0] if concept_entries else {}
 
-    def create(self, user, password, label, pos, conceptlist, description,
+
+    
+    def create(self, user, label, pos, conceptlist, description,
                concepttype, synonym_ids=[], equal_to=[], similar_uris=[]):
 
-        auth = HTTPBasicAuth(user,password)
+        try:
+            conceptpower_account = ConceptpowerAccount.objects.get(user=user)
+        except ConceptpowerAccount.DoesNotExist:
+            raise ConceptPowerCredentialsMissingException(
+                f"User {user.username} has not added ConceptPower credentials."
+            )
+        username = conceptpower_account.username
+        password = conceptpower_account.password_hash
+        print(username,password)
+        print("-------------------")
+        auth = HTTPBasicAuth(username,password)
         rest_url = "{0}concept/add".format(self.endpoint)
 
         concept_data = {
@@ -65,11 +80,12 @@ class Conceptpower:
             "equal_to": equal_to,
             "similar": similar_uris
         }
+        r = {}
 
-        r = requests.post(url=rest_url, data=json.dumps(concept_data), auth=auth)
+        # r = requests.post(url=rest_url, data=json.dumps(concept_data), auth=auth)
 
-        if r.status_code != requests.codes.ok:
-            raise RuntimeError(r.status_code, r.text)
+        # if r.status_code != requests.codes.ok:
+        #     raise RuntimeError(r.status_code, r.text)
 
         # Returned data after successful response
         return r.json()

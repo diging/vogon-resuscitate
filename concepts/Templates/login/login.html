@@ -1,149 +1,63 @@
-{% extends "account/base.html" %}
+{% extends "annotations/base.html" %}
+{% load staticfiles %}
 
-{% load i18n %}
+{% comment %} <link rel="stylesheet" href="/css/login.css"> {% endcomment %}
+{% comment %} <link rel="stylesheet" type="text/css" href="{% static "login/css/form.css" %}" /> {% endcomment %}
+{% block main %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="{% static "login/css/form.css" %}" />
 
-{% block head_links %}
-<title>{% trans "Sign In to ConceptPower" %}</title>
-
-<style>
-    /* ConceptPower Theme Colors */
-    :root {
-        --cp-primary: #3b6ea5;  /* Blue */
-        --cp-secondary: #f5f5f5; /* Light Gray */
-        --cp-dark: #1d1d1d; /* Dark Gray */
-        --cp-button: #2b579a; /* Slightly darker blue */
-    }
-
-    /* Page container */
-    .conceptpower-container {
-        margin-top: 50px;
-    }
-
-    /* Card styles */
-    .conceptpower-card {
-        border-radius: 8px;
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-        background-color: var(--cp-secondary);
-        border: 1px solid var(--cp-dark);
-    }
-
-    /* Header styling */
-    .conceptpower-header {
-        background-color: var(--cp-primary);
-        color: white;
-        border-radius: 8px 8px 0 0;
-        padding: 15px;
-        text-align: center;
-        font-size: 1.5rem;
-        font-weight: bold;
-    }
-
-    /* Form elements */
-    .form-group label {
-        font-weight: bold;
-        color: var(--cp-dark);
-    }
-
-    .form-control {
-        border-radius: 5px;
-        border: 1px solid var(--cp-dark);
-        padding: 8px;
-    }
-
-    .btn-cp {
-        background-color: var(--cp-button);
-        border: none;
-        color: white;
-        padding: 10px;
-        border-radius: 5px;
-        width: 100%;
-        font-size: 16px;
-        transition: background-color 0.3s ease;
-    }
-
-    .btn-cp:hover {
-        background-color: var(--cp-primary);
-    }
-
-    /* Forgot password link */
-    .forgot-password {
-        text-align: center;
-        display: block;
-        margin-top: 10px;
-        color: var(--cp-dark);
-    }
-
-    .forgot-password:hover {
-        color: var(--cp-primary);
-        text-decoration: underline;
-    }
-</style>
-{% endblock %}
-
-{% block head_title %}{% trans "ConceptPower Sign In" %}{% endblock %}
-
-{% block content %}
-<div class="container conceptpower-container">
-    {% block messages %}
-    {% if messages %}
-    <div>
-        <ul>
-        {% for message in messages %}
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            <strong>{{ message }}</strong>
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-        {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
-    {% endblock %}
-
+<div class="container-fluid">
+    <div class="center-wrapper">
     <div class="row justify-content-center">
-        <div class="col-md-5">
+        <div class="h3 text-center mb-4 conceptpower-header">Sign In to Conceptpower</div>
             <div class="card conceptpower-card">
-                <div class="conceptpower-header">
-                    {% trans "ConceptPower Sign In" %}
-                </div>
                 <div class="card-body">
-                    <p class="text-center">
-                        {% trans "Enter your ConceptPower credentials to continue." %}
-                    </p>
-
                     <form class="login" method="POST" action="{% url 'conceptpower_login' %}">
                         {% csrf_token %}
 
-                        <!-- If using Django Form -->
-                        {{ form.as_p }}
-
-                        <!-- Manual input fields -->
                         <div class="form-group mb-3">
-                            <label for="username">{% trans "ConceptPower Username" %}</label>
-                            <input type="text" name="username" class="form-control" id="username" required placeholder="{% trans 'Enter your username' %}">
+                            <label for="username">Username</label>
+                            <input type="text" name="username" class="form-control" id="username" required placeholder="Enter username...">
                         </div>
 
-                        <div class="form-group mb-3">
-                            <label for="password">{% trans "ConceptPower Password" %}</label>
-                            <input type="password" name="password" class="form-control" id="password" required placeholder="{% trans 'Enter your password' %}">
+                        <div class="form-group mb-3 position-relative">
+                            <label for="password">Password</label>
+                            <input type="password" name="password" class="form-control" id="password" required placeholder="Enter password...">
+                            <i class="fa-solid fa-eye toggle-password" id="togglePassword"></i>
                         </div>
+                        
 
                         {% if request.GET.next %}
                         <input type="hidden" name="next" value="{{ request.GET.next }}">
                         {% endif %}
 
-                        <button class="btn btn-cp mt-3" type="submit">
-                            {% trans "Sign In" %}
-                        </button>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button class="btn btn-cp" type="submit">
+                                Sign In <i class="fas fa-sign-in-alt"></i>
+                            </button>
+                        </div>
                     </form>
-
-                    <a class="forgot-password" href="{% url 'account_reset_password' %}">
-                        {% trans "Forgot Password?" %}
-                    </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
+<script>
+    document.getElementById('togglePassword').addEventListener('click', function () {
+        const passwordInput = document.getElementById('password');
+        const icon = this;
+    
+        // Toggle password visibility
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    });
+</script>    
 {% endblock %}

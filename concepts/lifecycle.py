@@ -3,7 +3,7 @@ from django.conf import settings
 from urllib.parse import urlparse
 
 from concepts.models import *
-from concepts.conceptpower import Conceptpower
+from concepts.conceptpower import Conceptpower, ConceptPowerCredentialsMissingException
 from requests.auth import HTTPBasicAuth
 import requests
 import json
@@ -43,13 +43,12 @@ class ConceptLifecycle(object):
     DEFAULT_TYPE = 'c7d0bec3-ea90-4cde-8698-3bb08c47d4f2'   # E1 Entity.
     DEFAULT_LIST = "Vogon"    # This seems kind of unneecessary, but oh well.
 
-    def __init__(self, instance):
+    def __init__(self, instance, user=None):
         assert isinstance(instance, Concept)
         self.conceptpower = Conceptpower(settings.CONCEPTPOWER_ENDPOINT, settings.CONCEPTPOWER_NAMESPACE)
 
         self.instance = instance
-        self.user = settings.CONCEPTPOWER_USERID
-        self.password = settings.CONCEPTPOWER_PASSWORD
+        self.user = user
 
     @staticmethod
     def get_namespace(uri):
@@ -210,23 +209,26 @@ class ConceptLifecycle(object):
         if not pos:
             pos = 'noun'
         try:
-            data = self.conceptpower.create(self.user, self.password,
+            data = self.conceptpower.create(self.user,
                                             self.instance.label, pos,
                                             self.DEFAULT_LIST,
                                             self.instance.description,
                                             concept_type,
                                             equal_to=equal_uri)
+        except ConceptPowerCredentialsMissingException as e:
+            # ✅ Re-raise so our top-level view can handle the redirect
+            raise e
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
                                            " concept to Conceptpower:"
                                            " %s" % str(E))
-        if not self.is_created:
-            target = ConceptLifecycle.create_from_raw(data).instance
-            self.instance.merged_with = target
-            self.instance.concept_state = Concept.MERGED
-        else:
-            self.instance.concept_state = Concept.RESOLVED
-        self.instance.save()
+        # if not self.is_created:
+        #     target = ConceptLifecycle.create_from_raw(data).instance
+        #     self.instance.merged_with = target
+        #     self.instance.concept_state = Concept.MERGED
+        # else:
+        #     self.instance.concept_state = Concept.RESOLVED
+        # self.instance.save()
 
     def get_similar(self):
         """

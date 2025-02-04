@@ -6,6 +6,7 @@ from django.urls import reverse
 from concepts.models import Concept, Type
 from concepts.filters import *
 from concepts.lifecycle import *
+from concepts.conceptpower import ConceptPowerCredentialsMissingException
 from annotations.models import RelationSet, Appellation, TextCollection, VogonUserDefaultProject
 from django.shortcuts import render, get_object_or_404, redirect
 from concepts.authorities import ConceptpowerAuthority, update_instance
@@ -117,12 +118,12 @@ def concept(request, concept_id):
     return render(request, "annotations/concept_details.html", context)
 
 
-@conceptpower_login_required
+# @conceptpower_login_required
 @staff_member_required
 def add_concept(request, concept_id):
 
     concept = get_object_or_404(Concept, pk=concept_id)
-    manager = ConceptLifecycle(concept)
+    manager = ConceptLifecycle(concept, request.user)
     next_page = request.GET.get('next', reverse('concepts'))
     back_to_page = request.GET.get('next')
     context = {
@@ -136,6 +137,9 @@ def add_concept(request, concept_id):
     if request.GET.get('confirmed', False):
         try:
             manager.add()
+        except ConceptPowerCredentialsMissingException:
+            # Redirect user to add ConceptPower credentials
+            return redirect(f"{reverse('conceptpower_login')}?next={request.path}")
         except ConceptUpstreamException as E:
             return HttpResponse("Conceptpower is causing all kinds of problems"
                                 " right now: %s" % str(E), status=500)
@@ -186,17 +190,6 @@ def sandbox(request, text_id):
 @login_required
 def conceptpower_login(request):
     if request.method == 'POST':
-        # If using a custom Django Form:
-        # form = ConceptPowerLoginForm(request.POST)
-        # if form.is_valid():
-        #     username = form.cleaned_data['username']
-        #     password = form.cleaned_data['password']
-        # else:
-        #     messages.error(request, "Invalid form submission.")
-        #     return render(request, 'conceptpower/login.html', {'form': form})
-
-        # Or if not using a form:
-        print(request.POST,"in conceptpower_login")
         username = request.POST.get('username')
         password = request.POST.get('password')
         print(username, password)   
