@@ -1,6 +1,8 @@
 from django.conf import settings
 from .models import CitesphereAccount
 
+from repository.exceptions import GilesTextExtractionError
+
 import requests
 
 import logging
@@ -45,7 +47,11 @@ class GilesAPI:
         url = f"{self.base_url}/api/v2/resources/files/{file_id}/content/"
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        return response.text
+        content = response.text
+        if '\x00' in content:
+            logger.error("Null character found in file content")
+            raise GilesTextExtractionError("File content contains null characters")
+        return content
 
     def check_upload_progress(self, progress_id):
         """
@@ -97,7 +103,7 @@ class GilesAPI:
         
         return response.json()[0] # API returns list with single item
     
-
+# Returns the file content from Giles using the GilesAPI class, used in the repository manager in the item function
 def get_giles_document_details(user, file_id, repository):
     """
     Retrieve detailed information about a document from Giles for a given user and document ID.
