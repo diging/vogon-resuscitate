@@ -29,6 +29,7 @@ from external_accounts.utils import parse_iso_datetimes
 
 from external_accounts.decorators import citesphere_authenticated
 from annotations.utils import get_pagination_metadata
+from repository.exceptions import GilesTextExtractionError, GilesUploadError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -345,10 +346,18 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id, 
     manager = RepositoryManager(user=request.user, repository=repository)
 
     try:
-        result = manager.item(group_id, text_key, file_id)
-    except IOError as e:
-        logger.error(f"Error accessing repository: {str(e)}")
-        return render(request, 'annotations/repository_ioerror.html', {'error': 'There was an error accessing the repository.'}, status=500)
+        result = manager.item(group_id, text_key, file_id, repository)
+    except IOError:
+        return render(request, 'annotations/repository_ioerror.html', {'error': "IOError occurred while accessing the repository."}, status=500)
+    except GilesUploadError as e:
+        logger.error(f"GilesUploadError: {str(e)}")
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except GilesTextExtractionError as e:
+        logger.error(f"GilesTextExtractionError: {str(e)}")
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        # Catch any other exceptions
+        return render(request, 'annotations/repository_ioerror.html', {'error': "An unexpected error occurred: " + str(e)}, status=500)
 
     item_details = result.get('item', {}).get('details', {})
     giles_text = result.get('item', {}).get('text')
