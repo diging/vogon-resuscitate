@@ -150,7 +150,7 @@ def citesphere_refresh_token(request, repository_id):
 def citesphere_disconnect(request, repository_id):
     try:
         CitesphereAccount.objects.filter(user=request.user, repository_id=repository_id).delete()
-        messages.success(request, "Successfully disconnected from Citesphere Repository.")
+        messages.success(request, "Successfully disconnected from Citesphere Repository. Note: Vogon is still authorized to connect to Citesphere unless you revoke Vogon's access from Citesphere.")
     except Exception as e:
         print(f"Error disconnecting Citesphere account: {e}")
         return render(request, 'citesphere/error.html', {
