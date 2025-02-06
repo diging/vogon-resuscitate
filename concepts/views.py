@@ -204,12 +204,31 @@ def conceptpower_login(request):
         account.username = username
         account.set_conceptpower_password(password)
         account.save()
-
-        messages.success(request, "ConceptPower credentials saved!")
-        next_url = request.POST.get('next', reverse('concepts'))
+        next_url = request.POST.get('next', reverse('dashboard'))
         return redirect(next_url)
 
     else:
-        # If GET request, just show the empty form
-        # form = ConceptPowerLoginForm()
         return render(request, 'login/login.html')
+    
+@login_required
+def conceptpower_update_password(request):
+    if request.method == "POST":
+        new_password = request.POST.get("new_password")  # Match the form field name
+
+        try:
+            account = ConceptpowerAccount.objects.get(user=request.user)
+            account.password = new_password  # Update password field (consider hashing it)
+            account.save()
+            response = {"status": "success", "message": "Password updated successfully!"}
+        except ConceptpowerAccount.DoesNotExist:
+            response = {"status": "error", "message": "No ConceptPower account found."}
+
+        return JsonResponse(response)
+
+@login_required
+def conceptpower_disconnect(request):
+    try:
+        ConceptpowerAccount.objects.filter(user=request.user).delete()
+    except Exception as e:
+        print(f"Error disconnecting Conceptpower account: {e}")
+    return redirect(reverse('dashboard'))

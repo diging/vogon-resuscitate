@@ -34,7 +34,7 @@ import datetime
 from isoweek import Week
 
 from external_accounts.models import CitesphereAccount
-
+from concepts.models import ConceptpowerAccount
 
 class VogonUserAuthenticationForm(AuthenticationForm):
     class Meta:
@@ -246,6 +246,14 @@ def dashboard(request):
     citesphere_accounts = CitesphereAccount.objects.filter(user=request.user)
     has_citesphere_account = citesphere_accounts.exists()
 
+    try:
+        conceptpower_account = ConceptpowerAccount.objects.get(user=request.user)
+        has_conceptpower_account = True
+        conceptpower_user = conceptpower_account.username
+    except ConceptpowerAccount.DoesNotExist:
+        has_conceptpower_account = False
+        conceptpower_user = None
+        
     # A list of connected repositories if available, we filter data here so that we dont send any sensitive information to the frontend
     connected_repositories = [
         {
@@ -269,6 +277,8 @@ def dashboard(request):
         'relations': RelationSet.objects.filter(createdBy=request.user).order_by('-created')[:10],
         'has_citesphere_account': has_citesphere_account,
         'connected_repositories': connected_repositories,
+        'has_conceptpower_account': has_conceptpower_account,
+        'conceptpower_user': conceptpower_user
     }
     return render(request, template, context)
 

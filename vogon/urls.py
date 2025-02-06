@@ -153,7 +153,9 @@ urlpatterns = [
     path('oauth/callback/citesphere/', externalAccountViews.citesphere_callback, name='citesphere_callback'),
     path('citesphere/refresh/<int:repository_id>/', externalAccountViews.citesphere_refresh_token, name='citesphere_refresh_token'),
     
-    path('login/conceptpower/', conceptViews.conceptpower_login, name='conceptpower_login'),
+    path('conceptpower/login', conceptViews.conceptpower_login, name='conceptpower_login'),
+    path('conceptpower/disconnect', conceptViews.conceptpower_disconnect, name='conceptpower_disconnect'),
+    path('conceptpower/update-password/', conceptViews.conceptpower_update_password, name='conceptpower_update_password'),
     ])),
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
