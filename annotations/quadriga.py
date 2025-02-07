@@ -260,11 +260,10 @@ def parse_response(raw_response):
 
 
 
-def build_concept_node(concept, user, creation_time, source_uri):
+def build_concept_node(appellation, user, creation_time, source_uri):
     """
     Helper function to build a concept node dictionary.
     """
-    appellation = Appellation.objects.filter(interpretation=concept).first()
     term_parts = []
     
     if appellation:
@@ -280,10 +279,10 @@ def build_concept_node(concept, user, creation_time, source_uri):
         term_parts.extend(term_parts_data)
     
     return {
-        "label": concept.label or "",
+        "label": appellation.interpretation.label or "",
         "metadata": {
             "type": "appellation_event", 
-            "interpretation": concept.uri,
+            "interpretation": appellation.interpretation.uri,
             "termParts": term_parts
         },
         "context": {
@@ -324,22 +323,27 @@ def generate_graph_data(relationset, user):
         return node_id
 
     for relation in relationset.constituents.all():
-        subject = getattr(relation.source_content_object, 'interpretation', None)
-        obj = getattr(relation.object_content_object, 'interpretation', None)
-        predicate = getattr(relation.predicate, 'interpretation', None)
+        # DEBUG
+        print("Relation details:", relation.__dict__)
+        print("Source content object details:", relation.source_content_object.__dict__)
+        print("Object content object details:", relation.object_content_object.__dict__)
+        print("Predicate details:", relation.predicate.__dict__)
+        subject = relation.source_content_object
+        obj = relation.object_content_object
+        predicate = relation.predicate
 
         # Extract the creation time from the appellation
         creation_time = relationset.occursIn.created
 
-        if subject and subject.uri not in nodes:
+        if subject and subject.interpretation.uri not in nodes:
             subject_id = get_node_id()
             nodes[subject_id] = build_concept_node(subject, user, creation_time, source_uri)
 
-        if obj and obj.uri not in nodes:
+        if obj and obj.interpretation.uri not in nodes:
             obj_id = get_node_id()
             nodes[obj_id] = build_concept_node(obj, user, creation_time, source_uri)
 
-        if predicate and predicate.uri not in nodes:
+        if predicate and predicate.interpretation.uri not in nodes:
             predicate_id = get_node_id()
             nodes[predicate_id] = build_concept_node(predicate, user, creation_time, source_uri)
 
@@ -398,7 +402,7 @@ def submit_to_quadriga(relationset, user, project):
     endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
 
     graph_data = generate_graph_data(relationset, user)
-
+    print("Graph data:", graph_data)
     response = requests.post(endpoint, json=graph_data, headers=headers)
     response.raise_for_status()
 
