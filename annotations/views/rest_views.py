@@ -339,6 +339,14 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
             instance = self.get_object()
             logger.debug(f"Appellation creator: {instance.createdBy.id}")
             
+            # Ensure interpretation is provided
+            interpretation_uri = request.data.get('interpretation')
+            if not interpretation_uri:
+                return Response(
+                    {"error": "An appellation must have a concept (interpretation) to be saved."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             # Get the position data
             position_value = request.data.get('position', {}).get('position_value')
             if position_value:
@@ -357,13 +365,15 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
             if 'stringRep' in request.data:
                 instance.stringRep = request.data['stringRep']
             
-            # Update interpretation if provided
-            if 'interpretation' in request.data:
-                try:
-                    concept = Concept.objects.get(uri=request.data['interpretation'])
-                    instance.interpretation = concept
-                except Concept.DoesNotExist:
-                    pass
+            # Update interpretation
+            try:
+                concept = Concept.objects.get(uri=interpretation_uri)
+                instance.interpretation = concept
+            except Concept.DoesNotExist:
+                return Response(
+                    {"error": "The provided concept (interpretation) does not exist."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
             instance.save()
             
@@ -394,21 +404,20 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                     )
                 ).exists()
             )
-
             if in_relations:
                 return Response(
                     {"detail": "Cannot delete an Appellation used in a Relation."},
-                    status=status.HTTP_403_FORBIDDEN
+                    status=status.HTTP_409_CONFLICT
                 )
             
             self.perform_destroy(instance)
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(status=status.HTTP_200_OK)
         
         except Exception as e:
             logger.error(f"Error deleting appellation: {str(e)}", exc_info=True)
             return Response(
                 {"detail": f"Error deleting appellation: {str(e)}"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     def get_queryset(self, *args, **kwargs):
