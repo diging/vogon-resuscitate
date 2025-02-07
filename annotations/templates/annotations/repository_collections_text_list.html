@@ -6,12 +6,12 @@
 <a href="{% url "repository_list" %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Repositories</a>&raquo;
 <a href="{% url "repository_details" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ repository.name }}</a>&raquo;
 <a href="{% url "repository_collections" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Collections</a>&raquo;
-<a href="{% url "repository_collection" repository.id group_id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ group_info.name }}</a>
+<a class="btn btn-xs">{{ group_collection_id }}</a>
 {% endblock %}
 
 {% block main %}
 <div class="container">
-    <h1>{{ title }} {{ group_info.name }}</h1><br>
+    <h1>{{ title }} {{ group_collection_id }}</h1><br>
     <table class="table table-striped">
         <thead>
             <tr>
@@ -60,9 +60,11 @@
                     </svg>{% else %}{% endif %}
                 </td>
                 <td>
+                    {% if text.gilesUploads and text.gilesUploads|length > 0 %}
                     <button class="btn btn-primary btn-sm" onclick="fetchFiles('{{ text.key }}', {{ repository.id }}, {{ group_id }}, '{{ csrf_token }}')">
                         View Files
                     </button>
+                    {% endif %}
                 </td>
             </tr>
             <tr id="file-row-{{ text.key }}" style="display: none;">
