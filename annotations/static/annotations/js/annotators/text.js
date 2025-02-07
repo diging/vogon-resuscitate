@@ -77,15 +77,16 @@ var ConceptSearch = {
         ready: function () {
             return !(this.searching || this.error);
         },
-        search: function () {
+        search: function () { // TODO: should be able to recover from errors.
             this.searching = true;
             this.hasSearched = true;
             this.error = false;
             this.errorMessage = '';
 
-            this.$emit('search', this.searching);
+            this.$emit('search', this.searching); // emit search to remove concept picker
 
-            var self = this;
+            // Asynchronous quries are beautiful.
+            var self = this; // Need a closure since Concept is global.
             var payload = {
                 search: this.query
             };
