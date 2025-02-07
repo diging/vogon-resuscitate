@@ -1,0 +1,13 @@
+FROM python:3.7
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+WORKDIR /vogon
+RUN apt-get update && apt-get install -y supervisor && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY vogon-gunicorn.sh /vogon/vogon-gunicorn.sh
+COPY supervisor.service /etc/systemd/system/supervisor.service
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY startup-prod.sh /vogon/startup-prod.sh
+
+ENTRYPOINT ["/vogon/startup-prod.sh"]
