@@ -109,26 +109,54 @@ TextSelectionDisplay = {
 TextDisplay = {
     props: ['appellations', 'dateappellations'],
     template: `<div style="position: relative;">
+                   <!-- Edit mode notification message -->
+                   <div v-if="isEditing" 
+                        class="edit-mode-message alert alert-info" 
+                        style="position: fixed; top: 20px; right: 20px; z-index: 1000; 
+                               padding: 10px 15px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                       <span class="glyphicon glyphicon-info-sign"></span>
+                       Edit Mode: Select new text position 
+                       <span class="text-muted">(Press ESC to cancel)</span>
+                   </div>
+                   
+                   <!-- Success message shown after successful edit -->
+                   <div v-if="showSuccessMessage"
+                        class="edit-success-message alert alert-success"
+                        style="position: fixed; top: 20px; right: 20px; z-index: 1000;
+                               padding: 10px 15px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                       <span class="glyphicon glyphicon-ok"></span>
+                       Successfully updated annotation
+                   </div>
+                   
+                   <!-- Main text content area -->
                    <pre id="text-content"
                         v-on:mouseup="handleMouseup">{{ text }}</pre>
+                   
+                   <!-- Regular annotations display -->
                    <appellation-display
                        v-bind:appellations=appellations
                        v-on:selectappellation="selectAppellation">
                    </appellation-display>
+                   
+                   <!-- Date annotations display -->
                    <appellation-display
                        v-bind:appellations=dateappellations
                        v-on:selectappellation="selectDateAppellation">
                    </appellation-display>
+                   
+                   <!-- Text selection highlight overlay -->
                    <text-selection-display
                        v-bind:selected=selected></text-selection-display>
                 </div>`,
     data: function() {
         return {
             text: TEXT_CONTENT,
+            // Tracks current text selection
             selected: {
                 startOffset: null,
                 endOffset: null
             },
+            // Position data for selection highlighting
             selected_position: {
                 top: 0,
                 left: 0,
@@ -137,13 +165,40 @@ TextDisplay = {
             },
             selected_multi_line: false,
             selected_mid_lines: null,
-            selected_end_position: null
+            selected_end_position: null,
+            // State flags
+            isEditing: false,
+            showSuccessMessage: false,
+            successMessageTimeout: null
         }
     },
     mounted: function() {
+        // Listen for events to clear text selection
         EventBus.$on('cleartextselection', this.resetTextSelection);
+        
+        // Handle entering edit mode
+        EventBus.$on('startEdit', () => {
+            this.isEditing = true;
+            document.addEventListener('keydown', this.handleEscKey);
+        });
+        
+        // Handle canceling edit mode
+        EventBus.$on('cancelEdit', () => {
+            this.isEditing = false;
+            localStorage.removeItem('editingAppellation');
+            document.removeEventListener('keydown', this.handleEscKey);
+        });
     },
     methods: {
+        // Handle ESC key press to cancel editing
+        handleEscKey: function(e) {
+            if (e.key === 'Escape' && this.isEditing) {
+                EventBus.$emit('cancelEdit');
+                this.resetTextSelection();
+            }
+        },
+        
+        // Reset all selection-related state
         resetTextSelection: function() {
             this.selected = {
                 startOffset: null,
@@ -159,43 +214,103 @@ TextDisplay = {
             this.selected_mid_lines = null;
             this.selected_end_position = null;
         },
-        selectAppellation: function(appellation) { this.$emit('selectappellation', appellation); },
-        selectDateAppellation: function(appellation) { this.$emit('selectdateappellation', appellation); },
-        textIsSelected: function() { return this.selected.startOffset != null; },
+        
+        // Event emitters for appellation selection
+        selectAppellation: function(appellation) { 
+            this.$emit('selectappellation', appellation); 
+        },
+        selectDateAppellation: function(appellation) { 
+            this.$emit('selectdateappellation', appellation); 
+        },
+        
+        // Check if text is currently selected
+        textIsSelected: function() { 
+            return this.selected.startOffset != null; 
+        },
+        
+        // Handle mouse selection of text
         handleMouseup: function(e) {
-            // We're looking for an event in which the user has selected some
-            //  text.
-            if (e.target.id != 'text-content') return;    // Out of scope.
+            if (e.target.id != 'text-content') return;
             e.stopPropagation();
 
-            // Get the start and end position of the selection. The selection
-            //  may have been left-to-right or right-to-left.
+            // Get the selected text range
             var selection = document.getSelection();
             var startOffset = Math.min(selection.anchorOffset, selection.focusOffset);
             var endOffset = Math.max(selection.anchorOffset, selection.focusOffset);
 
-            // If the user double-clicks (e.g. to select a whole word), the
-            // first mouse-up will get as far as here, even though no text has
-            // actually been selected.
             if (endOffset == startOffset) return;
 
+            // Get the actual selected text
             var raw = document.getElementById('text-content').childNodes[0].textContent.slice(startOffset, endOffset);
-            this.selected = {    // Notifies TextSelectionDisplay.
-                    startOffset: startOffset,
-                    endOffset: endOffset,
-                    representation: raw
+            this.selected = {
+                startOffset: startOffset,
+                endOffset: endOffset,
+                representation: raw
             }
-            this.selected_position = getTextPosition(this.selected);
-            this.$emit('selecttext', this.selected);   // Fire!
 
-            // Now that we have registered the selection, we can clear the
-            //  original browser highlighting, so that only our overlay is
-            //  displayed.
+            // Handle edit mode selection
+            if (this.isEditing) {
+                const editingAppellation = localStorage.getItem('editingAppellation');
+                if (editingAppellation) {
+                    const appellation = JSON.parse(editingAppellation);
+                    
+                    // Update the appellation with new position
+                    Appellation.update({ id: appellation.id }, {
+                        position: {
+                            occursIn: this.text.id,
+                            position_type: "CO",
+                            position_value: [startOffset, endOffset].join(",")
+                        },
+                        stringRep: raw,
+                        interpretation: appellation.interpretation.uri
+                    }).then(response => {
+                        // Clear editing state
+                        localStorage.removeItem('editingAppellation');
+                        this.isEditing = false;
+                        
+                        // Emit cancel edit to clear edit mode for all components
+                        EventBus.$emit('cancelEdit');
+                        
+                        // Emit update event with updated appellation
+                        this.$root.$emit('appellationUpdated', response.body);
+                        
+                        // Clear selection
+                        this.resetTextSelection();
+                        
+                        // Show success message
+                        EventBus.$emit('showMessage', {
+                            text: 'Successfully updated annotation',
+                            type: 'success'
+                        });
+                        
+                    }).catch(error => {
+                        console.error('Failed to update appellation:', error);
+                        EventBus.$emit('showMessage', {
+                            text: 'Failed to update annotation. Please try again.',
+                            type: 'error'
+                        });
+                    });
+                }
+            } else {
+                // Normal text selection handling
+                this.$emit('selecttext', this.selected);
+            }
+            
             clearMouseTextSelection();
         },
     },
     components: {
         'appellation-display': AppellationDisplay,
         'text-selection-display': TextSelectionDisplay
+    },
+    beforeDestroy() {
+        // Clean up all event listeners and timeouts
+        EventBus.$off('cleartextselection');
+        EventBus.$off('startEdit');
+        EventBus.$off('cancelEdit');
+        document.removeEventListener('keydown', this.handleEscKey);
+        if (this.successMessageTimeout) {
+            clearTimeout(this.successMessageTimeout);
+        }
     }
 }

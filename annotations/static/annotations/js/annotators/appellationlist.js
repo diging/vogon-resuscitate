@@ -3,40 +3,95 @@ var AppellationListItem = {
     template: `<li v-bind:class="{
 						'list-group-item': true,
 						'appellation-list-item': true,
-						'appellation-selected': isSelected()
+						'appellation-selected': isSelected(),
+						'fade-out': isDeleting
 					}">
-					
-				<span class="pull-right text-muted btn-group">
-					<a class="btn btn-xs" v-on:click="select" data-tooltip="Select appellation">
-						<span class="glyphicon glyphicon-hand-down"></span>
-					</a>
-					<a class="btn btn-xs" v-on:click="toggle" v-bind:data-tooltip="appellation.visible ? 'Hide appellation' : 'Show appellation'">
-						<span v-if="appellation.visible" class="glyphicon glyphicon glyphicon-eye-open"></span>
-						<span v-else class="glyphicon glyphicon glyphicon-eye-close"></span>
-					</a>
-				</span>
-				
-				{{ label() }}
-				<div class="text-warning">
-					<input v-if="sidebar == 'submitAllAppellations'" type="checkbox" v-model="checked" aria-label="...">
-					Created by <strong>{{ getCreatorName(appellation.createdBy) }}</strong> on {{ getFormattedDate(appellation.created) }}
-				</div>
+					<div v-if="error" class="error-message text-danger mb-2">
+						{{ error }}
+					</div>
+					<div class="d-flex justify-content-between align-items-center">
+						<div>
+							{{ label() }}
+							<div class="text-warning">
+								<input v-if="sidebar == 'submitAllAppellations'" type="checkbox" v-model="checked" :disabled="isEditMode" aria-label="...">
+								Created by <strong>{{ getCreatorName(appellation.createdBy) }}</strong> on {{ getFormattedDate(appellation.created) }}
+							</div>
+						</div>
+						
+						<div class="btn-group">
+							<a class="btn btn-xs btn-default" v-on:click="select" :disabled="isEditMode" :class="{'disabled': isEditMode}" data-tooltip="Select appellation">
+								<span class="glyphicon glyphicon-hand-down"></span>
+							</a>
+							<a class="btn btn-xs btn-default" v-on:click="toggle" :disabled="isEditMode" :class="{'disabled': isEditMode}" v-bind:data-tooltip="appellation.visible ? 'Hide appellation' : 'Show appellation'">
+								<span v-if="appellation.visible" class="glyphicon glyphicon glyphicon-eye-open"></span>
+								<span v-else class="glyphicon glyphicon glyphicon-eye-close"></span>
+							</a>
+							<a class="btn btn-xs btn-default" @click="editAppellation" :disabled="isEditMode" :class="{'disabled': isEditMode}" data-tooltip="Edit Appellation">
+								<span class="glyphicon glyphicon-pencil"></span>
+							</a>
+							<a class="btn btn-xs btn-danger" 
+							   @click="deleteAppellation" 
+							   :disabled="isDeleting || isEditMode"
+							   :class="{'disabled': isEditMode}"
+							   data-tooltip="Delete Appellation">
+								<span class="glyphicon" 
+								  :class="{'glyphicon-trash': !isDeleting, 'glyphicon-hourglass': isDeleting}">
+								</span>
+							</a>
+						</div>
+					</div>
 				</li>`,
     data: function () {
         return {
             checked: true,
             canUncheckAll: false,
-            canCheckAll: false
+            canCheckAll: false,
+            isDeleting: false,
+            error: null,
+            isEditMode: false
         }
     },
     mounted: function () {
         this.watchUncheckStore();
         this.watchCheckStore();
+        
+        // Listen for edit mode changes
+        EventBus.$on('startEdit', () => {
+            this.isEditMode = true;
+        });
+        
+        EventBus.$on('cancelEdit', () => {
+            this.isEditMode = false;
+        });
+        
         this.$root.$on('appellationClicked', data => {
             if (data === this.appellation) {
                 this.checked = !this.checked;
             }
         });
+        
+        // Listen for appellation updates
+        this.$root.$on('appellationUpdated', (updatedAppellation) => {
+            if (updatedAppellation.id === this.appellation.id) {
+                // Update the appellation data
+                Object.assign(this.appellation, updatedAppellation);
+                
+                // Reset edit mode
+                this.isEditMode = false;
+                
+                // Ensure visibility is on
+                this.appellation.visible = true;
+                
+                // Force a re-render of the component
+                this.$forceUpdate();
+            }
+        });
+    },
+    beforeDestroy() {
+        // Clean up event listeners
+        EventBus.$off('startEdit');
+        EventBus.$off('cancelEdit');
+        this.$root.$off('appellationUpdated');
     },
     watch: {
         checked: function () {
@@ -51,7 +106,12 @@ var AppellationListItem = {
                 store.commit('setDeselectFalse')
             }
         },
-
+        isEditMode: function(newVal) {
+            if (!newVal) {
+                // When edit mode is disabled, ensure buttons are re-enabled
+                this.$forceUpdate();
+            }
+        }
     },
     methods: {
         watchUncheckStore: function () {
@@ -66,6 +126,63 @@ var AppellationListItem = {
                     }
                 },
             );
+        },
+        editAppellation() {
+            if (this.isDeleting || this.isEditMode) return;
+            
+            // Store the appellation to edit
+            localStorage.setItem('editingAppellation', JSON.stringify(this.appellation));
+            
+            // Deselect current appellation
+            this.appellation.selected = false;
+            
+            // Enter edit mode
+            EventBus.$emit('startEdit');
+            
+            // Show message to user
+            EventBus.$emit('showMessage', {
+                text: 'Please select the new text position. Press ESC to cancel.',
+                type: 'info'
+            });
+        },
+      
+        deleteAppellation() {
+            if (this.isDeleting || this.isEditMode) return;
+            this.error = null;
+            this.isDeleting = true;
+
+            // Make API call to delete the appellation first
+            Appellation.delete({id: this.appellation.id})
+                .then(response => {
+                    // Only after successful deletion:
+
+                    // Clear states if appellation was selected
+                    if (this.appellation.selected) {
+                        this.appellation.selected = false;
+                        store.commit('setTextAppellation', []);
+                        store.commit('resetCreateAppelltionsToText');
+                        this.$root.$emit('appellationDeselected', this.appellation);
+                    }
+
+                    // Now hide the appellation and notify components
+                    this.appellation.visible = false;
+                    this.$root.$emit('appellationDeleted', this.appellation);
+                    this.$emit('hideappellation', this.appellation);
+
+                    // Force immediate cleanup of the appellation from DOM
+                    this.$root.$emit('forceCleanupAppellation', this.appellation.id);
+                    
+                    // Remove from store and list
+                    store.commit('removeAppellation', this.index);
+                    this.$emit('deletedappellation', this.appellation);
+                })
+                .catch(error => {
+                    this.isDeleting = false;
+                    // Show error message (e.g., if appellation is part of a relation)
+                    this.error = error.response?.data?.detail || 'This annotation is part of a relation and cannot be deleted';
+                    // Clear error after 3 seconds
+                    setTimeout(() => this.error = null, 3000);
+                });
         },
         watchCheckStore: function () {
             store.watch(
@@ -93,6 +210,15 @@ var AppellationListItem = {
             this.$emit("showappellation", this.appellation);
         },
         toggle: function () {
+            if (this.isDeleting || this.isEditMode) return;
+            
+            // Clear selection if toggling visibility
+            if (this.appellation.selected) {
+                this.appellation.selected = false;
+                store.commit('setTextAppellation', []);
+                this.$root.$emit('appellationDeselected', this.appellation);
+            }
+            
             if (this.appellation.visible) {
                 this.hide();
             } else {
@@ -103,6 +229,7 @@ var AppellationListItem = {
             return this.appellation.selected;
         },
         select: function () {
+            if (this.isDeleting || this.isEditMode) return;
             this.$emit('selectappellation', this.appellation);
         },
         label: function () {
@@ -170,6 +297,7 @@ AppellationList = {
 									v-on:hideappellation="hideAppellation"
 									v-on:showappellation="showAppellation"
 									v-on:selectappellation="selectAppellation"
+									v-on:editappellation="handleEditAppellation"
 									v-on:removeAppellation="removeAppellation($event)"
 									v-on:addAppellation="addAppellation($event)"
 									v-for="(appellation, index) in current_appellations"
@@ -306,5 +434,121 @@ AppellationList = {
         selectAppellation: function (appellation) {
             this.$emit('selectappellation', appellation);
         },
+        handleDeletedAppellation(appellation) {
+            // Remove from current_appellations immediately
+            const index = this.current_appellations.findIndex(a => a.id === appellation.id);
+            if (index > -1) {
+                const newAppellations = [...this.current_appellations];
+                newAppellations.splice(index, 1);
+                this.current_appellations = newAppellations;
+            }
+            
+            // Also update the original appellations array
+            const parentIndex = this.appellations.findIndex(a => a.id === appellation.id);
+            if (parentIndex > -1) {
+                const newParentAppellations = [...this.appellations];
+                newParentAppellations.splice(parentIndex, 1);
+                this.$emit('update:appellations', newParentAppellations);
+            }
+        },
+        handleEditAppellation(data) {
+            // Clear any existing selections
+            this.appellations.forEach(a => {
+                if (a.id !== data.appellation.id) {
+                    a.selected = false;
+                }
+            });
+            
+            // Select the text
+            EventBus.$emit('selecttext', data.position);
+            
+            // Store the current appellation for editing
+            store.commit('setEditingAppellation', data.appellation);
+            
+            // Emit event to start editing
+            this.$root.$emit('startAppellationEdit', data);
+        }
     }
 }
+
+// Add this CSS
+const style = document.createElement('style');
+style.textContent = `
+    .appellation-list {
+        position: relative;
+    }
+
+    .list-group-item {
+        transition: all 0.3s ease;
+        position: relative;
+        opacity: 1;
+        transform: translateY(0);
+        height: auto;
+        max-height: 200px; /* Adjust based on your needs */
+        overflow: hidden;
+    }
+
+    .list-group-item.fade-out {
+        opacity: 0;
+        transform: translateY(-20px);
+        max-height: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+    }
+
+    .appellation {
+        transition: opacity 0.2s ease;
+    }
+
+    .error-message {
+        font-size: 0.9em;
+        margin-bottom: 8px;
+        color: #dc3545;
+    }
+
+    .btn-group .btn {
+        transition: all 0.2s ease;
+    }
+
+    .btn-group .btn[disabled] {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .btn-xs {
+        padding: 1px 5px;
+        font-size: 12px;
+        line-height: 1.5;
+        border-radius: 3px;
+    }
+
+    .btn-default {
+        background-color: #f8f9fa;
+        border-color: #ddd;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        color: white;
+    }
+
+    .btn-danger:hover:not([disabled]) {
+        background-color: #c82333;
+        border-color: #bd2130;
+    }
+
+    .btn.disabled,
+    .btn[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    
+    input[type="checkbox"][disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+`;
+document.head.appendChild(style);

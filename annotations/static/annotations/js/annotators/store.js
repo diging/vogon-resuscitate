@@ -34,8 +34,21 @@ const store = new Vuex.Store({
         setTemplate(state, payload) {
             state.template = payload;
         },
-        removeAppellation: function (state, index) {
-            state.appellations_to_submit.splice(index, 1);
+        removeAppellation(state, index) {
+            // Clear from appellations_to_submit
+            if (typeof index === 'object') {
+                const idx = state.appellations_to_submit.findIndex(a => a.id === index.id);
+                if (idx > -1) {
+                    state.appellations_to_submit.splice(idx, 1);
+                }
+            } else {
+                state.appellations_to_submit.splice(index, 1);
+            }
+            
+            // Also clear from text_appellation if it matches
+            if (state.text_appellation && state.text_appellation.id === (typeof index === 'object' ? index.id : index)) {
+                state.text_appellation = [];
+            }
         },
         addAppellation: function (state, appellation) {
             state.appellations_to_submit.push(appellation);
