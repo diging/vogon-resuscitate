@@ -111,18 +111,3 @@ class Concept(HeritableObject):
 class Type(Concept):
     pass
 
-class ConceptpowerAccount(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conceptpower_account')
-    username = models.CharField(max_length=255, unique=True)
-    password_hash = models.CharField(max_length=255)  # Store hashed password
-    
-    def __str__(self):
-        return self.username
-    
-    def set_conceptpower_password(self, raw_password):
-        """Sets the hashed password for ConceptPower."""
-        self.password_hash = make_password(raw_password)
-
-    def check_conceptpower_password(self, raw_password):
-        """Checks if the provided password matches the stored hashed password."""
-        return check_password(raw_password, self.password_hash)

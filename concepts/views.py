@@ -11,14 +11,9 @@ from annotations.models import RelationSet, Appellation, TextCollection, VogonUs
 from django.shortcuts import render, get_object_or_404, redirect
 from concepts.authorities import ConceptpowerAuthority, update_instance
 from django.contrib.auth.decorators import login_required
-from concepts.decorators import conceptpower_login_required
 import re, urllib.request, urllib.parse, urllib.error, string
 from unidecode import unidecode
 from urllib.parse import urlencode
-from concepts.forms import ConceptpowerAuthForm
-from .models import ConceptpowerAccount
-from django.contrib import messages
-
 
 
 def list_concept_types(request):
@@ -52,7 +47,6 @@ def type(request, type_id):
     return render(request, template, context)
 
 @staff_member_required
-@conceptpower_login_required
 def merge_concepts(request, source_concept_id):
     source = get_object_or_404(Concept, pk=source_concept_id)
     manager = ConceptLifecycle(source)
@@ -118,7 +112,6 @@ def concept(request, concept_id):
     return render(request, "annotations/concept_details.html", context)
 
 
-# @conceptpower_login_required
 @staff_member_required
 def add_concept(request, concept_id):
 
@@ -158,7 +151,6 @@ def add_concept(request, concept_id):
 
 
 @staff_member_required
-@conceptpower_login_required
 def edit_concept(request, concept_id):
     from concepts.forms import ConceptForm
 
@@ -186,49 +178,3 @@ def sandbox(request, text_id):
     from annotations.models import RelationTemplate
 
     return render(request, "annotations/relationtemplate_creator.html", {})
-
-@login_required
-def conceptpower_login(request):
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-        print(username, password)   
-
-        if not username or not password:
-            messages.error(request, "Username and password are required.")
-            return render(request, 'login/login.html')
-
-        # You can now do your logic: store or validate with a remote service, etc.
-        # If storing locally:
-        account, created = ConceptpowerAccount.objects.get_or_create(user=request.user)
-        account.username = username
-        account.set_conceptpower_password(password)
-        account.save()
-        next_url = request.POST.get('next', reverse('dashboard'))
-        return redirect(next_url)
-
-    else:
-        return render(request, 'login/login.html')
-    
-@login_required
-def conceptpower_update_password(request):
-    if request.method == "POST":
-        new_password = request.POST.get("new_password")  # Match the form field name
-
-        try:
-            account = ConceptpowerAccount.objects.get(user=request.user)
-            account.password = new_password  # Update password field (consider hashing it)
-            account.save()
-            response = {"status": "success", "message": "Password updated successfully!"}
-        except ConceptpowerAccount.DoesNotExist:
-            response = {"status": "error", "message": "No ConceptPower account found."}
-
-        return JsonResponse(response)
-
-@login_required
-def conceptpower_disconnect(request):
-    try:
-        ConceptpowerAccount.objects.filter(user=request.user).delete()
-    except Exception as e:
-        print(f"Error disconnecting Conceptpower account: {e}")
-    return redirect(reverse('dashboard'))

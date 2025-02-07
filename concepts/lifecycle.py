@@ -216,19 +216,18 @@ class ConceptLifecycle(object):
                                             concept_type,
                                             equal_to=equal_uri)
         except ConceptPowerCredentialsMissingException as e:
-            # ✅ Re-raise so our top-level view can handle the redirect
             raise e
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
                                            " concept to Conceptpower:"
                                            " %s" % str(E))
-        # if not self.is_created:
-        #     target = ConceptLifecycle.create_from_raw(data).instance
-        #     self.instance.merged_with = target
-        #     self.instance.concept_state = Concept.MERGED
-        # else:
-        #     self.instance.concept_state = Concept.RESOLVED
-        # self.instance.save()
+        if not self.is_created:
+            target = ConceptLifecycle.create_from_raw(data).instance
+            self.instance.merged_with = target
+            self.instance.concept_state = Concept.MERGED
+        else:
+            self.instance.concept_state = Concept.RESOLVED
+        self.instance.save()
 
     def get_similar(self):
         """

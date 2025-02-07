@@ -392,11 +392,5 @@ class TypeAdmin(admin.ModelAdmin):
     model = Type
     list_display = ('label', 'resolved',)
 
-class ConceptpowerAccountAdmin(admin.ModelAdmin):
-    list_display = ('user', 'username')
-    search_fields = ('user__username', 'username')
-
 admin.site.register(Concept, ConceptAdmin)
 admin.site.register(Type, TypeAdmin)
-admin.site.register(ConceptpowerAccount, ConceptpowerAccountAdmin)
-

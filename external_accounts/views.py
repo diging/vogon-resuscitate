@@ -7,15 +7,14 @@ from django.conf import settings
 from django.utils.timezone import now
 from datetime import timedelta
 
-from .models import CitesphereAccount
+from .models import CitesphereAccount, ConceptpowerAccount
 from repository.models import Repository
 
 import requests
 import secrets
 
-from django.contrib.auth.forms import AuthenticationForm
-from django.contrib.auth import login, authenticate, logout
-from django.http import HttpResponseRedirect
+from django.contrib import messages
+from django.http import JsonResponse
 
 
 @login_required
@@ -43,23 +42,6 @@ def citesphere_login(request):
 
     url = f"{repository.endpoint}/api/oauth/authorize/?{urlencode(params)}"
     return redirect(url)
-
-@login_required
-def conceptpower_login(request):
-    # We're just using the AuthenticationForm to build the HTML input elements.
-    form = AuthenticationForm()
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-        user = authenticate(username=username, password=password)
-        if user:
-            login(request, user)
-            next_page = request.GET.get('next', reverse('concepts'))
-            return HttpResponseRedirect(next_page)
-        else:
-            return render(request, 'login/login.html', {'error': 'Invalid credentials'})
-    context = {'form': form}
-    return render(request, 'conceptpower/login.html', context)
 
 def citesphere_callback(request):
     code = request.GET.get('code')
@@ -170,4 +152,43 @@ def citesphere_disconnect(request, repository_id):
             'message': 'Error disconnecting Citesphere account. Please try again or contact support if the issue persists.'
         })
 
+    return redirect(reverse('dashboard'))
+
+@login_required
+def conceptpower_login(request):
+    username = request.POST.get('username')
+    password = request.POST.get('password')
+
+    if not username or not password:
+        messages.error(request, "Username and password are required.")
+        return render(request, 'login/login.html')
+
+    account, created = ConceptpowerAccount.objects.get_or_create(user=request.user)
+    account.username = username
+    account.password = password
+    account.save()
+    next_url = request.POST.get('next', reverse('dashboard'))
+    return redirect(next_url)
+    
+@login_required
+def conceptpower_update_password(request):
+    new_password = request.POST.get("new_password")
+
+    try:
+        account = ConceptpowerAccount.objects.get(user=request.user)
+        account.password = new_password
+        account.save()
+        response = {"status": "success", "message": "Password updated successfully!"}
+    except ConceptpowerAccount.DoesNotExist:
+        response = {"status": "error", "message": "No ConceptPower account found."}
+
+    return JsonResponse(response)
+
+@login_required
+def conceptpower_disconnect(request):
+    try:
+        ConceptpowerAccount.objects.filter(user=request.user).delete()
+    except Exception as e:
+        print(f"Error disconnecting Conceptpower account: {e}")
+        
     return redirect(reverse('dashboard'))

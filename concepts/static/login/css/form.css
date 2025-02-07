@@ -1,24 +1,23 @@
-/* Parent Wrapper for Centering */
 .center-wrapper {
     display: flex;
-    justify-content: center;    /* Center horizontally */
-    align-items: center;        /* Center vertically */
-    min-height: 100vh;          /* Full viewport height */
-    padding: 20px;              /* Add some padding for small screens */
+    justify-content: center;    
+    align-items: center;        
+    min-height: 100vh;          
+    padding: 20px;              
     box-sizing: border-box;
-    background-color: #f8f9fa;  /* Optional: light background for better contrast */
-}
-.center-wrapper {
-    display: flex;
-    justify-content: center;    /* Center horizontally */
-    align-items: flex-start;    /* Align towards the top */
-    min-height: 100vh;          /* Full viewport height */
-    padding-top: 8vh;           /* Adjust top spacing */
-    box-sizing: border-box;
-    background-color: #f8f9fa;  /* Optional: light background */
+    background-color: #f8f9fa;  
 }
 
-/* Card Styling */
+.center-wrapper {
+    display: flex;
+    justify-content: center;    
+    align-items: flex-start;    
+    min-height: 100vh;          
+    padding-top: 8vh;           
+    box-sizing: border-box;
+    background-color: #f8f9fa;  
+}
+
 .conceptpower-card {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     border-radius: 12px;
@@ -26,16 +25,14 @@
     padding: 20px;
     background-color: #fff;
     width: 100%;
-    max-width: 500px;           /* Increase width */
+    max-width: 500px;           
 }
 
-/* Header Style */
 .conceptpower-header {
     color: #7b3f51;
     margin-bottom: 20px;
 }
 
-/* Form Input Fields */
 .form-control {
     border-radius: 8px;
     border: 1px solid #ccc;
@@ -49,7 +46,6 @@
     outline: none;
 }
 
-/* Sign In Button */
 .btn-cp {
     background-color: #7b3f51;
     color: white;
@@ -58,7 +54,7 @@
     border-radius: 20px;
     font-weight: bold;
     transition: background-color 0.3s ease;
-    width: 100%;                 /* Make the button full-width */
+    width: 100%;                 
 }
 
 .btn-cp:hover {
@@ -66,7 +62,6 @@
     color: white;
 }
 
-/* Forgot Password Link */
 .forgot-password {
     display: block;
     text-align: right;
@@ -81,11 +76,10 @@
     color: #5a2d3a;
 }
 
-/* Eye Icon Styling */
 .toggle-password {
     position: absolute;
-    top: 38px;               /* Align vertically inside the input */
-    right: 10px;             /* Align to the right side */
+    top: 38px;               
+    right: 10px;             
     cursor: pointer;
     color: #7b3f51;
     font-size: 1rem;
@@ -96,11 +90,8 @@
     color: #5a2d3a;
 }
 
-
-/* Responsive Design */
 @media (max-width: 576px) {
     .conceptpower-card {
-        margin: 0 10px;  /* Margin for small screens */
+        margin: 0 10px;  
     }
 }
-

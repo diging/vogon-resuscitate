@@ -33,8 +33,7 @@ from annotations.display_helpers import user_recent_texts
 import datetime
 from isoweek import Week
 
-from external_accounts.models import CitesphereAccount
-from concepts.models import ConceptpowerAccount
+from external_accounts.models import CitesphereAccount, ConceptpowerAccount
 
 class VogonUserAuthenticationForm(AuthenticationForm):
     class Meta:

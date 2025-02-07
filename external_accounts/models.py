@@ -54,3 +54,10 @@ def fetch_citesphere_user_id(sender, instance, created, **kwargs):
         except ValueError as e:
             print(f"Failed to decode JSON: {str(e)}")
             
+class ConceptpowerAccount(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conceptpower_account')
+    username = models.CharField(max_length=255, unique=True)
+    password = models.CharField(max_length=255)
+    
+    def __str__(self):
+        return self.username
