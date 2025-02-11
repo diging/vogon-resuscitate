@@ -2,6 +2,9 @@ from external_accounts.utils import get_giles_document_details
 from repository import auth
 from requests.exceptions import RequestException
 import requests
+from django.http import JsonResponse
+
+import traceback
 
 class CitesphereAPIError(Exception):
     """Base exception class for Citesphere API errors"""
@@ -152,7 +155,51 @@ class RepositoryManager:
         except StopIteration:
             raise CitesphereAPIError(message="Collection not found", error_code="COLLECTION_NOT_FOUND", details=f"Collection {collection_id} not found in group {group_id}")
 
-    def item(self, group_id, item_id):
+    def item_files(self, groupId, itemId):
+        """
+        Fetch individual item from repository's endpoint and list all associated files for import.
+
+        Args:
+            groupId: The group ID in the repository
+            itemId: The item ID in the repository
+
+        Returns:
+            A dictionary containing a list of files with their respective details and processing status.
+        """
+        headers = auth.citesphere_auth(self.user, self.repository)
+        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            item_data = response.json()
+
+            files = []
+            is_file_processing = False
+            
+            # Extract Giles upload file details if available
+            giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
+            if giles_uploads:
+                for giles_upload in giles_uploads:
+                    extracted_text = giles_upload.get('extractedText', {})
+                    if extracted_text and extracted_text.get('content-type') == 'text/plain':
+                        files.append({
+                            'id': extracted_text.get('id'),
+                            'filename': extracted_text.get('filename'),
+                            'url': extracted_text.get('url')
+                        })
+                    else:
+                        upload_id = giles_upload.get("progressId")
+                        if upload_id:
+                            is_file_processing = True
+
+            return {
+                "files": files,
+                "is_file_processing": is_file_processing
+            }
+        else:
+            response.raise_for_status()
+
+    def item(self, groupId, itemId, fileId):
         """
         Fetch individual item details from the repository and extract Giles document text.
 
@@ -167,7 +214,7 @@ class RepositoryManager:
             CitesphereAPIError
         """
         # Fetch item details using CitesphereAPIv1
-        item_data = self.api.get_item_details(group_id, item_id)
+        item_data = self.api.get_item_details(groupId, itemId)
         
         if not item_data or 'item' not in item_data:
             raise CitesphereAPIError(message="Invalid item data", error_code="INVALID_ITEM_DATA", details="Response missing item data")
@@ -184,60 +231,10 @@ class RepositoryManager:
         }
 
         # Extract Giles uploads and their text if available
-        giles_uploads = item.get('gilesUploads', [])
-        item_data['item']['text'] = self._fetch_giles_text(giles_uploads)
+        text = get_giles_document_details(self.user, fileId)
+        if text is None:
+            raise IOError("The file you're trying to import doesn't exist. Please try another file.")
+
+        item_data['item']['text'] = text
         item_data['item']['details'] = item_details
-
         return item_data
-
-    def _fetch_giles_text(self, giles_uploads):
-        """
-        Extract text from Giles uploads.
-        
-        Args:
-            giles_uploads: List of Giles upload objects
-            
-        Returns:
-            str: Extracted text content or error message
-            
-        Raises:
-            CitesphereAPIError
-        """
-        if not giles_uploads:
-            return "No Giles uploads available."
-
-        try:
-            upload = giles_uploads[0]
-            text_content = ""
-
-           # Extract plain text from Giles extracted text if available
-            extracted_text = upload.get('extractedText', {})
-            if extracted_text and extracted_text.get('content-type') == 'text/plain':
-                text_content = get_giles_document_details(self.user, extracted_text['id'])
-                if text_content is None:
-                    raise CitesphereAPIError(message="Failed to fetch document text from Giles, please try again later.", error_code="GILES_TEXT_ERROR", details="Failed to fetch document text from Giles")
-    
-            # Extract plain text from upload file if available
-            elif upload.get('uploadedFile').get('content-type') == 'text/plain' and upload.get('uploadedFile').get('id'):
-                text_content = get_giles_document_details(self.user, upload.get('uploadedFile')['id'])
-                if text_content is None:
-                    raise CitesphereAPIError(message="Failed to fetch document text from Giles, please try again later.", error_code="GILES_UPLOAD_PLAIN_TEXT_ERROR", details=f"Failed to fetch text from plain text file {upload.get('uploadedFile')['id']}")
-
-            # Fallback to extracting text from pages
-            elif 'pages' in upload:
-                for page in upload['pages']:
-                    text_data = page.get('text')
-                    if text_data and text_data.get('content-type') == 'text/plain':
-                        page_text = get_giles_document_details(self.user, text_data['id'])
-                        if page_text is not None:
-                            text_content += page_text
-                        else:
-                            raise CitesphereAPIError(message="Failed to fetch document text from Giles, please try again later.", error_code="GILES_PAGE_ERROR", details=f"Failed to fetch text for page {page.get('number', 'unknown')}")
-
-            return text_content or "No valid text/plain content found."
-            
-        except Exception as e:
-            # If the exception is already a CitesphereAPIError, re-raise it directly to preserve the original error details.
-            if isinstance(e, CitesphereAPIError):
-                raise
-            raise CitesphereAPIError(message="Giles text extraction has failed", error_code="GILES_EXTRACTION_ERROR", details=str(e))
