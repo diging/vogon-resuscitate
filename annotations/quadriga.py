@@ -258,38 +258,132 @@ def parse_response(raw_response):
         data[tag] = child.text
     return data
 
-
-
 def build_concept_node(appellation, user, creation_time, source_uri):
     """
-    Helper function to build a concept node dictionary.
+    Build a node dictionary for an appellation event.
+    Each appellation gets its own node even if it points to the same concept.
+    The node’s termParts come only from the given appellation.
     """
     term_parts = []
-    
-    if appellation:
-        term_parts_data = [
-            {
-                "position": appellation.startPos if appellation.startPos else 0,
-                "expression": appellation.stringRep or "",
-                "normalization": "",
-                "formattedPointer": "",
-                "format": ""
-            }
-        ]
-        term_parts.extend(term_parts_data)
+    pos = appellation.startPos if appellation.startPos is not None else 0
+    exp = appellation.stringRep if appellation.stringRep is not None else ""
+    term_parts.append({
+        "position": pos,
+        "expression": exp,
+        "normalization": "",
+        "formattedPointer": "",
+        "format": ""
+    })
     
     return {
         "label": appellation.interpretation.label or "",
         "metadata": {
-            "type": "appellation_event", 
+            "type": "appellation_event",
             "interpretation": appellation.interpretation.uri,
             "termParts": term_parts
         },
         "context": {
             "creator": user.username,
             "creationTime": creation_time.strftime('%Y-%m-%d'),
-            "creationPlace": "",
+            "creationPlace": "phoenix",
             "sourceUri": source_uri
+        }
+    }
+
+def generate_graph_data(relationset, user):
+    """
+    Build a JSON-serializable graph structure with unique nodes for each
+    appellation event and separate relation event nodes.
+    
+    Processes nested relations recursively so that each event gets a unique node.
+    """
+    nodes = {}
+    edges = []
+    node_counter = 0
+
+    def get_node_id():
+        nonlocal node_counter
+        node_id = str(node_counter)
+        node_counter += 1
+        return node_id
+
+    # This mapping uses a unique key for each appellation event.
+    node_mapping = {}
+
+    def process_relation(relation):
+        """
+        Process a relation event recursively.
+        Creates a new relation node and processes its three roles (subject, predicate, object).
+        If a role is a relation, it is processed recursively; otherwise, it is treated as an appellation.
+        Returns the node id for this relation event.
+        """
+        # Create a node for the relation event.
+        rel_node_id = get_node_id()
+        nodes[rel_node_id] = get_relation_node(user, relationset.occursIn.created, relationset.occursIn.uri)
+        
+        subj = relation.source_content_object
+        if isinstance(subj, Relation):
+            subj_node_id = process_relation(subj)
+        else:
+            # Key by unique appellation id to ensure separate nodes for separate events.
+            key = f"app-{subj.id}-{subj.created.isoformat()}" 
+            if key not in node_mapping:
+                node_id = get_node_id()
+                nodes[node_id] = build_concept_node(subj, user, relationset.occursIn.created, relationset.occursIn.uri)
+                node_mapping[key] = node_id
+            subj_node_id = node_mapping[key]
+        edges.append({"source": rel_node_id, "relation": "subject", "target": subj_node_id})
+        
+        pred = relation.predicate
+        key = f"app-{pred.id}-{pred.created.isoformat()}"
+        if key not in node_mapping:
+            node_id = get_node_id()
+            nodes[node_id] = build_concept_node(pred, user, relationset.occursIn.created, relationset.occursIn.uri)
+            node_mapping[key] = node_id
+        pred_node_id = node_mapping[key]
+        edges.append({"source": rel_node_id, "relation": "predicate", "target": pred_node_id})
+        
+        obj = relation.object_content_object
+        if isinstance(obj, Relation):
+            obj_node_id = process_relation(obj)
+        else:
+            key = f"app-{obj.id}-{obj.created.isoformat()}"
+            if key not in node_mapping:
+                node_id = get_node_id()
+                nodes[node_id] = build_concept_node(obj, user, relationset.occursIn.created, relationset.occursIn.uri)
+                node_mapping[key] = node_id
+            obj_node_id = node_mapping[key]
+        edges.append({"source": rel_node_id, "relation": "object", "target": obj_node_id})
+        
+        return rel_node_id
+
+    # Start processing with the top-level (root) relation.
+    top_relation = relationset.root
+    process_relation(top_relation)
+    
+    # Build the default mapping using the top-level relation's roles.
+    top_subj = top_relation.source_content_object
+    top_pred = top_relation.predicate
+    top_obj = top_relation.object_content_object
+    default_mapping = {
+        "subject": {"type": "REF", "reference": node_mapping.get(f"app-{top_subj.id}-{top_subj.created.isoformat()}", "")},
+        "predicate": {"type": "URI", "uri": top_pred.interpretation.uri, "label": top_pred.interpretation.label},
+        "object": {"type": "REF", "reference": node_mapping.get(f"app-{top_obj.id}-{top_obj.created.isoformat()}", "")}
+    }
+    
+    return {
+        "graph": {
+            "metadata": {
+                "defaultMapping": default_mapping,
+                "context": {
+                    "creator": user.username,
+                    "creationTime": relationset.occursIn.created.strftime('%Y-%m-%d'),
+                    "creationPlace": "phoenix",
+                    "sourceUri": relationset.occursIn.uri
+                }
+            },
+            "nodes": nodes,
+            "edges": edges
         }
     }
 
@@ -307,74 +401,6 @@ def get_relation_node(user, creation_time, source_uri):
             "creationTime": creation_time.strftime('%Y-%m-%d'),
             "creationPlace": "",
             "sourceUri": source_uri
-        }
-    }
-
-def generate_graph_data(relationset, user):
-    nodes = {}
-    edges = []
-    node_counter = 0
-    source_uri = relationset.occursIn.uri
-
-    def get_node_id():
-        nonlocal node_counter
-        node_id = str(node_counter)
-        node_counter += 1
-        return node_id
-
-    for relation in relationset.constituents.all():
-        # DEBUG
-        print("Relation details:", relation.__dict__)
-        print("Source content object details:", relation.source_content_object.__dict__)
-        print("Object content object details:", relation.object_content_object.__dict__)
-        print("Predicate details:", relation.predicate.__dict__)
-        subject = relation.source_content_object
-        obj = relation.object_content_object
-        predicate = relation.predicate
-
-        # Extract the creation time from the appellation
-        creation_time = relationset.occursIn.created
-
-        if subject and subject.interpretation.uri not in nodes:
-            subject_id = get_node_id()
-            nodes[subject_id] = build_concept_node(subject, user, creation_time, source_uri)
-
-        if obj and obj.interpretation.uri not in nodes:
-            obj_id = get_node_id()
-            nodes[obj_id] = build_concept_node(obj, user, creation_time, source_uri)
-
-        if predicate and predicate.interpretation.uri not in nodes:
-            predicate_id = get_node_id()
-            nodes[predicate_id] = build_concept_node(predicate, user, creation_time, source_uri)
-
-        relation_id = get_node_id()
-        nodes[relation_id] = get_relation_node(user, creation_time, source_uri)
-
-        if subject and predicate:
-            edges.append({"source": subject_id, "relation": "subject", "target": predicate_id})
-
-        if predicate and obj:
-            edges.append({"source": predicate_id, "relation": "predicate", "target": obj_id})
-
-        edges.append({"source": relation_id, "relation": "object", "target": obj_id})
-
-    return {
-        "graph": {
-            "metadata": {
-                "defaultMapping": {
-                    "subject": {"type": "REF", "reference": "0"},
-                    "predicate": {"type": "URI", "uri": "", "label": ""},
-                    "object": {"type": "REF", "reference": "3"}
-                },
-                "context": {
-                    "creator": user.username,
-                    "creationTime": timezone.now().strftime('%Y-%m-%d'),
-                    "creationPlace": "",
-                    "sourceUri": source_uri
-                }
-            },
-            "nodes": nodes,
-            "edges": edges
         }
     }
 
@@ -399,11 +425,12 @@ def submit_to_quadriga(relationset, user, project):
     }
 
     collection_id = project.quadriga_id
-    endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add/"
+    endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add"
 
     graph_data = generate_graph_data(relationset, user)
-    print("Graph data:", graph_data)
+    print("Graph data:", graph_data) # DEBUG
     response = requests.post(endpoint, json=graph_data, headers=headers)
+    print("Response:", response.status_code, response.text) # DEBUG
     response.raise_for_status()
 
     # Update the status of the RelationSet

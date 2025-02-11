@@ -902,7 +902,9 @@ class RelationSet(models.Model):
 
         # Topological sort is supposed to be faster than calculating in-degree
         #  and searching for the 0-valued node.
-        return Relation.objects.get(pk=nx.topological_sort(dg)[0])
+        # return Relation.objects.get(pk=nx.topological_sort(dg)[0])
+        sorted_nodes = list(nx.topological_sort(dg))
+        return Relation.objects.get(pk=sorted_nodes[0])
 
     @property
     def label(self):
