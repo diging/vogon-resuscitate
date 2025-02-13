@@ -1,10 +1,12 @@
 from django.conf import settings
 
 from urllib.parse import urlparse
-from conceptpower import Conceptpower
 
 from concepts.models import *
-
+from concepts.conceptpower import Conceptpower
+from requests.auth import HTTPBasicAuth
+import requests
+import json
 
 TYPES = settings.CONCEPT_TYPES
 
@@ -43,11 +45,9 @@ class ConceptLifecycle(object):
 
     def __init__(self, instance):
         assert isinstance(instance, Concept)
-        self.instance = instance
-        self.conceptpower = Conceptpower()
+        self.conceptpower = Conceptpower(settings.CONCEPTPOWER_ENDPOINT, settings.CONCEPTPOWER_NAMESPACE)
 
-        self.conceptpower.endpoint = settings.CONCEPTPOWER_ENDPOINT
-        self.conceptpower.namespace = settings.CONCEPTPOWER_NAMESPACE
+        self.instance = instance
         self.user = settings.CONCEPTPOWER_USERID
         self.password = settings.CONCEPTPOWER_PASSWORD
 
@@ -82,7 +82,6 @@ class ConceptLifecycle(object):
 
     @property
     def is_external(self):
-        print((self._get_namespace(), self.is_native, self.is_created))
         return not (self.is_native or self.is_created)
 
     @property
@@ -123,14 +122,21 @@ class ConceptLifecycle(object):
 
     @staticmethod
     def create_from_raw(data):
-        _type_uri = data.get('type_uri')
+        _type_uri = None
+
+        _type = data.get('type')
+
+        if isinstance(_type, str):
+            _type_uri = _type
+        elif _type and hasattr(_type, 'type_uri'):
+            _type_uri = _type.type_uri
+
         if _type_uri:
             _typed, _ = Type.objects.get_or_create(uri=_type_uri)
         else:
             _typed = None
-
         manager = ConceptLifecycle.create(
-            uri = data.get('uri').strip() if data.get('uri') else data.get('id'),
+            uri = data.get('uri').strip() if data.get('uri') else data.get('concept_uri'),
             label = data.get('word').strip() if data.get('word') else data.get('lemma'),
             description = data.get('description').strip(),
             pos = data.get('pos').strip(),
@@ -138,68 +144,6 @@ class ConceptLifecycle(object):
             authority = 'Conceptpower',
         )
         return manager
-
-    def approve(self):
-        if self.instance.concept_state == Concept.RESOLVED:
-            raise ConceptLifecycleException("This concept is already resolved.")
-        if self.instance.concept_state == Concept.MERGED:
-            raise ConceptLifecycleException("This concept is merged, and cannot"
-                                            " be approved.")
-
-        self.instance.concept_state = Concept.APPROVED
-        self.instance.save()
-
-    def resolve(self):
-        """
-
-        """
-        if self.instance.concept_state == Concept.RESOLVED:
-            raise ConceptLifecycleException("This concept is already resolved")
-        if self.instance.concept_state == Concept.MERGED:
-            raise ConceptLifecycleException("This concept is merged, and cannot"
-                                            " be resolved")
-        if self.is_created:
-            raise ConceptLifecycleException("Created concepts cannot be"
-                                            " resolved")
-
-        if self.is_native:
-            data = self.get(self.instance.uri)
-            if data.typed:
-                _typed, _ = Type.objects.get_or_create(uri=data.typed)
-            else:
-                _typed = None
-
-            self.instance.label = data.label
-            self.instance.description = data.description
-            if _typed:
-                self.instance.typed = _typed
-            self.instance.pos = data.pos
-            self.instance.concept_state = Concept.RESOLVED
-            self.instance.save()
-            return
-
-        if self.is_external:
-            matching = self.get_matching()
-            if matching:
-                if len(matching) > 1:
-                    raise ConceptLifecycleException("There are more than one"
-                                                    " matching native concepts"
-                                                    " for this external"
-                                                    " concept.")
-                match = matching.pop()
-                self.merge_with(match.uri)
-
-            if self.get_similar():
-                raise ConceptLifecycleException("Cannot resolve an external"
-                                                " concept with similar native"
-                                                " entries in Conceptpower.")
-
-            # External concepts with no matching or similar concepts in
-            #  Conceptpower can be added automatically.
-            self.add()
-            return
-        raise ConceptLifecycleException("Could not resolve concept.")
-
 
     def merge_with(self, uri):
         """
@@ -214,7 +158,7 @@ class ConceptLifecycle(object):
             target = Concept.objects.get(uri=uri)
         except Concept.DoesNotExist:
             try:
-                data = self.conceptpower.get(uri)
+                data = self.get_concept(uri)
             except Exception as E:
                 raise ConceptUpstreamException("Whoops: %s" % str(E))
             target = ConceptLifecycle.create_from_raw(data).instance
@@ -234,6 +178,11 @@ class ConceptLifecycle(object):
         Use data from the managed :class:`.Concept` instance to create a new
         native entry in Conceptpower.
         """
+        if self.instance.concept_state == Concept.RESOLVED:
+            raise ConceptLifecycleException("This concept is already resolved.")
+        if self.instance.concept_state == Concept.MERGED:
+            raise ConceptLifecycleException("This concept is merged, and cannot"
+                                            " be resolved.")
         if self.is_native:
             raise ConceptLifecycleException("This concept already exists in"
                                             " Conceptpower, genius!")
@@ -243,9 +192,9 @@ class ConceptLifecycle(object):
         #  users can benefit. Ideally this would happen with BlackGoat
         #  identities, but we have some  use-cases that depend on the
         #  equal_to field in Conceptpower.
-        equal_uris = []
+        equal_uri = ""
         if self.is_external:
-            equal_uris.append(self.instance.uri)
+            equal_uri = self.instance.uri
 
         # It is possible that the managed Concept does not have a type, and
         #  sometimes we just don't care.
@@ -266,32 +215,18 @@ class ConceptLifecycle(object):
                                             self.DEFAULT_LIST,
                                             self.instance.description,
                                             concept_type,
-                                            equal_uris=equal_uris)
+                                            equal_to=equal_uri)
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
                                            " concept to Conceptpower:"
                                            " %s" % str(E))
-        target = ConceptLifecycle.create_from_raw(data).instance
-        self.instance.merged_with = target
-        self.instance.concept_state = Concept.MERGED
+        if not self.is_created:
+            target = ConceptLifecycle.create_from_raw(data).instance
+            self.instance.merged_with = target
+            self.instance.concept_state = Concept.MERGED
+        else:
+            self.instance.concept_state = Concept.RESOLVED
         self.instance.save()
-
-    def _reform(self, raw):
-        return ConceptData(**{
-            'label': raw.get('word') if raw.get('word') else raw.get('lemma'),
-            'uri': raw.get('uri') if raw.get('uri') else raw.get('id'),
-            'description': raw.get('description'),
-            'typed': raw.get('type_uri'),
-            'equal_to': raw.get('equal_to', []),
-            'pos': raw.get('pos'),
-        })
-
-    def get(self, uri):
-        try:
-            raw = self.conceptpower.get(uri)
-        except Exception as E:
-            raise ConceptUpstreamException("Whoops: %s" % str(E))
-        return self._reform(raw)
 
     def get_similar(self):
         """
@@ -304,16 +239,47 @@ class ConceptLifecycle(object):
         """
         import re, string
         from unidecode import unidecode
-
+        equals = []
+        if self.is_external:
+            equals = self.get_equal()
         q = re.sub("[0-9]", "", unidecode(self.instance.label).translate(string.punctuation).lower())
         if not q:
             return []
         try:
-            data = self.conceptpower.search(q)
+            parameters = {
+                'word': q,
+                'pos': None,
+            }
+            headers = {
+                    'Accept': 'application/json',
+            }
+            concepts = self.conceptpower.search(params=parameters, headers=headers)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
-        return list(map(self._reform, data))
+        return concepts if not equals else equals
 
+    def get_equal(self):
+        """
+        Retrieve data about Conceptpower entries that are "equal to" the
+        managed :class:`.Concept`\.
+
+        Returns
+        -------
+        list
+            A list of dicts with raw data from Conceptpower.
+        """
+        try:
+            parameters = {
+                'equal_to': self.instance.uri
+            }
+            headers = {
+                'Accept': 'application/json',
+            }
+            concepts = self.conceptpower.search(params=parameters, headers=headers)
+        except Exception as E:
+            raise ConceptUpstreamException("Whoops: %s" % str(E))
+        return list(concepts)   
+    
     def get_matching(self):
         """
         Retrieve data about Conceptpower entries that are "equal to" the
@@ -325,7 +291,17 @@ class ConceptLifecycle(object):
             A list of dicts with raw data from Conceptpower.
         """
         try:
-            data = self.conceptpower.search(self.instance.uri)
+            data = self.get_concept(self.instance.uri)
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
-        return list(map(self._reform, data))
+        return list(data)
+
+    def get_concept(self, uri):
+        try:
+            headers = {
+                'Accept': 'application/json',
+            }
+            concept_entry = self.conceptpower.get(uri, headers=headers)
+        except Exception as E:
+            raise ConceptUpstreamException("Whoops: %s" % str(E))
+        return concept_entry

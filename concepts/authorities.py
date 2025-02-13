@@ -3,7 +3,7 @@
 
 from .models import Concept, Type
 
-from conceptpower import Conceptpower
+from concepts.conceptpower import Conceptpower
 from urllib.parse import urlparse
 from django.conf import settings
 
@@ -156,7 +156,7 @@ def get_namespace(uri):
     if o.scheme == '' or o.netloc == '':
         raise ValueError("Could not determine namespace for {0}.".format(uri))
 
-    return "{" + namespace + "}"
+    return namespace
 
 
 def get_by_namespace(namespace):
