@@ -17,6 +17,7 @@ from django.forms.utils import flatatt
 from django.utils.encoding import force_str
 import networkx as nx
 import requests, json
+from concepts.conceptpower import Conceptpower
 
 class RegistrationForm(forms.Form):
     """
@@ -179,25 +180,20 @@ class ConceptField(forms.CharField):
             headers = {
                     'Accept': 'application/json',
             }
-            url = "{0}Concept?id={1}".format(settings.CONCEPTPOWER_ENDPOINT, value)
-            response = requests.get(url, headers=headers)
-            data = {}
-            if response.status_code == requests.codes.ok:
-                data = response.json()
-                concept_entry = data.get('conceptEntries', [{}])[0]
-                data = dict(
-                    uri=value,
-                    label=concept_entry.get('lemma',''),
-                    description=concept_entry.get('description',''),
-                    pos=concept_entry.get('pos',''),
-                    authority=concept_entry.get('authority',{'name': 'Conceptpower'}),
-                    concept_state=Concept.RESOLVED,
-                )
-                ctype_data = concept_entry.get('type','')
-                if ctype_data:
-                    data.update({'typed': Type.objects.get_or_create(uri=ctype_data['type_uri'])[0]})
-                py_value = Concept.objects.create(**data)
-            return py_value
+            conceptpower = Conceptpower(settings.CONCEPTPOWER_ENDPOINT, settings.CONCEPTPOWER_NAMESPACE)
+            concept_entry = conceptpower.get(value, headers=headers)
+            data = dict(
+                uri=value,
+                label=concept_entry.get('lemma',''),
+                description=concept_entry.get('description',''),
+                pos=concept_entry.get('pos',''),
+                authority=concept_entry.get('authority',{'name': 'Conceptpower'}),
+                concept_state=Concept.RESOLVED,
+            )
+            ctype_data = concept_entry.get('type','')
+            if ctype_data:
+                data.update({'typed': Type.objects.get_or_create(uri=ctype_data['type_uri'])[0]})
+            py_value = Concept.objects.create(**data)
         return py_value
     
 class TemplateChoiceField(forms.ChoiceField):
