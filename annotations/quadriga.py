@@ -316,9 +316,13 @@ def generate_graph_data(relationset, user):
     node_counter = 0
 
     def get_node_id():
+        # use the 'node_counter' variable from the enclosing (non-local) scope.
         nonlocal node_counter
+        # Convert the current counter value to a string to use as the unique node ID.
         node_id = str(node_counter)
+        # Increment the counter so that the next call produces a different (unique) ID.
         node_counter += 1
+        # Return the generated node ID.
         return node_id
 
     # This mapping uses a unique key for each appellation event.
@@ -327,27 +331,38 @@ def generate_graph_data(relationset, user):
     def process_relation(relation):
         """
         Process a relation event recursively.
-        Creates a new relation node and processes its three roles (subject, predicate, object).
-        If a role is a relation, it is processed recursively; otherwise, it is treated as an appellation.
-        Returns the node id for this relation event.
+        Creates a new relation node and processes its three roles: subject, predicate, and object.
+        If a role is itself a relation, it is processed recursively; otherwise, it is treated as an appellation.
+        Returns the unique node id for this relation event.
         """
+        # Generate a unique node id for this relation event.
         rel_node_id = get_node_id()
+        # Create a relation node using get_relation_node and store it in the nodes dictionary.
         nodes[rel_node_id] = get_relation_node(user, relationset.occursIn.created, relationset.occursIn.uri)
         
-        # Process subject.
+        # -------------------------------
+        # Process the subject of the relation.
+        # -------------------------------
         subj = relation.source_content_object
         if isinstance(subj, Relation):
+            # If the subject is itself a relation, process it recursively.
             subj_node_id = process_relation(subj)
         else:
+            # Otherwise, treat it as an appellation. Create a unique key using its id and creation timestamp.
             key = f"app-{subj.id}-{subj.created.isoformat()}"
+            # If this appellation hasn't been processed yet, build its node.
             if key not in node_mapping:
                 node_id = get_node_id()
                 nodes[node_id] = build_concept_node(subj, user, relationset.occursIn.created, relationset.occursIn.uri)
                 node_mapping[key] = node_id
+            # Retrieve the node id for the subject from the mapping.
             subj_node_id = node_mapping[key]
+        # Add an edge linking the current relation node to the subject node.
         edges.append({"source": rel_node_id, "relation": "subject", "target": subj_node_id})
         
-        # Process predicate
+        # -------------------------------
+        # Process the predicate of the relation.
+        # -------------------------------
         pred = relation.predicate
         key = f"app-{pred.id}-{pred.created.isoformat()}"
         if key not in node_mapping:
@@ -355,11 +370,15 @@ def generate_graph_data(relationset, user):
             nodes[node_id] = build_concept_node(pred, user, relationset.occursIn.created, relationset.occursIn.uri)
             node_mapping[key] = node_id
         pred_node_id = node_mapping[key]
+        # Add an edge linking the current relation node to the predicate node.
         edges.append({"source": rel_node_id, "relation": "predicate", "target": pred_node_id})
         
-        # Process object.
+        # -------------------------------
+        # Process the object of the relation.
+        # -------------------------------
         obj = relation.object_content_object
         if isinstance(obj, Relation):
+            # If the object is itself a relation, process it recursively.
             obj_node_id = process_relation(obj)
         else:
             key = f"app-{obj.id}-{obj.created.isoformat()}"
@@ -368,8 +387,10 @@ def generate_graph_data(relationset, user):
                 nodes[node_id] = build_concept_node(obj, user, relationset.occursIn.created, relationset.occursIn.uri)
                 node_mapping[key] = node_id
             obj_node_id = node_mapping[key]
+        # Add an edge linking the current relation node to the object node.
         edges.append({"source": rel_node_id, "relation": "object", "target": obj_node_id})
         
+        # Return the node id for this processed relation event.
         return rel_node_id
 
     # Process the top-level (root) relation.
@@ -443,7 +464,6 @@ def submit_to_quadriga(relationset, user, project):
     endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add"
 
     graph_data = generate_graph_data(relationset, user)
-    print("Graph data:", graph_data) # DEBUG
     response = requests.post(endpoint, json=graph_data, headers=headers)
     response.raise_for_status()
 
