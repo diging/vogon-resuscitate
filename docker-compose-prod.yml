@@ -10,7 +10,9 @@ services:
     ports:
       - "${DB_PORT}:5432"
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile-prod
     env_file:
       - .docker-env
     command: tail -f /dev/null

@@ -3,24 +3,20 @@ Provides :class:`.RelationTemplate`\-related views.
 """
 
 from django.conf import settings
-from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
 from django.db.models import Q
 from django.db import transaction, DatabaseError
 from django.forms import formset_factory
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
-from string import Formatter
 
 from annotations.forms import (RelationTemplatePartFormSet,
                                RelationTemplatePartForm, RelationTemplateForm)
 from annotations.models import *
 from annotations import relations
-from concepts.models import Concept, Type
-
+from annotations.decorators import vogon_admin_or_staff_required
 import copy
 import json
 import logging
@@ -29,7 +25,7 @@ import networkx as nx
 logger = logging.getLogger(__name__)
 logger.setLevel('ERROR')
 
-@staff_member_required
+@vogon_admin_or_staff_required
 def add_relationtemplate(request):
     """
     Staff can use this view to create :class:`.RelationTemplate`\s.
@@ -41,7 +37,7 @@ def add_relationtemplate(request):
 
     Returns
     ----------
-    :class:`django.http.response.HttpResponse`
+    :class:`django.http.response.Redirect`
     """
 
     formset = formset_factory(
@@ -89,7 +85,7 @@ def add_relationtemplate(request):
     return render(request, 'annotations/relationtemplate.html', context)
 
 
-@login_required
+@vogon_admin_or_staff_required
 def list_relationtemplate(request):
     """
     Returns a list of all :class:`.RelationTemplate`\s.
@@ -102,7 +98,7 @@ def list_relationtemplate(request):
 
     Returns
     ----------
-    :class:`django.http.response.HttpResponse`
+    :class:`django.http.response.HttpResponseRedirect`
     """
     queryset = RelationTemplate.objects.all()
     search = request.GET.get('search', None)
@@ -149,7 +145,8 @@ def get_relationtemplate(request, template_id):
 
     Returns
     ----------
-    :class:`django.http.response.HttpResponse`
+    - :class:`django.http.JsonResponse` if ``format=json`` is passed in the GET request.
+    - :class:`django.http.HttpResponse` if rendering an HTML template.
     """
 
     relation_template = get_object_or_404(RelationTemplate, pk=template_id)
@@ -190,7 +187,7 @@ def create_from_relationtemplate(request, template_id):
 
     Returns
     ----------
-    :class:`django.http.response.HttpResponse`
+    - :class:`django.http.JsonResponse`
     """
 
     # TODO: this could also use quite a bit of attention in terms of
@@ -273,7 +270,7 @@ def create_from_text(request, template_id):
     return JsonResponse(response_data)
 
 
-@staff_member_required
+@vogon_admin_or_staff_required
 def delete_relationtemplate(request, template_id):
     if request.method == 'POST':
 
@@ -298,7 +295,7 @@ def delete_relationtemplate(request, template_id):
     return HttpResponseRedirect(reverse('list_relationtemplate'))
 
 
-@staff_member_required
+@vogon_admin_or_staff_required
 def edit_relationtemplate(request, template_id):
     """
     Staff can use this view to edit an existing RelationTemplate.

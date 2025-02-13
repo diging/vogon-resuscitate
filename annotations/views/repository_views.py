@@ -20,6 +20,7 @@ from annotations.annotators import supported_content_types
 from annotations.tasks import tokenize
 from annotations.utils import get_pagination_metadata
 
+from django.http import JsonResponse
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
 from urllib.parse import urlparse, parse_qs
@@ -28,6 +29,9 @@ from external_accounts.utils import parse_iso_datetimes
 
 from external_accounts.decorators import citesphere_authenticated
 from annotations.utils import get_pagination_metadata
+
+import logging
+logger = logging.getLogger(__name__)
 
 import traceback
 
@@ -143,6 +147,7 @@ def repository_collection(request, repository_id, group_id):
         'current_page': pagination['current_page'],
         'total_pages': pagination['total_pages'],
         'page_range': pagination['page_range'],
+        'APP_ROOT': settings.APP_ROOT,        
     }
 
     return render(request, 'annotations/repository_collection.html', context)
@@ -307,13 +312,28 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         'current_page': pagination['current_page'],
         'total_pages': pagination['total_pages'],
         'page_range': pagination['page_range'],
+        'APP_ROOT': settings.APP_ROOT,
     }
 
     return render(request, 'annotations/repository_collections_text_list.html', context)
 
 
 @citesphere_authenticated
-def repository_text_import(request, repository_id, group_id, text_key, project_id=None):
+def repository_text_files(request, repository_id, group_id, item_id):
+    """View to fetch and return a dictionary of files for a specific text item."""
+    user = request.user
+    repository = get_object_or_404(Repository, pk=repository_id)
+    manager = RepositoryManager(user=user, repository=repository)
+
+    try:
+        return JsonResponse(manager.item_files(group_id, item_id))
+    except Exception as e:
+        logger.error(f"Error accessing repository files: {str(e)}")
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An error occurred while accessing the repository.'}, status=500)
+
+
+@citesphere_authenticated
+def repository_text_import(request, repository_id, group_id, text_key, file_id, project_id=None):
 
     if not project_id:
         return redirect(f"{reverse('list_projects')}?redirect_to_text_import=True&repository_id={repository_id}&group_id={group_id}&text_key={text_key}")
@@ -325,17 +345,24 @@ def repository_text_import(request, repository_id, group_id, text_key, project_i
     manager = RepositoryManager(user=request.user, repository=repository)
 
     try:
-        result = manager.item(group_id, text_key)
-    except CitesphereAPIError as e:
-        print(traceback.format_exc())
-        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
-    except Exception as e:
-        print(traceback.format_exc())
-        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
+        result = manager.item(group_id, text_key, file_id)
+    except IOError as e:
+        logger.error(f"Error accessing repository: {str(e)}")
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'There was an error accessing the repository.'}, status=500)
 
     item_details = result.get('item', {}).get('details', {})
-    giles_text = result.get('item', {}).get('text', [])
+    giles_text = result.get('item', {}).get('text')
+
+    if not giles_text:
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'There was an error retrieving the content from Giles.'}, status=400)
+
     tokenized_content = tokenize(giles_text)
+
+    # - urn:repository: prefix to identify this as a repository resource
+    # - repository_id: to scope within a specific repository
+    # - item_details.get('key'): the unique key for this item in the repository
+    # - file_id: to identify the specific file, since an item can have multiple files
+    unique_uri = f"urn:repository:{repository_id}:item:{item_details.get('key')}:file:{file_id}"
 
     defaults = {
         'title': item_details.get('title', 'Unknown Title'),
@@ -344,24 +371,26 @@ def repository_text_import(request, repository_id, group_id, text_key, project_i
         'repository': repository,
         'repository_source_id': repository_id,
         'addedBy': request.user,
-        #Parse date provides a list however we only provide one date, hence will provide only one date
         'created': parse_iso_datetimes([item_details.get('addedOn')])[0],
         'originalResource': item_details.get('url'),
     }
 
+    # Create or update the text in the database with the unique URI
     master_text, created = Text.objects.get_or_create(
-        uri=item_details.get('key'),
+        uri=unique_uri,
         defaults=defaults
     )
 
-    master_text.save()
+    if not created:
+        # If the text already exists, update its tokenized content
+        master_text.tokenizedContent = tokenized_content
+        master_text.save()
 
     # Add text to project only if it's not already present
     if not project.texts.filter(pk=master_text.pk).exists():
         project.texts.add(master_text)
-
-    # Redirect to the annotation page
-    return HttpResponseRedirect(reverse('annotate', args=[master_text.id, project.id]))
+    
+    return redirect(reverse('annotate', args=[master_text.id, project_id]))
 
 @login_required
 def repository_text_content(request, repository_id, text_id, content_id):
