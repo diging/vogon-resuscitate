@@ -49,12 +49,14 @@ class Concept(HeritableObject):
     APPROVED = 'Approved'
     RESOLVED = 'Resolved'
     MERGED = 'Merged'
+    FLAGGED = 'Flagged'
     concept_state_choices=  (
         (PENDING, 'Pending'),
         (REJECTED, 'Rejected'),
         (APPROVED, 'Approved'),
         (RESOLVED, 'Resolved'),
         (MERGED, 'Merged'),
+        (FLAGGED, 'Flagged'),
     )
     concept_state=models.CharField(max_length=10, choices=concept_state_choices,
                                    default='Pending')

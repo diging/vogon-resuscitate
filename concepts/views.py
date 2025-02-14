@@ -59,6 +59,14 @@ def merge_concepts(request, source_concept_id):
     return HttpResponseRedirect(next_page)
 
 @login_required
+def flag_concept(request, source_concept_id):
+    source = get_object_or_404(Concept, pk=source_concept_id)
+    source.concept_state = Concept.FLAGGED    
+    source.save()
+    next_page = request.GET.get('next', reverse('concepts'))
+    return HttpResponseRedirect(next_page)
+
+@login_required
 def concepts(request):
     """
     List all concepts.
