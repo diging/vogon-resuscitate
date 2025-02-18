@@ -134,7 +134,7 @@ def add_concept(request, concept_id):
         'next_page': urllib.parse.quote_plus(next_page),
         'back_to_page': back_to_page
     }
-    if concept.concept_state != Concept.PENDING:
+    if concept.concept_state != Concept.PENDING and concept.concept_state != Concept.FLAGGED:
         return HttpResponseRedirect(next_page)
 
     if request.GET.get('confirmed', False):

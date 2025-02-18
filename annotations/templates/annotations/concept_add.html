@@ -79,7 +79,9 @@
 
     <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
     <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}</a>
-    <a class="btn btn-md btn-warning" href="{% url "flag_concept" concept.id %}">Flag</a>
+    {% if concept.concept_state != concept.FLAGGED %}
+        <a class="btn btn-md btn-primary" href="{% url "flag_concept" concept.id %}">Flag this concept</a>
+    {% endif %}
 </div>
 
 
