@@ -92,12 +92,8 @@ class ConceptLifecycle(object):
         """
         if self.is_native:
             return Concept.RESOLVED
-        elif self.is_created:
+        else:
             return Concept.PENDING
-        elif self.is_external:
-            return Concept.APPROVED
-        elif self.instance.uri:
-            return Concept.APPROVED
 
     @staticmethod
     def create(**params):

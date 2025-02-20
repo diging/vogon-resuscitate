@@ -202,29 +202,6 @@ def traverse_mergers(concept):
     return id_list
 
 
-def add_concepts_to_conceptpower(modeladmin, request, queryset):
-    """
-    Adds :class:`.Concept`\s in ``queryset`` to the Conceptpower authority
-    service.
-
-    TODO: add a confirmation step that shows similar concepts that already
-    exist.
-
-    Parameters
-    ----------
-    modeladmin
-    request
-    queryset
-    """
-
-    for concept in queryset:
-        if concept.concept_state == Concept.APPROVED:
-            response_data = authorities.add(concept)
-            concept.uri = response_data['uri']
-            concept.concept_state = Concept.RESOLVED
-            concept.save()
-
-
 def perform_merge(unresolved_concepts, master_concept):
     """
     Merge a set of unresolved concepts into a single master concept.
@@ -275,8 +252,7 @@ def merge_concepts(modeladmin, request, queryset):
     # Approved concepts should be treated just like resolved concepts; the
     #  only difference is that they have not yet been added to the remote
     #  authority service.
-    resolved_condition = Q(concept_state=Concept.RESOLVED) | \
-                         Q(concept_state=Concept.APPROVED)
+    resolved_condition = Q(concept_state=Concept.RESOLVED)
     resolved_concepts = queryset.filter(resolved_condition)
 
     # Once a concept is resolved, it is immutable: it cannot be changed, merged,
@@ -373,8 +349,7 @@ class ConceptAdmin(admin.ModelAdmin):
     model = Concept
     search_fields = ('label',)
     list_display = ('label', 'description', 'concept_state', 'typed',)
-    actions = (merge_concepts, add_concepts_to_conceptpower,
-               resolve)
+    actions = (merge_concepts, resolve)
     list_filter = ('concept_state', 'typed',)
 
     # def get_queryset(self, request):
