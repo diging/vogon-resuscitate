@@ -250,18 +250,22 @@ class RepositoryManager:
         # Extract Giles uploads and their text if available
         try:
             giles = GilesAPI(self.user, repository)
-            text = giles.get_document_details(fileId)
+            text = giles.get_file_content(fileId)
             if text is None:
-                logger.error(f"Failed to retrieve text content from Giles for file ID: {fileId}")
+                error_trace = traceback.format_exc()
+                logger.error(f"Failed to retrieve text content from Giles for file ID: {fileId}\n{error_trace}")
                 raise GilesTextExtractionError("Failed to retrieve text content from Giles, the file does not exist.")
         except requests.RequestException as e:
-            logger.error(f"Error accessing Giles API: {str(e)}")
+            error_trace = traceback.format_exc()
+            logger.error(f"Error accessing Giles API: {str(e)}\n{error_trace}")
             raise GilesUploadError(f"Error accessing Giles API: {str(e)}")
         except ValueError as e:
-            logger.error(f"Authentication error with Giles: {str(e)}")
+            error_trace = traceback.format_exc()
+            logger.error(f"Authentication error with Giles: {str(e)}\n{error_trace}")
             raise GilesUploadError(f"Authentication error with Giles: {str(e)}")
         except Exception as e:
-            logger.error(f"Unexpected error retrieving Giles document: {str(e)}")
+            error_trace = traceback.format_exc()
+            logger.error(f"Unexpected error retrieving Giles document: {str(e)}\n{error_trace}")
             raise GilesTextExtractionError(f"Unexpected error retrieving Giles document: {str(e)}")
 
         item_data['item']['text'] = text
