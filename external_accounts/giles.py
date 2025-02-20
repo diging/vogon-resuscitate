@@ -5,6 +5,7 @@ from repository.exceptions import GilesTextExtractionError
 
 import requests
 
+import traceback
 import logging
 logger = logging.getLogger(__name__)
 
@@ -53,25 +54,22 @@ class GilesAPI:
             logger.error("Null character found in file content")
             raise GilesTextExtractionError("File content contains null characters")
         return content
-    
-# Returns the file content from Giles using the GilesAPI class, used in the repository manager in the item function
-def get_giles_document_details(user, file_id, repository):
-    """
-    Retrieve detailed information about a document from Giles for a given user and document ID.
 
-    Args:
-        user: The user object
-        file_id: The ID of the file to retrieve from Giles
-        repository: The repository object containing Giles endpoint info
+    def get_document_details(self, file_id):
+        """
+        Retrieve detailed information about a document from Giles.
 
-    Returns:
-        A dictionary with the document details if successful, None otherwise.
-    """
-    try:
-        giles = GilesAPI(user, repository)
-        return giles.get_file_content(file_id)
-        
-    except requests.RequestException as e:
-        logger.error(f"Failed to retrieve Giles document details: {e}")
-        return None
+        Args:
+            file_id: The ID of the file to retrieve from Giles
+
+        Returns:
+            The document content if successful, None otherwise.
+        """
+        try:
+            return self.get_file_content(file_id)
+        except requests.RequestException as e:
+            error_trace = traceback.format_exc()
+            logger.error(f"Failed to retrieve Giles document details:\n{error_trace}")
+            return None
+
 

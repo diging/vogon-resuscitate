@@ -1,4 +1,4 @@
-from external_accounts.giles import get_giles_document_details
+from external_accounts.giles import GilesAPI
 from repository.exceptions import GilesTextExtractionError, GilesUploadError
 from repository import auth
 from requests.exceptions import RequestException
@@ -249,7 +249,8 @@ class RepositoryManager:
 
         # Extract Giles uploads and their text if available
         try:
-            text = get_giles_document_details(self.user, fileId, repository)
+            giles = GilesAPI(self.user, repository)
+            text = giles.get_document_details(fileId)
             if text is None:
                 logger.error(f"Failed to retrieve text content from Giles for file ID: {fileId}")
                 raise GilesTextExtractionError("Failed to retrieve text content from Giles, the file does not exist.")
