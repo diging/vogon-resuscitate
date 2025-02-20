@@ -348,16 +348,25 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id, 
     try:
         result = manager.item(group_id, text_key, file_id, repository)
     except IOError:
-        return render(request, 'annotations/repository_ioerror.html', {'error': "IOError occurred while accessing the repository."}, status=500)
+        error_trace = traceback.format_exc()
+        logger.error(f"IOError occurred:\n{error_trace}")
+        return render(request, 'annotations/repository_ioerror.html', 
+                     {'error': "IOError occurred while accessing the repository."}, status=500)
     except GilesUploadError as e:
-        logger.error(f"GilesUploadError: {str(e)}")
-        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+        error_trace = traceback.format_exc()
+        logger.error(f"GilesUploadError:\n{error_trace}")
+        return render(request, 'annotations/repository_ioerror.html', 
+                     {'error': str(e)}, status=500)
     except GilesTextExtractionError as e:
-        logger.error(f"GilesTextExtractionError: {str(e)}")
-        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+        error_trace = traceback.format_exc()
+        logger.error(f"GilesTextExtractionError:\n{error_trace}")
+        return render(request, 'annotations/repository_ioerror.html', 
+                     {'error': str(e)}, status=500)
     except Exception as e:
-        # Catch any other exceptions
-        return render(request, 'annotations/repository_ioerror.html', {'error': "An unexpected error occurred: " + str(e)}, status=500)
+        error_trace = traceback.format_exc()
+        logger.error(f"Unexpected error:\n{error_trace}")
+        return render(request, 'annotations/repository_ioerror.html', 
+                     {'error': f"An unexpected error occurred: {str(e)}"}, status=500)
 
     item_details = result.get('item', {}).get('details', {})
     giles_text = result.get('item', {}).get('text')

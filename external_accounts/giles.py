@@ -48,6 +48,7 @@ class GilesAPI:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         content = response.text
+        # Some text files have null characters in them, which causes issues with the text extraction, hence this check is required to prevent errors
         if '\x00' in content:
             logger.error("Null character found in file content")
             raise GilesTextExtractionError("File content contains null characters")

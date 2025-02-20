@@ -28,7 +28,8 @@ class CitesphereAPIv1:
         try:
             return auth.citesphere_auth(self.user, self.repository)
         except Exception as e:
-            logger.error(f"Authentication failed: {str(e)}")
+            error_trace = traceback.format_exc()
+            logger.error(f"Error:\n{error_trace}")
             raise CitesphereAPIError(message="Authentication failed, please try again.", error_code="AUTH_ERROR", details=str(e))
 
     def _make_request(self, endpoint, params=None):
@@ -39,10 +40,12 @@ class CitesphereAPIv1:
             response.raise_for_status()
             return response.json()
         except RequestException as e:
-            logger.error(f"API request failed: {str(e)}")
+            error_trace = traceback.format_exc()
+            logger.error(f"API request failed:\n{error_trace}")
             raise CitesphereAPIError(message="API request failed", error_code="REQUEST_ERROR", details=str(e))
         except ValueError as e:
-            logger.error(f"Invalid JSON response: {str(e)}")
+            error_trace = traceback.format_exc()
+            logger.error(f"Invalid JSON response:\n{error_trace}")
             raise CitesphereAPIError(message="Invalid JSON response", error_code="RESPONSE_ERROR", details=str(e))
 
     def get_groups(self, params=None):
@@ -224,13 +227,10 @@ class RepositoryManager:
         Raises:
             GilesUploadError: When there's an issue with Giles uploads
             GilesTextExtractionError: When text content cannot be extracted
+            CitesphereAPIError: When API request fails or returns invalid data
         """
         # Fetch item details using CitesphereAPIv1
-        try:
-            item_data = self.api.get_item_details(groupId, itemId)
-        except CitesphereAPIError as e:
-            logger.error(f"Failed to fetch item details: {str(e)}")
-            raise
+        item_data = self.api.get_item_details(groupId, itemId)
         
         if not item_data or 'item' not in item_data:
             logger.error("Invalid item data received: missing 'item' key")
