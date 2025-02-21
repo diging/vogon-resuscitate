@@ -1,5 +1,4 @@
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.template import loader
 from django.urls import reverse
@@ -13,6 +12,7 @@ from django.contrib.auth.decorators import login_required
 import re, urllib.request, urllib.parse, urllib.error, string
 from unidecode import unidecode
 from urllib.parse import urlencode
+from annotations.decorators import vogon_admin_or_staff_required
 
 
 
@@ -47,7 +47,7 @@ def type(request, type_id):
     }
     return render(request, template, context)
 
-@staff_member_required
+@vogon_admin_or_staff_required
 def merge_concepts(request, source_concept_id):
     source = get_object_or_404(Concept, pk=source_concept_id)
     manager = ConceptLifecycle(source)
@@ -114,7 +114,7 @@ def concept(request, concept_id):
 
 
 
-@staff_member_required
+@vogon_admin_or_staff_required
 def add_concept(request, concept_id):
 
     concept = get_object_or_404(Concept, pk=concept_id)
@@ -149,7 +149,7 @@ def add_concept(request, concept_id):
     return render(request, "annotations/concept_add.html", context)
 
 
-@staff_member_required
+@vogon_admin_or_staff_required
 def edit_concept(request, concept_id):
     from concepts.forms import ConceptForm
 
