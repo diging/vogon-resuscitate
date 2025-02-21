@@ -29,7 +29,7 @@ class CitesphereAPIv1:
             return auth.citesphere_auth(self.user, self.repository)
         except Exception as e:
             error_trace = traceback.format_exc()
-            logger.error(f"Error:\n{error_trace}")
+            logger.error(f"Authentication error:\n{error_trace}")
             raise CitesphereAPIError(message="Authentication failed, please try again.", error_code="AUTH_ERROR", details=str(e))
 
     def _make_request(self, endpoint, params=None):
@@ -83,7 +83,6 @@ class RepositoryManager:
             response.raise_for_status()
             return response.content
         except RequestException as e:
-            logger.error(f"Failed to fetch data: {str(e)}")
             raise CitesphereAPIError(message="Failed to fetch data", error_code="RAW_DATA_ERROR", details=str(e))
 
     def groups(self):
@@ -108,7 +107,6 @@ class RepositoryManager:
             CitesphereAPIError
         """
         if not isinstance(page, int) or page < 1:
-            logger.error("Invalid page number: Page must be a positive integer")
             raise CitesphereAPIError(message="Invalid page number", error_code="INVALID_PAGE", details="Page must be a positive integer")
 
         # Make the API call using CitesphereAPIv1
@@ -147,7 +145,6 @@ class RepositoryManager:
             CitesphereAPIError
         """
         if not isinstance(page, int) or page < 1:
-            logger.error("Invalid page number: Page must be a positive integer")
             raise CitesphereAPIError(message="Invalid page number", error_code="INVALID_PAGE", details="Page must be a positive integer")
 
         try:
@@ -165,7 +162,6 @@ class RepositoryManager:
         
         # TODO: Once there is a collection information endpoint, this will no longer be needed, this will be an Exception error
         except StopIteration:
-            logger.error(f"Collection {collection_id} not found in group {group_id}")
             raise CitesphereAPIError(message="Collection not found", error_code="COLLECTION_NOT_FOUND", details=f"Collection {collection_id} not found in group {group_id}")
 
     def item_files(self, groupId, itemId):
@@ -210,7 +206,6 @@ class RepositoryManager:
                 "is_file_processing": is_file_processing
             }
         else:
-            logger.error(f"Failed to fetch item files: {response.status_code}")
             response.raise_for_status()
 
     def item(self, groupId, itemId, fileId, repository):
@@ -233,7 +228,6 @@ class RepositoryManager:
         item_data = self.api.get_item_details(groupId, itemId)
         
         if not item_data or 'item' not in item_data:
-            logger.error("Invalid item data received: missing 'item' key")
             raise CitesphereAPIError(message="Invalid item data", error_code="INVALID_ITEM_DATA", details="Response missing item data")
 
         # Extract core item details
