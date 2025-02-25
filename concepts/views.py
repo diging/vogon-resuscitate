@@ -1,5 +1,4 @@
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.template import loader
 from django.urls import reverse
@@ -13,6 +12,7 @@ from django.contrib.auth.decorators import login_required
 import re, urllib.request, urllib.parse, urllib.error, string
 from unidecode import unidecode
 from urllib.parse import urlencode
+from annotations.decorators import vogon_admin_or_staff_required
 
 
 
@@ -46,38 +46,6 @@ def type(request, type_id):
         'examples': examples[:20],
     }
     return render(request, template, context)
-
-@login_required
-def approve_concept(request, concept_id):
-    """
-
-    """
-
-    concept = get_object_or_404(Concept, pk=concept_id)
-    manager = ConceptLifecycle(concept)
-    next_page = request.GET.get('next', reverse('concepts'))
-
-    context = {
-        'concept': concept,
-        'next_page': urllib.parse.quote_plus(next_page),
-    }
-
-    # TODO: say something more informative.
-    if concept.concept_state != Concept.PENDING:
-        return HttpResponseRedirect(next_page)
-
-    if request.GET.get('confirmed', False):
-        manager.approve()
-        return HttpResponseRedirect(next_page)
-
-    candidates = manager.get_similar()
-    matches = manager.get_matching()
-
-    context.update({
-        'candidates': candidates,
-        'matches': matches,
-    })
-    return render(request, 'annotations/concept_approve.html', context)
 
 @login_required
 def merge_concepts(request, source_concept_id):
@@ -160,7 +128,7 @@ def add_concept(request, concept_id):
         'next_page': urllib.parse.quote_plus(next_page),
         'back_to_page': back_to_page
     }
-    if concept.concept_state != Concept.APPROVED:
+    if concept.concept_state != Concept.PENDING:
         return HttpResponseRedirect(next_page)
 
     if request.GET.get('confirmed', False):
