@@ -47,7 +47,7 @@ def type(request, type_id):
     }
     return render(request, template, context)
 
-@vogon_admin_or_staff_required
+@login_required
 def merge_concepts(request, source_concept_id):
     source = get_object_or_404(Concept, pk=source_concept_id)
     manager = ConceptLifecycle(source)
@@ -114,7 +114,7 @@ def concept(request, concept_id):
 
 
 
-@vogon_admin_or_staff_required
+@login_required
 def add_concept(request, concept_id):
 
     concept = get_object_or_404(Concept, pk=concept_id)
@@ -149,7 +149,7 @@ def add_concept(request, concept_id):
     return render(request, "annotations/concept_add.html", context)
 
 
-@vogon_admin_or_staff_required
+@login_required
 def edit_concept(request, concept_id):
     from concepts.forms import ConceptForm
 
