@@ -116,6 +116,7 @@ def concept(request, concept_id):
     return render(request, "annotations/concept_details.html", context)
 
 
+
 @login_required
 def add_concept(request, concept_id):
 
@@ -149,6 +150,7 @@ def add_concept(request, concept_id):
     })
 
     return render(request, "annotations/concept_add.html", context)
+
 
 @login_required
 def edit_concept(request, concept_id):
