@@ -596,7 +596,16 @@ AppellationCreator = {
             if (this.triggered && this.concept) {
                 return true
             } else {
-                return (this.position.startOffset >= 0 && this.position.endOffset && this.position.representation.trim().length > 0 && this.text.id && this.user.id && this.concept);
+                return (
+                    this.position && 
+                    this.position.startOffset >= 0 && 
+                    this.position.endOffset && 
+                    this.position.representation && 
+                    this.position.representation.trim().length > 0 && 
+                    this.text.id && 
+                    this.user.id && 
+                    this.concept
+                );
             }
         }
     }
@@ -1469,16 +1478,46 @@ Appellator = new Vue({
             this.selected_text = null;
         },
         createdAppellation: function (appellation) {
-            self = this;
+            var self = this;
+            
+            // Validate the appellation data
+            if (!appellation || !appellation.position || !appellation.position.position_value) {
+                console.error("Invalid appellation data received");
+                return;
+            }
+            
             var offsets = appellation.position.position_value.split(',');
-            appellation.position.startOffset = offsets[0];
-            appellation.position.endOffset = offsets[1];
+            if (offsets.length !== 2) {
+                console.error("Invalid position value format:", appellation.position.position_value);
+                return;
+            }
+            
+            // Set up the appellation with proper position data
+            appellation.position.startOffset = parseInt(offsets[0]);
+            appellation.position.endOffset = parseInt(offsets[1]);
             appellation.visible = true;
             appellation.selected = false;
+            
+            // Add to collection and select it
             self.appellations.push(appellation);
-            self.selectAppellation(appellation);
-            this.selected_text = null;
-            this.updateAppellations(); // call update appellations when a new appelation is created to update list
+            
+            // Give the UI time to update before selecting
+            setTimeout(function() {
+                self.selectAppellation(appellation);
+                
+                // Ensure the appellation is visible in the document
+                setTimeout(function() {
+                    self.scrollToAppellation(appellation);
+                    
+                    // Only clear selection after highlight is properly rendered
+                    setTimeout(function() {
+                        self.selected_text = null;
+                    }, 200);
+                }, 100);
+            }, 50);
+            
+            // Update the appellations list
+            this.updateAppellations();
         },
         createdDateAppellation: function (appellation) {
             self = this;

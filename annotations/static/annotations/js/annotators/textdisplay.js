@@ -168,30 +168,70 @@ TextDisplay = {
             if (e.target.id != 'text-content') return;    // Out of scope.
             e.stopPropagation();
 
-            // Get the start and end position of the selection. The selection
-            //  may have been left-to-right or right-to-left.
-            var selection = document.getSelection();
-            var startOffset = Math.min(selection.anchorOffset, selection.focusOffset);
-            var endOffset = Math.max(selection.anchorOffset, selection.focusOffset);
+            // Increase the delay for more reliable selection capture
+            var self = this;
+            setTimeout(function() {
+                try {
+                    // Get the start and end position of the selection. The selection
+                    //  may have been left-to-right or right-to-left.
+                    var selection = document.getSelection();
+                    
+                    // Make sure we have a valid selection
+                    if (!selection || selection.rangeCount === 0) return;
+                    
+                    var startOffset = Math.min(selection.anchorOffset, selection.focusOffset);
+                    var endOffset = Math.max(selection.anchorOffset, selection.focusOffset);
 
-            // If the user double-clicks (e.g. to select a whole word), the
-            // first mouse-up will get as far as here, even though no text has
-            // actually been selected.
-            if (endOffset == startOffset) return;
+                    // If the user double-clicks (e.g. to select a whole word), the
+                    // first mouse-up will get as far as here, even though no text has
+                    // actually been selected.
+                    if (endOffset == startOffset) return;
 
-            var raw = document.getElementById('text-content').childNodes[0].textContent.slice(startOffset, endOffset);
-            this.selected = {    // Notifies TextSelectionDisplay.
-                    startOffset: startOffset,
-                    endOffset: endOffset,
-                    representation: raw
-            }
-            this.selected_position = getTextPosition(this.selected);
-            this.$emit('selecttext', this.selected);   // Fire!
-
-            // Now that we have registered the selection, we can clear the
-            //  original browser highlighting, so that only our overlay is
-            //  displayed.
-            clearMouseTextSelection();
+                    // Get the actual text content node
+                    var textContent = document.getElementById('text-content').childNodes[0];
+                    if (!textContent) return;
+                    
+                    var raw = textContent.textContent.slice(startOffset, endOffset);
+                    
+                    // Ensure we have a non-empty selection with valid offsets
+                    if (!raw || raw.trim().length === 0 || 
+                        startOffset < 0 || endOffset > textContent.textContent.length) {
+                        return;
+                    }
+                    
+                    // Create a more robust selection object
+                    self.selected = {
+                        startOffset: startOffset,
+                        endOffset: endOffset,
+                        representation: raw,
+                        timestamp: new Date().getTime() // Add timestamp for tracking
+                    };
+                    
+                    // Calculate position after selection is fully established
+                    self.selected_position = getTextPosition(self.selected);
+                    
+                    // Emit the selection event
+                    self.$emit('selecttext', self.selected);
+                    
+                    // Store a backup of the selection in case it gets lost
+                    self._lastValidSelection = {
+                        startOffset: startOffset,
+                        endOffset: endOffset,
+                        representation: raw
+                    };
+                    
+                    // Now that we have registered the selection, we can clear the
+                    // original browser highlighting, so that only our overlay is
+                    // displayed.
+                    clearMouseTextSelection();
+                } catch(err) {
+                    console.error("Error handling text selection:", err);
+                    // If there was an error, try to recover using the last valid selection
+                    if (self._lastValidSelection) {
+                        self.$emit('selecttext', self._lastValidSelection);
+                    }
+                }
+            }, 50); // Increased delay for more reliable selection capture
         },
     },
     components: {
