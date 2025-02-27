@@ -3,24 +3,20 @@ Provides :class:`.RelationTemplate`\-related views.
 """
 
 from django.conf import settings
-from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
 from django.db.models import Q
 from django.db import transaction, DatabaseError
 from django.forms import formset_factory
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
-from string import Formatter
 
 from annotations.forms import (RelationTemplatePartFormSet,
                                RelationTemplatePartForm, RelationTemplateForm)
 from annotations.models import *
 from annotations import relations
-from concepts.models import Concept, Type
-
+from annotations.decorators import vogon_admin_or_staff_required
 import copy
 import json
 import logging
@@ -29,7 +25,7 @@ import networkx as nx
 logger = logging.getLogger(__name__)
 logger.setLevel('ERROR')
 
-@staff_member_required
+@vogon_admin_or_staff_required
 def add_relationtemplate(request):
     r"""
     Staff can use this view to create :class:`.RelationTemplate`\s.
@@ -41,7 +37,7 @@ def add_relationtemplate(request):
 
     Returns
     ----------
-    :class:`django.http.response.HttpResponse`
+    :class:`django.http.response.Redirect`
     """
 
     formset = formset_factory(
@@ -89,7 +85,7 @@ def add_relationtemplate(request):
     return render(request, 'annotations/relationtemplate.html', context)
 
 
-@login_required
+@vogon_admin_or_staff_required
 def list_relationtemplate(request):
     r"""
     Returns a list of all :class:`.RelationTemplate`\s.
@@ -102,7 +98,7 @@ def list_relationtemplate(request):
 
     Returns
     ----------
-    :class:`django.http.response.HttpResponse`
+    :class:`django.http.response.HttpResponseRedirect`
     """
     queryset = RelationTemplate.objects.all()
     search = request.GET.get('search', None)
@@ -149,7 +145,8 @@ def get_relationtemplate(request, template_id):
 
     Returns
     ----------
-    :class:`django.http.response.HttpResponse`
+    - :class:`django.http.JsonResponse` if ``format=json`` is passed in the GET request.
+    - :class:`django.http.HttpResponse` if rendering an HTML template.
     """
 
     relation_template = get_object_or_404(RelationTemplate, pk=template_id)
@@ -190,7 +187,7 @@ def create_from_relationtemplate(request, template_id):
 
     Returns
     ----------
-    :class:`django.http.response.HttpResponse`
+    - :class:`django.http.JsonResponse`
     """
 
     # TODO: this could also use quite a bit of attention in terms of
@@ -273,7 +270,7 @@ def create_from_text(request, template_id):
     return JsonResponse(response_data)
 
 
-@staff_member_required
+@vogon_admin_or_staff_required
 def delete_relationtemplate(request, template_id):
     if request.method == 'POST':
 
@@ -296,3 +293,85 @@ def delete_relationtemplate(request, template_id):
             )
 
     return HttpResponseRedirect(reverse('list_relationtemplate'))
+
+
+@vogon_admin_or_staff_required
+def edit_relationtemplate(request, template_id):
+    """
+    Staff can use this view to edit an existing RelationTemplate.
+
+    Parameters
+    ----------
+    request : django.http.requests.HttpRequest
+    template_id : int
+
+    Returns
+    ----------
+    :class:`django.http.response.HttpResponse`
+    """
+
+    template = get_object_or_404(RelationTemplate, pk=template_id)
+
+    parts = RelationTemplatePart.objects.filter(part_of=template).order_by('id')
+
+    # Create the formset with pre-filled existing parts
+    formset_class = formset_factory(
+        RelationTemplatePartForm, formset=RelationTemplatePartFormSet, extra=0
+    )
+    form_class = RelationTemplateForm
+
+    context = {}
+
+    if request.POST:
+        relationtemplate_form = form_class(request.POST, instance=template)
+        relationtemplatepart_formset = formset_class(request.POST, prefix='parts')
+
+        context['formset'] = relationtemplatepart_formset
+        context['templateform'] = relationtemplate_form
+
+        formset_is_valid = relationtemplatepart_formset.is_valid()
+        form_is_valid = relationtemplate_form.is_valid()
+
+        if formset_is_valid and form_is_valid:
+            relationtemplate_data = relationtemplate_form.cleaned_data
+            part_data = [form.cleaned_data for form in relationtemplatepart_formset]
+
+            try:
+                template = relations.update_template(template, relationtemplate_data, part_data)
+                return HttpResponseRedirect(reverse('get_relationtemplate', args=(template.id,)))
+            except relations.InvalidTemplate as E:
+                relationtemplate_form.add_error(None, str(E))
+                logger.debug('Updating relationtemplate failed: %s' % str(E))
+    else:
+        relationtemplate_form = form_class(instance=template)
+        initial_data = []
+        for part in parts:
+            initial_data.append({
+                'source_concept': part.source_concept,
+                'source_node_type': part.source_node_type,
+                'source_concept_text': part.source_concept.label if part.source_concept else '',
+                'source_prompt_text': part.source_prompt_text,
+                'source_description': part.source_description,
+                'source_label': part.source_label,
+                'predicate_concept': part.predicate_concept,
+                'predicate_node_type': part.predicate_node_type,
+                'predicate_concept_text': part.predicate_concept.label if part.predicate_concept else '',
+                'predicate_prompt_text': part.predicate_prompt_text,
+                'predicate_description': part.predicate_description,
+                'predicate_label': part.predicate_label,
+                'object_concept': part.object_concept,
+                'object_node_type': part.object_node_type,
+                'object_concept_text': part.object_concept.label if part.object_concept else '',
+                'object_prompt_text': part.object_prompt_text,
+                'object_description': part.object_description,
+                'object_label': part.object_label,
+                'source_relationtemplate_internal_id': part.source_relationtemplate_internal_id,
+                'object_relationtemplate_internal_id': part.object_relationtemplate_internal_id,
+                'internal_id': part.internal_id,
+            })
+        relationtemplatepart_formset = formset_class(initial=initial_data, prefix='parts')
+
+        context['formset'] = relationtemplatepart_formset
+        context['templateform'] = relationtemplate_form
+
+    return render(request, 'annotations/relationtemplate_edit.html', context)

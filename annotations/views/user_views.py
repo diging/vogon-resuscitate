@@ -3,13 +3,22 @@ Provides user-oriented views, including dashboard, registration, etc.
 """
 
 from django.conf import settings
+from django.views import View
+
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
-from django.urls import reverse
+from django.core.exceptions import PermissionDenied
+from annotations.decorators import admin_required
+
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q, Count
-from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, render
+from django.db import models
+
+
+from django.http import HttpResponseRedirect
+from django.shortcuts import render, redirect, get_object_or_404, render
+from django.urls import reverse
+
 from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth.forms import AuthenticationForm
 
@@ -202,10 +211,15 @@ def dashboard(request):
 
     template = "annotations/dashboard.html"
 
-    # Retrieve a unique list of texts that were recently annotated by the user.
-    _recently_annotated = request.user.appellation_set.order_by('occursIn_id', '-created')\
-                                           .values_list('occursIn_id')\
-                                           .distinct('occursIn_id')[:20]
+    # Retrieve a unique list of texts that were recently annotated by the user, where user is owner or collaborator
+    _recently_annotated = request.user.appellation_set.filter(
+        occursIn__partOf__in=TextCollection.objects.filter(
+            models.Q(ownedBy=request.user) | models.Q(collaborators=request.user)
+        )
+    ).order_by('occursIn_id', '-created')\
+     .values_list('occursIn_id')\
+     .distinct('occursIn_id')[:20]
+    
     _annotated_texts = Text.objects.filter(pk__in=_recently_annotated)
     _key = lambda t: t.id
     _recent_grouper = groupby(sorted([t.top_level_text for t in _annotated_texts], key=_key),
@@ -215,9 +229,12 @@ def dashboard(request):
     added_texts = Text.objects.filter(addedBy_id=request.user.id, part_of__isnull=True)\
                                 .order_by('-added')
 
-    flds = ['id', 'name', 'description']
+    # Get projects owned by user
+    flds = ['id', 'name', 'description', 'ownedBy__username']
     projects_owned = request.user.collections.all().values(*flds)
-    projects_contributed = request.user.contributes_to.all().values(*flds)
+
+    # Get projects where user is a collaborator
+    collaborator_projects = TextCollection.objects.filter(collaborators=request.user).values(*flds)
 
     appellation_qs = Appellation.objects.filter(createdBy__pk=request.user.id)\
                                         .filter(asPredicate=False)\
@@ -229,11 +246,12 @@ def dashboard(request):
     citesphere_accounts = CitesphereAccount.objects.filter(user=request.user)
     has_citesphere_account = citesphere_accounts.exists()
 
-    # A list of connected repositories if available
+    # A list of connected repositories if available, we filter data here so that we dont send any sensitive information to the frontend
     connected_repositories = [
         {
             'repository_name': account.repository.name,
             'repository_description': account.repository.description,
+            'repository_id': account.repository.id,
             'user_id': account.citesphere_user_id,
         }
         for account in citesphere_accounts
@@ -245,7 +263,7 @@ def dashboard(request):
         'recent_texts': recent_texts[:5],
         'added_texts': added_texts[:5],
         'projects_owned': projects_owned[:5],
-        'projects_contributed': projects_contributed[:5],
+        'collaborator_projects': collaborator_projects[:5],
         'appellationCount': appellation_qs,
         'relation_count': relationset_qs,
         'relations': RelationSet.objects.filter(createdBy=request.user).order_by('-created')[:10],
@@ -385,3 +403,40 @@ def list_user(request):
         'title': 'Contributors'
     }
     return render(request, template, context)
+
+@admin_required
+def list_vogon_admin_users(request):
+    """
+    Displays a paginated list of Vogon users with option to toggle Vogon Admin
+    """
+    all_users = VogonUser.objects.all().order_by('username')
+    paginator = Paginator(all_users, settings.VOGON_ADMIN_PAGE_SIZE)
+
+    current_page_number = request.GET.get('page')
+    current_page = paginator.get_page(current_page_number)
+
+    return render(request, 'annotations/user_vogon_admin_list.html', {'page_obj': current_page})
+
+@admin_required
+def toggle_vogon_admin_status(request, user_id):
+    """
+    Toggles the vogon_admin status of a user.
+
+    Parameters
+    ----------
+    request : `django.http.requests.HttpRequest`
+    user_id : int
+
+    Returns
+    ----------
+    :class:`django.http.response.HttpResponseRedirect`
+        Redirects to the user vogon admin list view.
+    """
+    if not request.user.is_admin and not request.user.is_staff:
+        raise PermissionDenied("You do not have permission to perform this action.")
+    
+    user = get_object_or_404(VogonUser, id=user_id)
+    user.vogon_admin = not user.vogon_admin # Toggles the value of vogon_admin.
+    user.save()
+    
+    return redirect(reverse('user_vogon_admin_list'))

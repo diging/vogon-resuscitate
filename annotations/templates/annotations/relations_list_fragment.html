@@ -25,7 +25,11 @@
         </div>
         <div class="text-warning">
             <span class="glyphicon glyphicon-book"></span>
-            <a href="{% if user.is_authenticated %}{{ relation.occursIn.get_absolute_url }}{% else %}{% url "text_public" relation.occursIn.id %}{% endif %}">{{ relation.occursIn.top_level_text.title }}</a>
+            {% if user.is_authenticated and user == relation.project.ownedBy or user in relation.project.collaborators.all %}
+                <a href="{{ relation.occursIn.get_absolute_url }}">{{ relation.occursIn.top_level_text.title }}</a>
+            {% else %}
+                <span>{{ relation.occursIn.top_level_text.title }}</span>
+            {% endif %}
         </div>
     </div>
 {% endfor %}

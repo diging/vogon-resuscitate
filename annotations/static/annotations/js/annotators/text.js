@@ -1545,8 +1545,8 @@ Appellator = new Vue({
             this.selected_relation = relation;
             this.selected = null;
             this.relations.forEach(function (r) {
-                r.selected = (r.id == relation.id);
-            });
+                this.$set(r, 'selected', (r.id == relation.id));
+            }, this);
             var appellation_ids = relation.appellations.map(function (appellation) {
                 return appellation.id;
             });

@@ -6,6 +6,14 @@
 {% endblock %}
 
 {% block main %}
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-success">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+
 <div class="container-fluid">
     <div class="h2">Welcome back, {{ user.username }}</div>
 
@@ -20,43 +28,84 @@
                         <div class="col-md-3">
                             <div class="card">
                                 <div class="card-body">
-                                    <div class="flex-container">
-                                        <!-- Logo on the left -->
-                                        <div class="logo-container">
-                                            <img src="{% static 'annotations/img/citesphere-logo.png' %}" alt="Citesphere Logo" style="height: 100px; width: 100px;">
-                                        </div>
-                                
-                                        <!-- Title and button on the right -->
-                                        <div class="info-container">
-                                            <h2 class="card-title">Citesphere</h2>
+                                    <div class="d-flex align-items-center">
+                                        <img src="{% static 'annotations/img/citesphere-logo.png' %}" alt="Citesphere" class="img-fluid me-2" style="max-width: 50px;">
+                                        <div>
+                                            <h4 class="mb-2">Citesphere</h4>
                                             {% if has_citesphere_account %}
-                                                <button class="btn btn-success btn-margin-bottom" disabled>Connected</button><br>
-                                                
-                                                <!-- Display connected repositories -->
-                                                <ul class="list-unstyled">
-                                                    {% for repo in connected_repositories %}
-                                                        <li>
-                                                            <h5>Repository: {{ repo.repository_name }}</h5>
-                                                            <p>Connected as: {{ repo.user_id }}</p>
-                                                            <p>{{ repo.repository_description }}</p>
-                                                        </li>
-                                                    {% endfor %}
-                                                </ul>
+                                                <button class="btn btn-success btn-sm" disabled>Connected</button>
+                                                <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#manageReposModal">
+                                                    Manage
+                                                </button>
+                                                <br>
+
+                                                <div class="modal fade" id="manageReposModal" tabindex="-1" role="dialog">
+                                                    <div class="modal-dialog" role="document">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title">Manage Connected Repositories</h5>
+                                                                <small class="d-block text-muted">
+                                                                    {{ connected_repositories|length }} repository linked
+                                                                </small>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                {% for repo in connected_repositories %}
+                                                                <div class="row border-bottom py-3">
+                                                                    <div class="col-sm-9">
+                                                                        <h4 class="mb-1">
+                                                                            {{ repo.repository_name }}
+                                                                            <small class="text-muted">(Connected as {{ repo.user_id }})</small>
+                                                                        </h4>
+                                                                        <small class="text-muted">{{ repo.repository_description }}</small>
+                                                                    </div>
+                                                                    <div class="col-sm-3 text-right">
+                                                                        <button class="btn btn-danger btn-sm" data-toggle="modal" data-target="#disconnectModal{{ repo.repository_id }}" data-dismiss="modal">
+                                                                            Disconnect
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                                {% endfor %}
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {% for repo in connected_repositories %}
+                                                <div class="modal fade" id="disconnectModal{{ repo.repository_id }}" tabindex="-1" role="dialog">
+                                                    <div class="modal-dialog" role="document">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title">Confirm Disconnect</h5>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                Are you sure you want to disconnect from {{ repo.repository_name }}? 
+                                                                <br><br>
+                                                                <strong>Note:</strong> You will still be able to view your existing texts, annotations, and relations.
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                                                <a href="{% url 'citesphere_disconnect' repo.repository_id %}" class="btn btn-danger">Disconnect</a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
                                             {% else %}
-                                                <a href="{% url 'citesphere_login' %}" class="btn btn-primary">Connect</a>
+                                                <a href="{% url 'citesphere_login' %}" class="btn btn-sm btn-primary">Connect</a>
                                             {% endif %}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <!-- Future Account Cards -->
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
     <div class="row">
         <div class="col-md-4">
@@ -65,9 +114,13 @@
                     <span class="h4">Recently Annotated</span>
                 </div>
                 <div class="list-group">
-                    {% for text in recent_texts %}
-                    <a class="list-group-item" href="{{ text.get_absolute_url }}">{{ text.top_level_text.title }}</a>
-                    {% endfor %}
+                    {% if recent_texts %}
+                        {% for text in recent_texts %}
+                        <a class="list-group-item" href="{{ text.get_absolute_url }}">{{ text.top_level_text.title }}</a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item text-muted">No recently annotated texts yet. Start annotating to see your work here!</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -77,9 +130,13 @@
                     <span class="h4">Recently Added</span>
                 </div>
                 <div class="list-group">
-                    {% for text in added_texts %}
-                    <a class="list-group-item" href="{{ text.get_absolute_url }}">{{ text.title }}</a>
-                    {% endfor %}
+                    {% if added_texts %}
+                        {% for text in added_texts %}
+                        <a class="list-group-item" href="{{ text.get_absolute_url }}">{{ text.title }}</a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item text-muted">No texts added yet. Add some texts to get started!</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -93,12 +150,39 @@
                     </div>
                 </div>
                 <div class="list-group">
-                    {% for project in projects_owned %}
-                    <a class="list-group-item" href="{% url "view_project" project.id %}">
-                        <strong>{{ project.name }}</strong>
-                        <p class="text-muted">{{ project.description }}</p>
-                    </a>
-                    {% endfor %}
+                    {% if projects_owned %}
+                        {% for project in projects_owned %}
+                        <a class="list-group-item" href="{% url "view_project" project.id %}">
+                            <strong>{{ project.name }}</strong>
+                            <p class="text-muted">{{ project.description }}</p>
+                        </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item text-muted">No projects created yet. Create your first project to get started!</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="panel">
+                <div class="panel-heading clearfix">
+                    <span class="h4">Projects I Collaborate On</span>
+                </div>
+                <div class="list-group">
+                    {% if collaborator_projects %}
+                        {% for project in collaborator_projects %}
+                        <a class="list-group-item" href="{% url "view_project" project.id %}">
+                            <strong>{{ project.name }}</strong>
+                            <p class="text-muted">{{ project.description }}</p>
+                            <small>Owned by: {{ project.ownedBy__username }}</small>
+                        </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item text-muted">You're not collaborating on any projects yet. Join a project to see it here!</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -109,6 +193,9 @@
         <a class="btn btn-sm" href="{% url "relations" %}?createdBy={{ user.id }}">See all</a>
     </div>
     {% include "annotations/relations_list_fragment.html" %}
+    {% else %}
+    <div class="h3">My Recent Annotations</div>
+    <div class="text-muted">You haven't created any annotations yet. Start annotating texts to see your work here!</div>
     {% endif %}
 </div>
 

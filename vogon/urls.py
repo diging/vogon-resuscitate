@@ -71,6 +71,9 @@ urlpatterns = [
 
     path('admin/', admin.site.urls),
 
+    path('vogon-admin-management/users/', views.user_views.list_vogon_admin_users, name='user_vogon_admin_list'),
+    path('vogon-admin-management/users/toggle/<int:user_id>/', views.user_views.toggle_vogon_admin_status, name='toggle_vogon_admin_status'),
+
     re_path(r'^rest/', include(router.urls)),
 
     # url(r'^text/$', views.search_views.TextSearchView.as_view(), name='text_search'),
@@ -87,15 +90,19 @@ urlpatterns = [
     re_path(r'^relationtemplate/(?P<template_id>[0-9]+)/create/$', views.relationtemplate_views.create_from_relationtemplate, name="create_from_relationtemplate"),
     re_path(r'^relationtemplate[/]?$', views.relationtemplate_views.list_relationtemplate, name='list_relationtemplate'),
     re_path(r'^relationtemplate/(?P<template_id>[0-9]+)/delete/$', views.relationtemplate_views.delete_relationtemplate, name='delete_relationtemplate'),
+    re_path(r'^relationtemplate/(?P<template_id>[0-9]+)/edit/$', views.relationtemplate_views.edit_relationtemplate, name='edit_relationtemplate'),
     # url(r'^text/add/upload/$', views.text_views.upload_file, name="file_upload"),
     # url(r'^text/(?P<textid>[0-9]+)/$', views.text_views.text, name="text"),
-    re_path(r'^annotate/(?P<text_id>[0-9]+)/$', views.annotation_views.annotate, name="annotate"),
+    re_path(r'^annotate/(?P<text_id>[0-9]+)/project/(?P<project_id>[0-9]+)/$', views.annotation_views.annotate, name='annotate'),
+
     re_path(r'^display/(?P<text_id>[0-9]+)/$', views.annotation_views.annotation_display, name="annotation-display"),
 
     re_path(r'^project/(?P<project_id>[0-9]+)/$', views.project_views.view_project, name='view_project'),
     re_path(r'^project/(?P<project_id>[0-9]+)/edit/$', views.project_views.edit_project, name='edit_project'),
     re_path(r'^project/create/$', views.project_views.create_project, name='create_project'),
     re_path(r'^project/$', views.project_views.list_projects, name='list_projects'),
+    re_path(r'^project/(?P<project_id>[0-9]+)/add-collaborator/$', views.project_views.add_collaborator, name='add_collaborator'),
+    re_path(r'^project/(?P<project_id>[0-9]+)/remove-collaborator/$', views.project_views.remove_collaborator, name='remove_collaborator'),
 
     re_path(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     #re_path(r'^autocomplete/', include('autocomplete_light.urls')),    # TODO: are we still using this?
@@ -128,10 +135,11 @@ urlpatterns = [
     re_path(r'^repository/(?P<repository_id>[0-9]+)/search/$', views.repository_views.repository_search, name='repository_search'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/collections/(?P<group_id>[0-9]+)/$', views.repository_views.repository_collection, name='repository_collection'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/collection/(?P<group_id>[0-9]+)/group-collection/(?P<group_collection_id>[a-zA-Z0-9]+)/texts/$', views.repository_views.repository_collection_texts, name='repository_collections_text_list'),
-    re_path(r'^repository/(?P<repository_id>[0-9]+)/group/(?P<group_id>[a-zA-Z0-9]+)/text/(?P<text_key>[a-zA-Z0-9]+)/$', views.repository_views.repository_text_import, name='repository_text_import'),
+    re_path(r'^repository/(?P<repository_id>[0-9]+)/group/(?P<group_id>[a-zA-Z0-9]+)/text/(?P<text_key>[a-zA-Z0-9]+)/file/(?P<file_id>[a-zA-Z0-9]+)/project/(?P<project_id>[0-9]+)?/$', views.repository_views.repository_text_import, name='repository_text_import'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/text/(?P<text_id>[0-9]+)/content/(?P<content_id>[0-9]+)/$', views.repository_views.repository_text_content, name='repository_text_content'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/$', views.repository_views.repository_details, name='repository_details'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/text/(?P<text_id>[0-9]+)/project/(?P<project_id>[0-9]+)/$', views.repository_views.repository_text_add_to_project, name='repository_text_add_to_project'),
+    re_path(r'^repository/files/(?P<repository_id>[0-9]+)/groups/(?P<group_id>[0-9]+)/items/(?P<item_id>[a-zA-Z0-9]+)/$', views.repository_views.repository_text_files, name='repository_text_files'),
 
     re_path(r'^repository/$', views.repository_views.repository_list, name='repository_list'),
 
@@ -142,6 +150,7 @@ urlpatterns = [
     re_path(r'^sandbox/(?P<text_id>[0-9]+)/$', conceptViews.sandbox, name='sandbox'),
 
     path('login/citesphere/', externalAccountViews.citesphere_login, name='citesphere_login'),
+    path('citesphere/disconnect/<int:repository_id>/', externalAccountViews.citesphere_disconnect, name='citesphere_disconnect'),
     path('oauth/callback/citesphere/', externalAccountViews.citesphere_callback, name='citesphere_callback'),
     path('citesphere/refresh/<int:repository_id>/', externalAccountViews.citesphere_refresh_token, name='citesphere_refresh_token'),
     ])),
