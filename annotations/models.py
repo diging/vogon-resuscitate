@@ -808,12 +808,19 @@ class RelationSet(models.Model):
     occursIn = models.ForeignKey('Text', related_name='relationsets', on_delete=models.CASCADE)
     """The text on which this RelationSet is based."""
 
-    pending = models.BooleanField(default=False)
-    """
-    A :class:`.RelationSet` is pending if it has been selected for submission,
-    but the submission process has not yet completed. The primary purpose of
-    this field is to prevent duplicate submissions.
-    """
+    STATUS_NOT_READY = 'not_ready'
+    STATUS_READY_TO_SUBMIT = 'ready_to_submit'
+    STATUS_SUBMITTED = 'submitted'
+
+    STATUS_CHOICES = [
+        (STATUS_NOT_READY, 'Not Ready'),
+        (STATUS_READY_TO_SUBMIT, 'Ready to Submit'),
+        (STATUS_SUBMITTED, 'Submitted'),
+    ]
+
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_NOT_READY
+    )
 
     submitted = models.BooleanField(default=False)
     """
@@ -895,7 +902,9 @@ class RelationSet(models.Model):
 
         # Topological sort is supposed to be faster than calculating in-degree
         #  and searching for the 0-valued node.
-        return Relation.objects.get(pk=nx.topological_sort(dg)[0])
+        # return Relation.objects.get(pk=nx.topological_sort(dg)[0])
+        sorted_nodes = list(nx.topological_sort(dg))
+        return Relation.objects.get(pk=sorted_nodes[0])
 
     @property
     def label(self):
@@ -928,6 +937,20 @@ class RelationSet(models.Model):
         values = self.concepts().values_list('concept_state', 'merged_with')
         return all(map(criteria, values))
     ready.boolean = True    # So that we can display a nifty icon in changelist.
+
+    def update_status(self):
+        """
+        Check if the RelationSet is ready and update the status accordingly.
+        """
+        if self.ready():  # Check readiness based on the concepts
+            if self.status != self.STATUS_SUBMITTED:  # Avoid overriding submitted status
+                self.status = self.STATUS_READY_TO_SUBMIT
+                self.submitted = False
+        else:
+            self.status = self.STATUS_NOT_READY
+            self.submitted = False
+
+        self.save()
 
     def appellations(self):
         r"""

@@ -1,15 +1,17 @@
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
+from django.utils import timezone
 
 from annotations.models import Relation, Appellation, DateAppellation, DocumentPosition
+from external_accounts.models import CitesphereAccount
 
 import xml.etree.ElementTree as ET
 import datetime
-import re
-import uuid
 import requests
-from requests.auth import HTTPBasicAuth
+import re
 
+from rest_framework.response import Response
+from rest_framework import status
 
 def _created_element(element, annotation):
     ET.SubElement(element, 'id')
@@ -245,26 +247,6 @@ def to_quadruples(relationsets, text, user, network_label=None,
     return project, params
 
 
-def submit_relationsets(relationsets, text, user,
-                        userid=settings.QUADRIGA_USERID,
-                        password=settings.QUADRIGA_PASSWORD,
-                        endpoint=settings.QUADRIGA_ENDPOINT, **kwargs):
-    r"""
-    Submit the :class:`.RelationSet`\s in ``relationsets`` to Quadriga.
-    """
-    payload, params = to_quadruples(relationsets, text, user, toString=True, **kwargs)
-    auth = HTTPBasicAuth(userid, password)
-    headers = {'Accept': 'application/xml'}
-    r = requests.post(endpoint, data=payload, auth=auth, headers=headers)
-
-    if r.status_code == requests.codes.ok:
-        response_data = parse_response(r.text)
-        response_data.update(params)
-        return True, response_data
-
-    return False, r.text
-
-
 def parse_response(raw_response):
     QDNS = '{http://www.digitalhps.org/Quadriga}'
     root = ET.fromstring(raw_response)
@@ -275,3 +257,218 @@ def parse_response(raw_response):
         tag = child.tag.replace(QDNS, '')
         data[tag] = child.text
     return data
+
+def build_concept_node(appellation, user, creation_time, source_uri):
+    """
+    Build a node dictionary for an appellation event.
+    Each appellation gets its own node even if it points to the same concept.
+    The node’s termParts come only from the given appellation.
+
+      - "metadata.interpretation" is the concept’s label.
+      - "context.sourceUri" is the URL of the concept source (from appellation.interpretation.master.uri)
+    """
+    term_parts = []
+    pos = appellation.startPos if appellation.startPos is not None else 0
+    exp = appellation.stringRep if appellation.stringRep is not None else ""
+    term_parts.append({
+        "position": pos,
+        "expression": exp,
+        "normalization": "",
+        "formattedPointer": "",
+        "format": ""
+    })
+    
+    # concept's label for the interpretation.
+    interpretation_label = appellation.interpretation.label if appellation.interpretation.label else ""
+    # concept source URL from the master attribute if available.
+    if hasattr(appellation.interpretation, 'master') and hasattr(appellation.interpretation.master, 'uri'):
+        concept_source_url = appellation.interpretation.master.uri
+    else:
+        concept_source_url = source_uri
+
+    return {
+        "label": interpretation_label,
+        "metadata": {
+            "type": "appellation_event",
+            "interpretation": interpretation_label,
+            "termParts": term_parts
+        },
+        "context": {
+            "creator": user.username,
+            "creationTime": creation_time.strftime('%Y-%m-%d'),
+            "creationPlace": "phoenix",
+            "sourceUri": concept_source_url
+        }
+    }
+
+def generate_graph_data(relationset, user):
+    """
+    JSON-serializable graph structure with unique nodes for each
+    appellation event and separate relation event nodes.
+    
+    Processes nested relations recursively so that each event gets a unique node.
+    This function calls the updated build_concept_node so that:
+      - metadata.interpretation is the concept label, and
+      - context.sourceUri is the URL of the concept source.
+    """
+    nodes = {}
+    edges = []
+    node_counter = 0
+
+    def get_node_id():
+        # use the 'node_counter' variable from the enclosing (non-local) scope.
+        nonlocal node_counter
+        # Convert the current counter value to a string to use as the unique node ID.
+        node_id = str(node_counter)
+        # Increment the counter so that the next call produces a different (unique) ID.
+        node_counter += 1
+        # Return the generated node ID.
+        return node_id
+
+    # This mapping uses a unique key for each appellation event.
+    node_mapping = {}
+
+    def process_relation(relation):
+        """
+        Process a relation event recursively.
+        Creates a new relation node and processes its three roles: subject, predicate, and object.
+        If a role is itself a relation, it is processed recursively; otherwise, it is treated as an appellation.
+        Returns the unique node id for this relation event.
+        """
+        # Generate a unique node id for this relation event.
+        rel_node_id = get_node_id()
+        # Create a relation node using get_relation_node and store it in the nodes dictionary.
+        nodes[rel_node_id] = get_relation_node(user, relationset.occursIn.created, relationset.occursIn.uri)
+        
+        # -------------------------------
+        # Process the subject of the relation.
+        # -------------------------------
+        subj = relation.source_content_object
+        if isinstance(subj, Relation):
+            # If the subject is itself a relation, process it recursively.
+            subj_node_id = process_relation(subj)
+        else:
+            # Otherwise, treat it as an appellation. Create a unique key using its id and creation timestamp.
+            key = f"app-{subj.id}-{subj.created.isoformat()}"
+            # If this appellation hasn't been processed yet, build its node.
+            if key not in node_mapping:
+                node_id = get_node_id()
+                nodes[node_id] = build_concept_node(subj, user, relationset.occursIn.created, relationset.occursIn.uri)
+                node_mapping[key] = node_id
+            # Retrieve the node id for the subject from the mapping.
+            subj_node_id = node_mapping[key]
+        # Add an edge linking the current relation node to the subject node.
+        edges.append({"source": rel_node_id, "relation": "subject", "target": subj_node_id})
+        
+        # -------------------------------
+        # Process the predicate of the relation.
+        # -------------------------------
+        pred = relation.predicate
+        key = f"app-{pred.id}-{pred.created.isoformat()}"
+        if key not in node_mapping:
+            node_id = get_node_id()
+            nodes[node_id] = build_concept_node(pred, user, relationset.occursIn.created, relationset.occursIn.uri)
+            node_mapping[key] = node_id
+        pred_node_id = node_mapping[key]
+        # Add an edge linking the current relation node to the predicate node.
+        edges.append({"source": rel_node_id, "relation": "predicate", "target": pred_node_id})
+        
+        # -------------------------------
+        # Process the object of the relation.
+        # -------------------------------
+        obj = relation.object_content_object
+        if isinstance(obj, Relation):
+            # If the object is itself a relation, process it recursively.
+            obj_node_id = process_relation(obj)
+        else:
+            key = f"app-{obj.id}-{obj.created.isoformat()}"
+            if key not in node_mapping:
+                node_id = get_node_id()
+                nodes[node_id] = build_concept_node(obj, user, relationset.occursIn.created, relationset.occursIn.uri)
+                node_mapping[key] = node_id
+            obj_node_id = node_mapping[key]
+        # Add an edge linking the current relation node to the object node.
+        edges.append({"source": rel_node_id, "relation": "object", "target": obj_node_id})
+        
+        # Return the node id for this processed relation event.
+        return rel_node_id
+
+    # Process the top-level (root) relation.
+    top_relation = relationset.root
+    process_relation(top_relation)
+    
+    # default mapping from the top-level relation's roles.
+    top_subj = top_relation.source_content_object
+    top_pred = top_relation.predicate
+    top_obj = top_relation.object_content_object
+    default_mapping = {
+        "subject": {"type": "REF", "reference": node_mapping.get(f"app-{top_subj.id}-{top_subj.created.isoformat()}", "")},
+        "predicate": {"type": "URI", "uri": top_pred.interpretation.label, "label": top_pred.interpretation.label},
+        "object": {"type": "REF", "reference": node_mapping.get(f"app-{top_obj.id}-{top_obj.created.isoformat()}", "")}
+    }
+    
+    return {
+        "graph": {
+            "metadata": {
+                "defaultMapping": default_mapping,
+                "context": {
+                    "creator": user.username,
+                    "creationTime": relationset.occursIn.created.strftime('%Y-%m-%d'),
+                    "creationPlace": "phoenix",
+                    "sourceUri": relationset.occursIn.uri
+                }
+            },
+            "nodes": nodes,
+            "edges": edges
+        }
+    }
+
+def get_relation_node(user, creation_time, source_uri):
+    """
+    Helper function to build a relation node.
+    """
+    return {
+        "label": "",
+        "metadata": {
+            "type": "relation_event"
+        },
+        "context": {
+            "creator": user.username,
+            "creationTime": creation_time.strftime('%Y-%m-%d'),
+            "creationPlace": "",
+            "sourceUri": source_uri
+        }
+    }
+
+
+def submit_to_quadriga(relationset, user, project):
+    """
+    Helper function to handle all Quadriga-related submission logic for a RelationSet.
+    
+    Raises:
+        CitesphereAccount.DoesNotExist: If the user does not have a Citesphere account.
+        requests.RequestException: If there is an error when making the request to Quadriga.
+    
+    Returns:
+        requests.Response: The response object returned by the Quadriga submission request.
+    """
+    citesphere_account = CitesphereAccount.objects.get(user=user, repository=relationset.occursIn.repository)
+    access_token = citesphere_account.access_token
+
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json',
+    }
+
+    collection_id = project.quadriga_id
+    endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add"
+
+    graph_data = generate_graph_data(relationset, user)
+    response = requests.post(endpoint, json=graph_data, headers=headers)
+    response.raise_for_status()
+
+    # Update the status of the RelationSet
+    relationset.status = 'submitted'
+    relationset.submitted = True
+    relationset.submittedOn = timezone.now()
+    relationset.save()
