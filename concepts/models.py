@@ -48,13 +48,11 @@ class Concept(HeritableObject):
 
     PENDING = 'Pending'
     REJECTED = 'Rejected'
-    APPROVED = 'Approved'
     RESOLVED = 'Resolved'
     MERGED = 'Merged'
     concept_state_choices=  (
         (PENDING, 'Pending'),
         (REJECTED, 'Rejected'),
-        (APPROVED, 'Approved'),
         (RESOLVED, 'Resolved'),
         (MERGED, 'Merged'),
     )

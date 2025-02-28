@@ -3,7 +3,7 @@
 
 from .models import Concept, Type
 
-from conceptpower import Conceptpower
+from concepts.conceptpower import Conceptpower
 from urllib.parse import urlparse
 from django.conf import settings
 
@@ -170,7 +170,7 @@ def get_by_namespace(namespace):
 
 def add(instance):
     """
-    Add the approved concept to Conceptpower
+    Add the pending concept to Conceptpower
 
     Parameters
     -----------
