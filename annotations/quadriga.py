@@ -268,7 +268,7 @@ def build_concept_node(appellation, user, creation_time, source_uri):
       - "context.sourceUri" is the URL of the concept source (from appellation.interpretation.master.uri)
     """
     term_parts = []
-    pos = appellation.startPos if appellation.startPos is not None else 0
+    pos = appellation.startPos
     exp = appellation.stringRep if appellation.stringRep is not None else ""
     term_parts.append({
         "position": pos,
