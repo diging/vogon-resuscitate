@@ -6,6 +6,14 @@
 {% endblock %}
 
 {% block main %}
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-success">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+
 <div class="container-fluid">
     <div class="h2">Welcome back, {{ user.username }}</div>
 
