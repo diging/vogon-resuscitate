@@ -206,22 +206,65 @@ ConceptCreator = {
             this.error = false;
             this.submitted = false;
         },
-        createConcept: function () {
-            if (this.ready) {
-                this.submitted = true; // Immediately prevent further submissions.
+        createAppellation: function () {
+            // Ensure position values are valid before submission
+            if (this.position && 
+                (this.position.startOffset === null || 
+                 this.position.startOffset === undefined || 
+                 isNaN(this.position.startOffset) ||
+                 this.position.endOffset === null || 
+                 this.position.endOffset === undefined || 
+                 isNaN(this.position.endOffset))) {
+                
+                console.error('Invalid position values for appellation:', this.position);
+                return; // Don't proceed with invalid positions
+            }
+            
+            let stringRep;
+            let positionValue;
+            
+            if (store.getters.showConcepts) {
+                // Don't modify the original position object, create a copy
+                positionValue = "0,0"; // Use placeholder values instead of null
+                stringRep = this.text.title;
+            } else {
+                positionValue = [this.position.startOffset, this.position.endOffset].join(",");
+                stringRep = this.position.representation;
+            }
+            
+            if (!(this.submitted || this.saving)) {
+                this.submitted = true;
+                this.saving = true;
                 self = this;
-                Concept.save({
-                    uri: 'generate',
-                    label: "this.label",
-                    description: this.description,
-                    pos: this.pos,
-                    typed: this.concept_type
+                Appellation.save({
+                    position: {
+                        occursIn: this.text.id,
+                        position_type: "CO",
+                        position_value: positionValue
+                    },
+                    stringRep: stringRep,
+                    startPos: store.getters.showConcepts ? 0 : this.position.startOffset,
+                    endPos: store.getters.showConcepts ? 0 : this.position.endOffset,
+                    occursIn: this.text.id,
+                    createdBy: this.user.id,
+                    project: this.project.id,
+                    interpretation: this.concept.uri || this.concept.interpretation.uri,
+                    pos: this.concept.pos || this.concept.interpretation.pos,
+                    label: this.concept.label || this.concept.interpretation.label
                 }).then(function (response) {
-                    self.clear();
-                    self.$emit("createdconcept", response.body);
+                    self.reset();
+                    if (store.getters.showConcepts) {
+                        store.commit('setTextAppellation', response.body);
+                        if (store.getters.getValidator == 2) {
+                            store.commit('setValidator', 0);
+                        }
+                    }
+                    store.commit("triggerConcepts", false); // Ensure this is set to false after creation
+                    store.commit("conceptLabel", response.body.interpretation_label);
+                    self.$emit('createdappellation', response.body);
                 }).catch(function (error) {
-                    console.log('ConceptCreator:: failed to create concept', error);
-                    self.error = true;
+                    this.saving = false;
+                    console.log('AppellationCreator:: failed to create appellation', error);
                 });
             }
         },
@@ -546,14 +589,31 @@ AppellationCreator = {
             return '';
         },
         createAppellation: function () {
-            let stringRep
-            if (store.getters.showConcepts) {
-                this.position.startOffset = null
-                this.position.endOffset = null
-                stringRep = this.text.title
-            } else {
-                stringRep = this.position.representation
+            // Ensure position values are valid before submission
+            if (this.position && 
+                (this.position.startOffset === null || 
+                 this.position.startOffset === undefined || 
+                 isNaN(this.position.startOffset) ||
+                 this.position.endOffset === null || 
+                 this.position.endOffset === undefined || 
+                 isNaN(this.position.endOffset))) {
+                
+                console.error('Invalid position values for appellation:', this.position);
+                return; // Don't proceed with invalid positions
             }
+            
+            let stringRep;
+            let positionValue;
+            
+            if (store.getters.showConcepts) {
+                // Don't modify the original position object, create a copy
+                positionValue = "0,0"; // Use placeholder values instead of null
+                stringRep = this.text.title;
+            } else {
+                positionValue = [this.position.startOffset, this.position.endOffset].join(",");
+                stringRep = this.position.representation;
+            }
+            
             if (!(this.submitted || this.saving)) {
                 this.submitted = true;
                 this.saving = true;
@@ -562,13 +622,11 @@ AppellationCreator = {
                     position: {
                         occursIn: this.text.id,
                         position_type: "CO",
-                        position_value: [this.position.startOffset,
-                            this.position.endOffset
-                        ].join(",")
+                        position_value: positionValue
                     },
                     stringRep: stringRep,
-                    startPos: this.position.startOffset,
-                    endPos: this.position.endOffset,
+                    startPos: store.getters.showConcepts ? 0 : this.position.startOffset,
+                    endPos: store.getters.showConcepts ? 0 : this.position.endOffset,
                     occursIn: this.text.id,
                     createdBy: this.user.id,
                     project: this.project.id,
@@ -580,10 +638,10 @@ AppellationCreator = {
                     if (store.getters.showConcepts) {
                         store.commit('setTextAppellation', response.body);
                         if (store.getters.getValidator == 2) {
-                            store.commit('setValidator', 0)
+                            store.commit('setValidator', 0);
                         }
                     }
-                    store.commit("triggerConcepts");
+                    store.commit("triggerConcepts", false); // Ensure this is set to false after creation
                     store.commit("conceptLabel", response.body.interpretation_label);
                     self.$emit('createdappellation', response.body);
                 }).catch(function (error) {
@@ -1498,26 +1556,48 @@ Appellator = new Vue({
             appellation.visible = true;
             appellation.selected = false;
             
-            // Add to collection and select it
+            // Calculate text position for highlighting
+            var position = getTextPosition(appellation.position);
+            appellation.position.top = position.top;
+            appellation.position.left = position.left;
+            appellation.position.width = position.width;
+            appellation.position.height = position.bottom - position.top;
+            
+            // Add to collection
             self.appellations.push(appellation);
             
-            // Give the UI time to update before selecting
-            setTimeout(function() {
-                self.selectAppellation(appellation);
-                
-                // Ensure the appellation is visible in the document
-                setTimeout(function() {
-                    self.scrollToAppellation(appellation);
-                    
-                    // Only clear selection after highlight is properly rendered
-                    setTimeout(function() {
-                        self.selected_text = null;
-                    }, 200);
-                }, 100);
-            }, 50);
+            // Ensure Vue updates the array reactively
+            self.appellations = self.appellations.slice();
             
-            // Update the appellations list
-            this.updateAppellations();
+            // Explicitly trigger position recalculation
+            EventBus.$emit('updatepositions');
+            
+            // Select the appellation 
+            self.selectAppellation(appellation);
+            
+            // Ensure the appellation is visible in the document
+            self.scrollToAppellation(appellation);
+            
+            // Clear text selection
+            self.selected_text = null;
+            
+            // Update from server
+            self.updateAppellations(function(response) {
+                // Force DOM update for all appellations
+                EventBus.$emit('updatepositions');
+                
+                // Ensure our new appellation is selected and visible
+                var found = self.appellations.find(a => 
+                    a.id === appellation.id || 
+                    (a.position.startOffset === appellation.position.startOffset && 
+                     a.position.endOffset === appellation.position.endOffset)
+                );
+                
+                if (found) {
+                    found.visible = true;
+                    self.selectAppellation(found);
+                }
+            });
         },
         createdDateAppellation: function (appellation) {
             self = this;
