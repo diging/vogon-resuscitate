@@ -1,9 +1,8 @@
 amqp==5.1.1
+asgiref==3.2.10
 billiard==4.2.1
 black-goat-client==0.2.6
 bleach==1.4.2
-# anyjson
-# celery
 certifi==2018.1.18
 chardet==3.0.4
 conceptpower-py3-api==1.10
@@ -15,7 +14,6 @@ dj-static==0.0.6
 Django==2.2.20
 django-allauth
 django-autocomplete-light==2.3.1
-# django-celery
 django-cors-headers>=3.5.0
 django-crispy-forms==1.4.0
 django-extensions==1.5.9
