@@ -170,7 +170,7 @@ def get_by_namespace(namespace):
 
 def add(instance):
     """
-    Add the approved concept to Conceptpower
+    Add the pending concept to Conceptpower
 
     Parameters
     -----------
