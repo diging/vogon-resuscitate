@@ -1536,67 +1536,17 @@ Appellator = new Vue({
             this.selected_text = null;
         },
         createdAppellation: function (appellation) {
-            var self = this;
-            
-            // Validate the appellation data
-            if (!appellation || !appellation.position || !appellation.position.position_value) {
-                console.error("Invalid appellation data received");
-                return;
-            }
-            
+            self = this;
             var offsets = appellation.position.position_value.split(',');
-            if (offsets.length !== 2) {
-                console.error("Invalid position value format:", appellation.position.position_value);
-                return;
-            }
-            
-            // Set up the appellation with proper position data
-            appellation.position.startOffset = parseInt(offsets[0]);
-            appellation.position.endOffset = parseInt(offsets[1]);
+            appellation.position.startOffset = offsets[0];
+            appellation.position.endOffset = offsets[1];
             appellation.visible = true;
-            appellation.selected = false;
-            
-            // Calculate text position for highlighting
-            var position = getTextPosition(appellation.position);
-            appellation.position.top = position.top;
-            appellation.position.left = position.left;
-            appellation.position.width = position.width;
-            appellation.position.height = position.bottom - position.top;
-            
-            // Add to collection
             self.appellations.push(appellation);
-            
-            // Ensure Vue updates the array reactively
-            self.appellations = self.appellations.slice();
-            
-            // Explicitly trigger position recalculation
-            EventBus.$emit('updatepositions');
-            
-            // Select the appellation 
             self.selectAppellation(appellation);
-            
-            // Ensure the appellation is visible in the document
+            this.selected_text = null;
+            this.updateAppellations();
+            self.unselectAppellation();
             self.scrollToAppellation(appellation);
-            
-            // Clear text selection
-            self.selected_text = null;
-            
-            // Update from server
-            self.updateAppellations(function(response) {
-                // Force DOM update for all appellations
-                EventBus.$emit('updatepositions');
-                
-                // Ensure our new appellation is selected and visible
-                var found = self.appellations.find(a => 
-                    a.id === appellation.id || 
-                    (a.position.startOffset === appellation.position.startOffset && 
-                     a.position.endOffset === appellation.position.endOffset)
-                );
-
-            });
-
-            this.unselectAppellation();
-            this.scrollToAppellation(appellation);
         },
         createdDateAppellation: function (appellation) {
             self = this;
