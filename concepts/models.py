@@ -60,6 +60,7 @@ class Concept(HeritableObject):
                                    default='Pending')
     merged_with = models.ForeignKey('Concept', related_name='merged_concepts',
                                     **optional, on_delete=models.CASCADE)
+    comment = models.TextField(blank=True, null=True)
 
     @property
     def typed_label(self):

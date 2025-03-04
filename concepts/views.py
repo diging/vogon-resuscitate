@@ -60,10 +60,13 @@ def merge_concepts(request, source_concept_id):
 
 @login_required
 def flag_concept(request, source_concept_id):
-    source = get_object_or_404(Concept, pk=source_concept_id)
-    source.concept_state = Concept.FLAGGED    
-    source.save()
-    next_page = request.GET.get('next', reverse('concepts'))
+    concept = get_object_or_404(Concept, pk=source_concept_id)
+    if request.method == "POST":
+        comment = request.POST.get("flag_comment", "").strip()
+        concept.concept_state = Concept.FLAGGED    
+        concept.comment = comment
+        concept.save()
+        next_page = request.GET.get('next', reverse('concepts'))
     return HttpResponseRedirect(next_page)
 
 @login_required
