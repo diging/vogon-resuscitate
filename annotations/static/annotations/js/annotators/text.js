@@ -1592,12 +1592,11 @@ Appellator = new Vue({
                     (a.position.startOffset === appellation.position.startOffset && 
                      a.position.endOffset === appellation.position.endOffset)
                 );
-                
-                if (found) {
-                    found.visible = true;
-                    self.selectAppellation(found);
-                }
+
             });
+
+            this.unselectAppellation();
+            this.scrollToAppellation(appellation);
         },
         createdDateAppellation: function (appellation) {
             self = this;
