@@ -1541,12 +1541,14 @@ Appellator = new Vue({
             appellation.position.startOffset = offsets[0];
             appellation.position.endOffset = offsets[1];
             appellation.visible = true;
+            appellation.selected = false;
             self.appellations.push(appellation);
-            self.selectAppellation(appellation);
+            this.selectAppellation(appellation);
             this.selected_text = null;
             this.updateAppellations();
-            self.unselectAppellation();
-            self.scrollToAppellation(appellation);
+            this.unselectAppellation(appellation);
+            this.scrollToAppellation(appellation);
+            
         },
         createdDateAppellation: function (appellation) {
             self = this;
