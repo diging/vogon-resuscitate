@@ -100,6 +100,9 @@ def concepts(request):
         # If page is out of range (e.g. 9999), deliver last page of results.
         concepts = paginator.page(paginator.num_pages)
 
+    for concept in concepts:
+        concept.relations = RelationSet.objects.filter(terminal_nodes=concept).order_by('-created')[:3]
+        
     context = {
         'paginator': paginator,
         'concepts': concepts,

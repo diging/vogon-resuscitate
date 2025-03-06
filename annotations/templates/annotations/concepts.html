@@ -148,6 +148,31 @@
 
             </div>
             {% endif %}
+            {% if concept.relations.exists %}
+                <hr>
+                <p>
+                    <a  data-toggle="collapse" 
+                        href="#collapse-{{ concept.id }}" 
+                        role="button" 
+                        aria-expanded="false" 
+                        aria-controls="collapse-{{ concept.id }}">
+                        Show Relations ({{ concept.relations.count }})
+                    </a>
+                </p>
+                
+                <!-- Collapsing Div -->
+                <div class="collapse" id="collapse-{{ concept.id }}">
+                    <ul style="list-style: none; padding-left: 0;">
+                    {% for rel in concept.relations.all %}
+                        <li style="margin-bottom: .5em;">
+                            <!-- Customize how you show each relation -->
+                            <strong>Relation #{{ rel.id }}:</strong>
+                            {{ rel.representation|default_if_none:"(No representation)"}}
+                        </li>
+                    {% endfor %}
+                    </ul>
+        </div>
+        {% endif %}
         </div>
         {% endwith %}
         {% endwith %}
