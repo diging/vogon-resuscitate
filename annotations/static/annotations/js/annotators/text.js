@@ -206,6 +206,25 @@ ConceptCreator = {
             this.error = false;
             this.submitted = false;
         },
+        createConcept: function () {
+            if (this.ready) {
+                this.submitted = true; // Immediately prevent further submissions.
+                self = this;
+                Concept.save({
+                    uri: 'generate',
+                    label: "this.label",
+                    description: this.description,
+                    pos: this.pos,
+                    typed: this.concept_type
+                }).then(function (response) {
+                    self.clear();
+                    self.$emit("createdconcept", response.body);
+                }).catch(function (error) {
+                    console.log('ConceptCreator:: failed to create concept', error);
+                    self.error = true;
+                });
+            }
+        },
         createAppellation: function () {
             // Ensure position values are valid before submission
             if (this.position && 
