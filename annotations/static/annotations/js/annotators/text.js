@@ -129,6 +129,9 @@ ConceptCreator = {
                             id="concept-creator-description"
                             v-model="description">
                         </textarea>
+                        <span class="help-block text-warning" v-if="showDescriptionWarning()">
+                            Description must be at least 3 words or 10 characters long.
+                        </span>
                    </div>
                    <div class="form-group">
                        <label class="control-label">Type</label>
@@ -192,6 +195,14 @@ ConceptCreator = {
     methods: {
         ready: function () {
             return (this.oath && this.name.length > 1 && this.description.length > 10 && this.concept_type != "" && !this.submitted);
+        },
+        hasThreeWords: function(text) {
+            if (!text) return false;
+            const words = text.trim().split(/\s+/);
+            return words.length >= 3;
+        },
+        showDescriptionWarning: function() {
+            return this.description.length > 0 && !this.hasThreeWords(this.description);
         },
         tryAgain: function () {
             this.submitted = false;
