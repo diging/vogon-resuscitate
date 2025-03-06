@@ -1106,11 +1106,14 @@ RelationCreator = {
                 project: this.project.id
             }).then(function (response) {
                 this.ready = false;
-                self.$emit('createdrelation', response.body);
+                self.sidebarShown = false;
+                self.sidebar = 'relations';
+                store.commit('resetCreateAppelltionsToText');
             }).catch(function (error) {
                 console.log('RelationTemplateResource:: failed miserably', error);
                 self.error = true;
                 self.ready = false;
+                store.commit('massAppellationAssignmentFailed');
             }); // TODO: implement callback and exception handling!!
         }
     }
@@ -1485,9 +1488,17 @@ Appellator = new Vue({
             window.scrollTo(0, getTextPosition(appellation.position).top);
         },
         selectAppellation: function (appellation) {
+            // Clear all selections first
             this.appellations.forEach(function (a) {
-                a.selected = (a.id == appellation.id);
+                a.selected = false;
             });
+            
+            // Find and select the appellation
+            var selected = this.appellations.find(a => a.id === appellation.id);
+            if (selected) {
+                selected.selected = true;
+            }
+            
             AppellationBus.$emit('selectedappellation', appellation);
             EventBus.$emit('cleartextselection');
             this.unselectText();
@@ -1536,19 +1547,30 @@ Appellator = new Vue({
             this.selected_text = null;
         },
         createdAppellation: function (appellation) {
-            self = this;
+            var self = this;
             var offsets = appellation.position.position_value.split(',');
             appellation.position.startOffset = offsets[0];
             appellation.position.endOffset = offsets[1];
             appellation.visible = true;
-            appellation.selected = false;
+            appellation.selected = true; // Set as selected before adding
+            
+            // Add to the current list first
             self.appellations.push(appellation);
+            
+            // Update UI to reflect selection
             this.selectAppellation(appellation);
             this.selected_text = null;
-            this.updateAppellations();
-            this.unselectAppellation(appellation);
-            this.scrollToAppellation(appellation);
             
+            // Update the full list from the server
+            this.updateAppellations(function() {
+                // After update completes, find the appellation in the refreshed list
+                var refreshedAppellation = self.appellations.find(a => a.id === appellation.id);
+                if (refreshedAppellation) {
+                    // Re-select it after refresh
+                    self.selectAppellation(refreshedAppellation);
+                    self.scrollToAppellation(refreshedAppellation);
+                }
+            });
         },
         createdDateAppellation: function (appellation) {
             self = this;
@@ -1562,28 +1584,32 @@ Appellator = new Vue({
             this.selected_text = null;
         },
         updateAppellations: function (callback) {
-            // "CO" is the "character offset" DocumentPosition type. For image
-            //  annotation this should be changed to "BB".
             var self = this;
+            
+            // Store current selection state
+            var selectedId = null;
+            this.appellations.forEach(function(a) {
+                if (a.selected) {
+                    selectedId = a.id;
+                }
+            });
+            
             Appellation.query({
                 position_type: "CO",
                 text: this.text.id,
                 limit: 500,
                 project: this.project.id
             }).then(function (response) {
-                // DocumentPosition.position_value is represented with a
-                //  TextField, so serialized as a string. Start and end offsets
-                //  should be comma-delimited.
-
+                // Create new array with properly set attributes
                 self.appellations = response.body.results.map(function (appellation) {
                     var offsets = appellation.position.position_value.split(',');
                     appellation.position.startOffset = offsets[0];
                     appellation.position.endOffset = offsets[1];
                     appellation.visible = true;
-                    appellation.selected = false;
+                    appellation.selected = (selectedId === appellation.id);
                     return appellation;
-
                 });
+                
                 if (callback) callback(response);
             });
         },
