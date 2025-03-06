@@ -1432,13 +1432,7 @@ Appellator = new Vue({
             // Update the data
             this.updateRelations();
             this.updateAppellations();
-            
-            // If there's a graph to reload, call that function
-            if (typeof reloadGraph === 'function') {
-                setTimeout(function() {
-                    reloadGraph();
-                }, 500); // Give time for the relation data to be updated
-            }
+            reloadGraph();
         },
         cancelRelation: function () {
             this.template = null;
