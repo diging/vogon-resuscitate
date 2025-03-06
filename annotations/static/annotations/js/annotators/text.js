@@ -1096,7 +1096,7 @@ RelationCreator = {
         },
         create: function () {
             this.prepareSubmission();
-            self = this;
+            var self = this;
             RelationTemplateResource.create({
                 id: this.id
             }, {
@@ -1105,16 +1105,16 @@ RelationCreator = {
                 createdBy: this.user.id,
                 project: this.project.id
             }).then(function (response) {
-                this.ready = false;
+                self.ready = false;
                 self.sidebarShown = false;
                 self.sidebar = 'relations';
                 store.commit('resetCreateAppelltionsToText');
+                self.$emit('createdrelation', response.body);
             }).catch(function (error) {
                 console.log('RelationTemplateResource:: failed miserably', error);
                 self.error = true;
                 self.ready = false;
-                store.commit('massAppellationAssignmentFailed');
-            }); // TODO: implement callback and exception handling!!
+            });
         }
     }
 }
@@ -1426,8 +1426,19 @@ Appellator = new Vue({
         },
         createdRelation: function (relation) {
             this.template = null;
+            this.sidebarShown = false; // Hide the sidebar
+            this.sidebar = 'relations'; // Switch to relations tab
+            
+            // Update the data
             this.updateRelations();
             this.updateAppellations();
+            
+            // If there's a graph to reload, call that function
+            if (typeof reloadGraph === 'function') {
+                setTimeout(function() {
+                    reloadGraph();
+                }, 500); // Give time for the relation data to be updated
+            }
         },
         cancelRelation: function () {
             this.template = null;
