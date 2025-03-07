@@ -430,6 +430,14 @@ AppellationCreator = {
         'concept-creator': ConceptCreator,
         'concept-picker': ConceptPicker
     },
+    mounted: function() {
+        // Listen for cancellation events
+        EventBus.$on('cancelappellation', this.cancel);
+    },
+    beforeDestroy: function() {
+        // Clean up listener
+        EventBus.$off('cancelappellation', this.cancel);
+    },
     data: function () {
         return {
             concept: null,
