@@ -971,7 +971,7 @@ RelationCreator = {
             this.field_data[this.fieldHash(field)] = data;
             this.ready = this.readyToCreate();
         },
-        unregisterData: function (field) {
+        unregisterData: function (field, data) {
             delete(this.field_data[this.fieldHash(field)]);
             this.ready = this.readyToCreate();
         },
