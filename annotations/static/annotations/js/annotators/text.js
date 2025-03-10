@@ -129,7 +129,7 @@ ConceptCreator = {
                             id="concept-creator-description"
                             v-model="description">
                         </textarea>
-                        <span class="help-block text-warning" v-if="showDescriptionWarning()">
+                        <span class="help-block">
                             Description must be at least 3 words or 10 characters long.
                         </span>
                    </div>
@@ -195,14 +195,6 @@ ConceptCreator = {
     methods: {
         ready: function () {
             return (this.oath && this.name.length > 1 && this.description.length > 10 && this.concept_type != "" && !this.submitted);
-        },
-        hasThreeWords: function(text) {
-            if (!text) return false;
-            const words = text.trim().split(/\s+/);
-            return words.length >= 3;
-        },
-        showDescriptionWarning: function() {
-            return this.description.length > 0 && !this.hasThreeWords(this.description);
         },
         tryAgain: function () {
             this.submitted = false;
@@ -979,7 +971,7 @@ RelationCreator = {
             this.field_data[this.fieldHash(field)] = data;
             this.ready = this.readyToCreate();
         },
-        unregisterData: function (field, data) {
+        unregisterData: function (field) {
             delete(this.field_data[this.fieldHash(field)]);
             this.ready = this.readyToCreate();
         },
