@@ -88,6 +88,7 @@ urlpatterns = [
     re_path(r'^relationtemplate/add/$', views.relationtemplate_views.add_relationtemplate, name="add_relationtemplate"),
     re_path(r'^relationtemplate/(?P<template_id>[0-9]+)/$', views.relationtemplate_views.get_relationtemplate, name="get_relationtemplate"),
     re_path(r'^relationtemplate/(?P<template_id>[0-9]+)/create/$', views.relationtemplate_views.create_from_relationtemplate, name="create_from_relationtemplate"),
+    re_path(r'^relationtemplate/(?P<template_id>[0-9]+)/create_from_text/$', views.relationtemplate_views.create_from_text, name="create_from_text"),
     re_path(r'^relationtemplate[/]?$', views.relationtemplate_views.list_relationtemplate, name='list_relationtemplate'),
     re_path(r'^relationtemplate/(?P<template_id>[0-9]+)/delete/$', views.relationtemplate_views.delete_relationtemplate, name='delete_relationtemplate'),
     re_path(r'^relationtemplate/(?P<template_id>[0-9]+)/edit/$', views.relationtemplate_views.edit_relationtemplate, name='edit_relationtemplate'),
