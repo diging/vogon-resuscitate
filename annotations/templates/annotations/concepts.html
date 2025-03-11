@@ -6,6 +6,22 @@
 
 
 {% block main %}
+<style>      
+    .relations-toggle:focus , .relations-toggle:hover{
+        text-decoration: none;
+    }
+    
+    .arrow {
+        width: 12px;
+        height: 12px;
+        margin-left: 5px;
+        transition: transform 0.2s;
+    }
+    
+    .arrow.open {
+        transform: rotate(180deg);
+    }
+</style>
 
 <div class="container-fluid">
     <form class="form" action="" method="get">
@@ -151,12 +167,18 @@
             {% if concept.relations.exists %}
                 <hr>
                 <p>
-                    <a  data-toggle="collapse" 
-                        href="#collapse-{{ concept.id }}" 
-                        role="button" 
-                        aria-expanded="false" 
-                        aria-controls="collapse-{{ concept.id }}">
-                        Show Relations ({{ concept.relations.count }})
+                    <a class="relations-toggle" 
+                       data-toggle="collapse" 
+                       href="#collapse-{{ concept.id }}" 
+                       role="button" 
+                       aria-expanded="false" 
+                       aria-controls="collapse-{{ concept.id }}"
+                       style="display: inline flex; align-items: center; color: black;"
+                       onclick="toggleArrow(this, '{{ concept.id }}')">
+                        Show Relations ({{ concept.relations.count }}) 
+                        <svg class="arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                          </svg>
                     </a>
                 </p>
                 
@@ -166,23 +188,6 @@
                         <div class="list-group relation-list-group">
                             {% for relation in concept.relations %}
                                 <div class="list-group-item">
-                                    <div class="pull-right btn-group">
-                                        <span class="btn btn-xs glyphicon {% if relation.ready %}glyphicon-ok-sign{% else %}glyphicon-ok-circle{% endif %}"
-                                            data-toggle="tooltip"
-                                            data-placement="left"
-                                            data-container="body"
-                                            title="{% if relation.ready %}Ready for submission{% else %}Some concepts are not yet resolved{% endif %}"></span>
-                                        <span class="btn btn-xs glyphicon {% if relation.pending %}glyphicon-ok-sign{% else %}glyphicon-ok-circle{% endif %}"
-                                            data-toggle="tooltip"
-                                            data-placement="left"
-                                            data-container="body"
-                                            title="{% if relation.pending %}Marked for submission{% else %}Pending review{% endif %}"></span>
-                                        <span class="btn btn-xs glyphicon {% if relation.submitted %}glyphicon-ok-sign{% else %}glyphicon-ok-circle{% endif %}"
-                                            data-toggle="tooltip"
-                                            data-placement="left"
-                                            data-container="body"
-                                            title="{% if relation.submitted %}Submitted on {{ relation.submittedOn }}{% else %}Pending submission{% endif %}"></span>
-                                    </div>
                                     <div>{% if relation.representation %}{{ relation.representation }}{% else %}{{ relation.template.name }}: {% for concept in relation.concepts %}{% if concept.label %}<span class="text-warning">{{ concept.label }}</span>; {% endif %}{% endfor %}{% endif %} <span class="text-muted">{% for predicate, date in relation.date_appellations_with_predicate %}<span class="label label-default" style="margin-right: 5px; margin-left: 5px;">{{ predicate.label.title }}: {{date}}</span>{% endfor %}</span></div>
                                     <div class="text-muted">
                                         <span class="glyphicon glyphicon-user"></span>
@@ -233,5 +238,34 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggles = document.querySelectorAll('[data-toggle="collapse"]');
+      
+      toggles.forEach(toggle => {
+        toggle.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          const targetId = this.getAttribute('href');
+          const targetContent = document.querySelector(targetId);
+          
+          const arrow = this.querySelector('.arrow');
+          
+          const isOpen = targetContent.classList.contains('open');
+          
+          if (isOpen) {
+            targetContent.classList.remove('open');
+            arrow.classList.remove('open');
+            this.setAttribute('aria-expanded', 'false');
+          } else {
+            targetContent.classList.add('open');
+            arrow.classList.add('open');
+            this.setAttribute('aria-expanded', 'true');
+          }
+        });
+      });
+    });
+  </script>
 
 {% endblock %}
