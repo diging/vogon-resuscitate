@@ -296,6 +296,12 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     except Exception as e:
         print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
+    
+    # get collection name from citesphere response
+    collection_name = None
+    for collection_item in texts['group']:
+        if collection_item['key'] == group_collection_id:
+            collection_name = collection_item['name']
 
     # retrieve items per page from settings and calculate pagination metadata from util function
     items_per_page = settings.PAGINATION_PAGE_SIZE
@@ -309,6 +315,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         'group_collection_id': group_collection_id,
         'title': 'Texts in Collection:',
         'group_id': group_id,
+        'collection_name': collection_name,
         'project_id': project_id,
         'current_page': pagination['current_page'],
         'total_pages': pagination['total_pages'],
