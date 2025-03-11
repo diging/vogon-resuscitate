@@ -62,6 +62,8 @@ class Concept(HeritableObject):
                                     **optional, on_delete=models.CASCADE)
     comment = models.TextField(blank=True, null=True)
 
+    createdBy = models.ForeignKey('annotations.VogonUser', on_delete=models.CASCADE, null=True, blank=True)
+    
     @property
     def typed_label(self):
         if self.typed:
