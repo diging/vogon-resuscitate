@@ -10,7 +10,6 @@ from repository.models import Repository
 from .models import CitesphereAccount
 from .decorators import citesphere_authenticated
 from .utils import parse_iso_datetimes, get_giles_document_details
-from .views import citesphere_login, citesphere_callback, citesphere_refresh_token, citesphere_disconnect
 
 User = get_user_model()
 
