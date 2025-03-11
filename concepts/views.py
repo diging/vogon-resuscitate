@@ -104,7 +104,10 @@ def concepts(request):
         concepts = paginator.page(paginator.num_pages)
 
     for concept in concepts:
-        concept.relations = RelationSet.objects.filter(terminal_nodes=concept).order_by('-created')[:3]
+        if request.user.is_admin:
+            concept.relations = RelationSet.objects.filter(terminal_nodes=concept).order_by('-created')[:3]
+        else:
+            concept.relations = RelationSet.objects.filter(terminal_nodes=concept, createdBy=request.user).order_by('-created')[:3]
         
     context = {
         'paginator': paginator,
