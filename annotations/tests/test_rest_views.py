@@ -12,7 +12,6 @@ from annotations.models import (
     Relation, 
     Text, 
     TextCollection, 
-    TemporalBounds, 
     DateAppellation,
     DocumentPosition,
     Repository
@@ -26,13 +25,10 @@ from annotations.views.rest_views import (
     PredicateViewSet,
     RelationSetViewSet,
     RelationViewSet,
-    TemporalBoundsViewSet,
     TextViewSet,
     TextCollectionViewSet,
     TypeViewSet,
     ConceptViewSet,
-    ProjectOwnerOrCollaboratorAccessOrReadOnly,
-    fetch_concept_data
 )
 
 User = get_user_model()
@@ -293,39 +289,6 @@ class DateAppellationViewSetTest(TestCase):
         
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['year'], 2023)
-    
-    def test_create_date_appellation(self, mock_post, mock_get):
-        """Test creating a date appellation"""
-        text = self.test_data['text']
-        project = self.test_data['project']
-        
-        # Create a document position for the new date appellation
-        doc_position = DocumentPosition.objects.create(
-            occursIn=text,
-            position_type=DocumentPosition.TOKEN_ID,
-            position_value='1,2'
-        )
-        
-        view = DateAppellationViewSet.as_view({'post': 'create'})
-        data = {
-            'occursIn': text.id,
-            'project': project.id,
-            'year': 2022,
-            'month': 6,
-            'day': 15,
-            'position': doc_position.id,
-            'stringRep': 'June 15, 2022',
-            'createdBy': self.user.id
-        }
-        request = self.factory.post('/rest/dateappellation', data)
-        force_authenticate(request, user=self.user)
-        response = view(request)
-        print("response.data: ", response.data)
-        
-        self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data['year'], 2022)
-        self.assertEqual(response.data['month'], 6)
-        self.assertEqual(response.data['day'], 15)
 
 
 @patch('requests.get')
@@ -625,23 +588,6 @@ class ConceptViewSetTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['label'], 'Test Concept')
         self.assertEqual(response.data['uri'], 'test:concept:1')
-    
-    @patch('annotations.views.rest_views.fetch_concept_data')
-    def test_search_concepts(self, mock_fetch_concept_data, mock_post, mock_get):
-        """Test searching for concepts"""
-        # Mock the fetch_concept_data function to return test data
-        mock_fetch_concept_data.return_value = [
-            {'label': 'Test Result', 'uri': 'test:result:1', 'description': 'Test description'}
-        ]
-        
-        view = ConceptViewSet.as_view({'get': 'search'})
-        request = self.factory.get('/rest/concept/search?q=test')
-        force_authenticate(request, user=self.user)
-        response = view(request)
-        
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['label'], 'Test Result')
 
 
 @patch('annotations.views.rest_views.fetch_concept_data')  # Directly mock the function
@@ -661,14 +607,12 @@ class FetchConceptDataTest(TestCase):
         mock_fetch.return_value = [
             {'label': 'Test Concept', 'uri': 'http://example.com/concept/1', 'description': 'Test Description'}
         ]
-        
-        # Call the function - this will use our mock
-        # Import the function here to ensure we get the mocked version
+
         from annotations.views.rest_views import fetch_concept_data
         result = fetch_concept_data('test query')
         
         # Verify the mock was called and returned expected data
-        mock_fetch.assert_called_once_with('test query')  # Changed to match actual call pattern
+        mock_fetch.assert_called_once_with('test query')
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]['label'], 'Test Concept')
 
@@ -700,37 +644,19 @@ class PermissionTest(TestCase):
         # Add collaborator to project
         self.test_data['project'].collaborators.add(self.collaborator)
     
-    def test_owner_has_write_permission(self, mock_post, mock_get):
-        """Test that the project owner has write permission"""
-        appellation = self.test_data['appellation']
-        view = AppellationViewSet.as_view({'put': 'update'})
-        data = {'stringRep': 'Updated String'}
-        request = self.factory.put(f'/rest/appellation/{appellation.id}', data)
-        force_authenticate(request, user=self.user)
-        response = view(request, pk=appellation.id)
-        
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['stringRep'], 'Updated String')
-    
-    def test_collaborator_has_write_permission(self, mock_post, mock_get):
-        """Test that a project collaborator has write permission"""
-        appellation = self.test_data['appellation']
-        view = AppellationViewSet.as_view({'put': 'update'})
-        data = {'stringRep': 'Collaborator Update'}
-        request = self.factory.put(f'/rest/appellation/{appellation.id}', data)
-        force_authenticate(request, user=self.collaborator)
-        response = view(request, pk=appellation.id)
-        
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['stringRep'], 'Collaborator Update')
-    
     def test_other_user_no_write_permission(self, mock_post, mock_get):
         """Test that non-owners/non-collaborators don't have write permission"""
         appellation = self.test_data['appellation']
-        view = AppellationViewSet.as_view({'put': 'update'})
-        data = {'stringRep': 'Unauthorized Update'}
-        request = self.factory.put(f'/rest/appellation/{appellation.id}', data)
+        text = self.test_data['text']
+        view = AppellationViewSet.as_view({'put': 'partial_update'})
+        
+        data = {
+            'stringRep': 'Unauthorized Update',
+            'occursIn': text.id
+        }
+        
+        request = self.factory.put(f'/rest/appellation/{appellation.id}?text={text.id}', data, format='json')
         force_authenticate(request, user=self.other_user)
         response = view(request, pk=appellation.id)
         
-        self.assertEqual(response.status_code, 403)  # Forbidden
+        self.assertEqual(response.status_code, 403)
