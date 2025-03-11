@@ -33,6 +33,11 @@ class TestConceptLifeCycle(TestCase):
     """
     def setUp(self):
         disconnect_signal(post_save, concept_post_save_receiver, Concept)
+        # Mock the conceptpower namespace to fix XML parsing issues
+        self.namespace_patcher = mock.patch('concepts.lifecycle.settings')
+        self.mock_settings = self.namespace_patcher.start()
+        self.mock_settings.CONCEPTPOWER_ENDPOINT = 'http://chps.asu.edu/conceptpower/rest/'
+        self.mock_settings.CONCEPTPOWER_NAMESPACE = '{http://www.digitalhps.org/}'
 
     def test_is_native(self):
         """
@@ -48,8 +53,8 @@ class TestConceptLifeCycle(TestCase):
         self.assertFalse(manager.is_native)    # A dynamic property!
 
         instance = Concept.objects.create(
-            label = "goat",
-            uri = "http://www.digitalhps.org/concepts/WID-02416519-N-01-goat",
+            label = "test_concept",
+            uri = "http://www.digitalhps.org/concepts/WID-02416519-N-01-test_concept",
         )
         manager = ConceptLifecycle(instance)
         self.assertTrue(manager.is_native)    # A dynamic property!
@@ -67,8 +72,8 @@ class TestConceptLifeCycle(TestCase):
         self.assertTrue(manager.is_created)
 
         instance = Concept.objects.create(
-            label = "goat",
-            uri = "http://www.digitalhps.org/concepts/WID-02416519-N-01-goat",
+            label = "test_concept",
+            uri = "http://www.digitalhps.org/concepts/WID-02416519-N-01-test_concept",
         )
         manager = ConceptLifecycle(instance)
         self.assertFalse(manager.is_created)
@@ -78,15 +83,15 @@ class TestConceptLifeCycle(TestCase):
         Native concepts (from Conceptpower) should be resolved immediately.
         """
         instance = Concept.objects.create(
-            label = "goat",
-            uri = "http://www.digitalhps.org/concepts/WID-02416519-N-01-goat",
+            label = "test_concept",
+            uri = "http://www.digitalhps.org/concepts/WID-02416519-N-01-test_concept",
         )
         manager = ConceptLifecycle(instance)
         self.assertEqual(manager.default_state, Concept.RESOLVED)
 
     def test_external_default_state(self):
         """
-        Non-native external concepts (from other Goat authorities) should be
+        Non-native external concepts (from other external authorities) should be
         approved immediately. They do exist already, after all.
         """
         instance = Concept.objects.create(
@@ -218,13 +223,13 @@ class TestConceptLifeCycle(TestCase):
         """
 
         manager = ConceptLifecycle.create(
-            label = "goat",
-            uri = "http://www.digitalhps.org/concepts/WID-02416519-N-01-goat"
+            label = "test_concept",
+            uri = "http://www.digitalhps.org/concepts/WID-02416519-N-01-test_concept"
         )
         self.assertIsInstance(manager, ConceptLifecycle)
         self.assertIsInstance(manager.instance, Concept)
-        self.assertEqual(manager.instance.label, "goat")
-        self.assertEqual(manager.instance.uri, "http://www.digitalhps.org/concepts/WID-02416519-N-01-goat")
+        self.assertEqual(manager.instance.label, "test_concept")
+        self.assertEqual(manager.instance.uri, "http://www.digitalhps.org/concepts/WID-02416519-N-01-test_concept")
 
     def test_cannot_merge_resolved_concepts(self):
         """
@@ -232,12 +237,12 @@ class TestConceptLifeCycle(TestCase):
         concepts.
         """
         manager = ConceptLifecycle.create(
-            label = "goat",
-            uri = "http://www.digitalhps.org/concepts/WID-02416519-N-01-goat"
+            label = "test_concept",
+            uri = "http://www.digitalhps.org/concepts/WID-02416519-N-01-test_concept"
         )
 
         with self.assertRaises(ConceptLifecycleException):
-            manager.merge_with('http://www.digitalhps.org/concepts/WID-02416519-N-02-goat')
+            manager.merge_with('http://www.digitalhps.org/concepts/WID-02416519-N-02-test_concept')
 
     @mock.patch("requests.get")
     def test_merge_with_conceptpower(self, mock_get):
@@ -377,4 +382,5 @@ class TestConceptLifeCycle(TestCase):
     def tearDown(self):
         Concept.objects.all().delete()
         Type.objects.all().delete()
-        reconnect_signal(post_save, concept_post_save_receiver, Type)
+        reconnect_signal(post_save, concept_post_save_receiver, Concept)
+        self.namespace_patcher.stop()
