@@ -48,6 +48,14 @@ var ConceptSearch = {
                             v-bind:concept=concept
                             v-for="concept in concepts">
                        </concept-list-item>
+                      <!-- no results message -->
+                      <div v-if="hasSearched && !error && concepts.length === 0" class="list-group-item text-center text-muted">
+                          No results found
+                      </div>
+                      <!-- error message -->
+                      <div v-if="error" class="list-group-item text-center text-danger">
+                          {{ errorMessage }}
+                      </div>
                   </div>
               </div>`,
     data: function () {
@@ -56,20 +64,24 @@ var ConceptSearch = {
             concepts: [],
             searching: false,
             error: false,
+            errorMessage: '',
             pos: "",
+            hasSearched: false
         }
     },
     methods: {
         selectConcept: function (concept) {
-            // Clear the concept search results.
             this.concepts = [];
             this.$emit('selectconcept', concept);
         },
-        ready: function () { // TODO: should be able to recover from errors.
+        ready: function () {
             return !(this.searching || this.error);
         },
-        search: function () {
-            this.searching = true; // Instant feedback for the user.
+        search: function () { // TODO: should be able to recover from errors.
+            this.searching = true;
+            this.hasSearched = true;
+            this.error = false;
+            this.errorMessage = '';
 
             this.$emit('search', this.searching); // emit search to remove concept picker
 
@@ -81,15 +93,20 @@ var ConceptSearch = {
             if (this.pos != "") {
                 payload['pos'] = this.pos;
             }
+            
             Concept.search(payload).then(function (response) {
                 self.concepts = response.body.results;
                 self.searching = false;
             }).catch(function (error) {
-                console.log("ConceptSearch:: search failed with", error);
                 self.error = true;
                 self.searching = false;
+                self.concepts = [];
+                
+                // Handle error message from backend
+                if (error.body && error.body.error) {
+                    self.errorMessage = 'Concept Search has failed. Please try again later.';
+                }
             });
-
         }
     },
 
