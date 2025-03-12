@@ -125,9 +125,7 @@ AppellationDisplayItem = {
                 store.commit('removeAppellation', deletedAppellation);
                 store.commit('setTextAppellation', []);
                 store.commit('resetCreateAppelltionsToText');
-                
-                // Notify parent components about deselection
-                this.$root.$emit('appellationDeselected', this.appellation);
+                store.commit('deselectAppellation', this.appellation);
             }
         },
         getLabel: function () {
@@ -206,27 +204,27 @@ AppellationDisplayItem = {
         this.updatePosition();
         window.addEventListener('resize', this.updatePosition);
         
-        // Listen for deletion events
-        this.$root.$on('appellationDeleted', this.handleDeletion);
-        // Listen for forced cleanup (e.g., after successful deletion)
-        this.$root.$on('forceCleanupAppellation', (id) => {
-            if (id === this.appellation.id) {
+        // Subscribe to store for deletion events
+        this.unsubscribeDelete = store.subscribe((mutation, state) => {
+            if (mutation.type === 'deleteAppellation' && mutation.payload.id === this.appellation.id) {
+                this.handleDeletion(mutation.payload);
+            }
+            if (mutation.type === 'forceCleanupAppellation' && mutation.payload === this.appellation.id) {
                 this.handleDeletion(this.appellation);
             }
-        });
-        
-        // Listen for position updates
-        EventBus.$on('updatepositions', () => {
-            this.$nextTick(() => {
-                this.updatePosition();
-            });
+            if (mutation.type === 'updatePositions') {
+                this.$nextTick(() => {
+                    this.updatePosition();
+                });
+            }
         });
     },
     beforeDestroy() {
         window.removeEventListener('resize', this.updatePosition);
-        this.$root.$off('appellationDeleted', this.handleDeletion);
-        this.$root.$off('forceCleanupAppellation');
-        EventBus.$off('updatepositions');
+        // Clean up store subscription
+        if (this.unsubscribeDelete) {
+            this.unsubscribeDelete();
+        }
         if (this.cleanupTimeout) {
             clearTimeout(this.cleanupTimeout);
         }
@@ -252,26 +250,32 @@ AppellationDisplay = {
         }
     },
     mounted() {
-        // Listen for appellation updates
-        this.$root.$on('appellationUpdated', (updatedAppellation) => {
-            const index = this.current_appellations.findIndex(a => a.id === updatedAppellation.id);
-            if (index !== -1) {
-                // Create a new array with the updated appellation
-                const newAppellations = [...this.current_appellations];
-                newAppellations[index] = updatedAppellation;
-                
-                // Force Vue to re-render by replacing the entire array
-                this.current_appellations = newAppellations;
-                
-                // Force a refresh of positions
-                this.$nextTick(() => {
-                    EventBus.$emit('updatepositions');
-                });
+        // Subscribe to store for appellation updates
+        this.unsubscribeUpdate = store.subscribe((mutation, state) => {
+            if (mutation.type === 'updateAppellation') {
+                const updatedAppellation = mutation.payload;
+                const index = this.current_appellations.findIndex(a => a.id === updatedAppellation.id);
+                if (index !== -1) {
+                    // Create a new array with the updated appellation
+                    const newAppellations = [...this.current_appellations];
+                    newAppellations[index] = updatedAppellation;
+                    
+                    // Force Vue to re-render by replacing the entire array
+                    this.current_appellations = newAppellations;
+                    
+                    // Force a refresh of positions
+                    this.$nextTick(() => {
+                        store.commit('updatePositions');
+                    });
+                }
             }
         });
     },
     beforeDestroy() {
-        this.$root.$off('appellationUpdated');
+        // Clean up store subscription
+        if (this.unsubscribeUpdate) {
+            this.unsubscribeUpdate();
+        }
     },
     watch: {
         appellations: {
