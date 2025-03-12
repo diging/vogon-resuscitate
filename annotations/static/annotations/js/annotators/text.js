@@ -271,7 +271,6 @@ ConceptCreator = {
             if (!(this.submitted || this.saving)) {
                 this.submitted = true;
                 this.saving = true;
-                self = this;
                 Appellation.save({
                     position: {
                         occursIn: this.text.id,
@@ -287,8 +286,8 @@ ConceptCreator = {
                     interpretation: this.concept.uri || this.concept.interpretation.uri,
                     pos: this.concept.pos || this.concept.interpretation.pos,
                     label: this.concept.label || this.concept.interpretation.label
-                }).then(function (response) {
-                    self.reset();
+                }).then(response => {
+                    this.reset();
                     if (store.getters.showConcepts) {
                         store.commit('setTextAppellation', response.body);
                         if (store.getters.getValidator == 2) {
@@ -297,17 +296,16 @@ ConceptCreator = {
                     }
                     store.commit("triggerConcepts", false); // Ensure this is set to false after creation
                     store.commit("conceptLabel", response.body.interpretation_label);
-                    self.$emit('createdappellation', response.body);
-                }).catch(function (error) {
+                    this.$emit('createdappellation', response.body);
+                }).catch(error => {
                     this.saving = false;
                     console.log('AppellationCreator:: failed to create appellation', error);
                 });
             }
         },
         updateTypes: function () {
-            self = this; // Closure!
-            ConceptType.query().then(function (response) {
-                self.concept_types = response.body.results;
+            ConceptType.query().then(response => {
+                this.concept_types = response.body.results;
             });
         },
         labelType: function (ctype) {
@@ -379,7 +377,7 @@ DateAppellationCreator = {
             if (!(this.submitted || this.saving)) {
                 // this.submitted = true;      // Prevent multiple submissions.
                 // this.saving = true;
-                self = this;
+                var self = this;
                 DateAppellation.save({
                     position: {
                         occursIn: this.text.id,
@@ -1596,7 +1594,7 @@ Appellator = new Vue({
             this.selected_text = null;
         },
         createdAppellation: function (appellation) {
-            var self = this;
+            self = this;
             var offsets = appellation.position.position_value.split(',');
             appellation.position.startOffset = offsets[0];
             appellation.position.endOffset = offsets[1];
