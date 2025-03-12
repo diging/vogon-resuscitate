@@ -9,7 +9,8 @@ import json
 from repository.models import Repository
 from .models import CitesphereAccount
 from .decorators import citesphere_authenticated
-from .utils import parse_iso_datetimes, get_giles_document_details
+from .utils import parse_iso_datetimes
+from .giles import GilesAPI
 
 User = get_user_model()
 
@@ -153,7 +154,7 @@ class CitesphereUtilsTests(TestCase):
         self.assertEqual(result, expected)
 
     @patch('requests.get')
-    def test_get_giles_document_details(self, mock_get):
+    def test_giles_api_get_file_content(self, mock_get):
         """Test retrieving document details from Giles"""
         # Setup
         user = User.objects.create_user('user', 'user@example.com', 'password')
@@ -161,7 +162,8 @@ class CitesphereUtilsTests(TestCase):
             name='Test Repo',
             endpoint='https://test.org',
             client_id='client',
-            client_secret='secret'
+            client_secret='secret',
+            giles_endpoint='https://giles.test'
         )
         
         # Mock for the CitesphereAccount creation (signal)
@@ -182,23 +184,24 @@ class CitesphereUtilsTests(TestCase):
                 extra_data='{}'
             )
         
-        # Configure mock for the get_giles_document_details function
+        # Configure mock for the GilesAPI get_file_content method
         mock_response = MagicMock()
         mock_response.text = "Document content"
         mock_response.raise_for_status.return_value = None
         mock_get.return_value = mock_response
         
-        with self.settings(GILES_ENDPOINT='https://giles.test/'):
-            result = get_giles_document_details(user, 'file123')
-            
-            # Verify the result
-            self.assertEqual(result, "Document content")
-            
-            # Verify the request
-            mock_get.assert_called_once_with(
-                'https://giles.test/api/v2/resources/files/file123/content/',
-                headers={'Authorization': 'Bearer access123'}
-            )
+        # Initialize the GilesAPI client and call the method
+        giles_api = GilesAPI(user, repository)
+        result = giles_api.get_file_content('file123')
+        
+        # Verify the result
+        self.assertEqual(result, "Document content")
+        
+        # Verify the request
+        mock_get.assert_called_once_with(
+            'https://giles.test/api/v2/resources/files/file123/content/',
+            headers={'Authorization': 'Bearer access123'}
+        )
 
 
 @patch('requests.get')

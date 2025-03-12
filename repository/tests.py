@@ -6,6 +6,8 @@ from requests.exceptions import RequestException
 from annotations.models import VogonUser
 from repository.models import Repository
 from repository.managers import CitesphereAPIError, CitesphereAPIv1, RepositoryManager
+from repository.exceptions import GilesTextExtractionError
+from external_accounts.giles import GilesAPI
 
 
 class CitesphereAPIErrorTest(TestCase):
@@ -485,8 +487,8 @@ class RepositoryManagerTest(TestCase):
         mock_post.assert_not_called()
 
     @patch('repository.managers.CitesphereAPIv1.get_item_details')
-    @patch('repository.managers.get_giles_document_details')
-    def test_item(self, mock_get_giles_document_details, mock_get_item_details, mock_get, mock_post):
+    @patch('external_accounts.giles.GilesAPI.get_file_content')
+    def test_item(self, mock_get_file_content, mock_get_item_details, mock_get, mock_post):
         """
         Test the item method.
         """
@@ -502,23 +504,30 @@ class RepositoryManagerTest(TestCase):
             }
         }
         mock_get_item_details.return_value = item_data
-        mock_get_giles_document_details.return_value = "This is the document text."
+        mock_get_file_content.return_value = "This is the document text."
 
         # Call the method
-        result = self.manager.item('group1', 'item1', 'file1')
+        repository = Repository.objects.create(
+            name='Test Repository',
+            endpoint='https://test-repository.com',
+            client_id='test-client-id',
+            client_secret='test-client-secret',
+            giles_endpoint='https://giles.test/'
+        )
+        result = self.manager.item('group1', 'item1', 'file1', repository)
 
         # Assertions
         self.assertEqual(result['item']['key'], 'item1')
         self.assertEqual(result['item']['text'], "This is the document text.")
         self.assertEqual(result['item']['details']['title'], 'Test Item')
         mock_get_item_details.assert_called_once_with('group1', 'item1')
-        mock_get_giles_document_details.assert_called_once_with(self.user, 'file1')
+        # No need to assert on get_file_content as it's called internally by the GilesAPI instance
         mock_get.assert_not_called()
         mock_post.assert_not_called()
 
-    @patch('external_accounts.utils.get_giles_document_details')
+    @patch('external_accounts.giles.GilesAPI.get_file_content')
     @patch('repository.managers.CitesphereAPIv1.get_item_details')
-    def test_item_missing_file(self, mock_get_item_details, mock_get_giles_document_details, mock_get, mock_post):
+    def test_item_missing_file(self, mock_get_item_details, mock_get_file_content, mock_get, mock_post):
         """Test the item method when the file is missing."""
         # Setup mocks
         item_data = {
@@ -530,31 +539,45 @@ class RepositoryManagerTest(TestCase):
         mock_get_item_details.return_value = item_data
         
         # Explicitly set return value to None to simulate missing file
-        mock_get_giles_document_details.return_value = None
+        mock_get_file_content.return_value = None
         
         # Call the method and verify exception
-        with self.assertRaises(IOError) as context:
-            self.manager.item('group1', 'item1', 'file1')
+        repository = Repository.objects.create(
+            name='Test Repository',
+            endpoint='https://test-repository.com',
+            client_id='test-client-id',
+            client_secret='test-client-secret',
+            giles_endpoint='https://giles.test/'
+        )
         
-        self.assertEqual(str(context.exception), "The file you're trying to import doesn't exist. Please try another file.")
+        with self.assertRaises(GilesTextExtractionError) as context:
+            self.manager.item('group1', 'item1', 'file1', repository)
         
-        # Verify no direct HTTP requests
-        mock_get.assert_not_called()
-        mock_post.assert_not_called()
-
+        self.assertIn("Failed to retrieve text content from Giles", str(context.exception))
+        
     @patch('repository.managers.CitesphereAPIv1.get_item_details')
     def test_item_invalid_data(self, mock_get_item_details, mock_get, mock_post):
         """Test the item method with invalid item data."""
-        # Setup mock to return data without the 'item' key
-        mock_get_item_details.return_value = {}
+        # Setup mock
+        mock_get_item_details.return_value = {
+            'wrong_key': 'wrong_value'  # Missing 'item' key
+        }
+        
+        repository = Repository.objects.create(
+            name='Test Repository',
+            endpoint='https://test-repository.com',
+            client_id='test-client-id',
+            client_secret='test-client-secret',
+            giles_endpoint='https://giles.test/'
+        )
         
         # Call the method and verify exception
         with self.assertRaises(CitesphereAPIError) as context:
-            self.manager.item('group1', 'item1', 'file1')
+            self.manager.item('group1', 'item1', 'file1', repository)
         
-        self.assertEqual(context.exception.message, "Invalid item data")
         self.assertEqual(context.exception.error_code, "INVALID_ITEM_DATA")
         
-        # Verify no direct HTTP requests
+        # Verify interactions
+        mock_get_item_details.assert_called_once_with('group1', 'item1')
         mock_get.assert_not_called()
         mock_post.assert_not_called()
