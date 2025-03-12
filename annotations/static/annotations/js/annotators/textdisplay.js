@@ -169,7 +169,8 @@ TextDisplay = {
             // State flags
             isEditing: false,
             showSuccessMessage: false,
-            successMessageTimeout: null
+            successMessageTimeout: null,
+            listening: false
         }
     },
     mounted: function() {
@@ -188,6 +189,12 @@ TextDisplay = {
             localStorage.removeItem('editingAppellation');
             document.removeEventListener('keydown', this.handleEscKey);
         });
+        // Add ESC key listener
+        window.addEventListener('keyup', this.handleKeyup);
+    },
+    beforeDestroy: function() {
+        // Clean up event listener
+        window.removeEventListener('keyup', this.handleKeyup); 
     },
     methods: {
         // Handle ESC key press to cancel editing
@@ -213,24 +220,28 @@ TextDisplay = {
             this.selected_multi_line = false;
             this.selected_mid_lines = null;
             this.selected_end_position = null;
+            this.listening = false;
         },
-        
-        // Event emitters for appellation selection
-        selectAppellation: function(appellation) { 
-            this.$emit('selectappellation', appellation); 
+        selectAppellation: function(appellation) { this.$emit('selectappellation', appellation); },
+        selectDateAppellation: function(appellation) { this.$emit('selectdateappellation', appellation); },
+        textIsSelected: function() { return this.selected.startOffset != null; },
+        handleKeyup: function(e) {
+            if (e.key === 'Escape') {
+                this.resetTextSelection();
+                this.listening = false;
+                // Cancel concept selection
+                EventBus.$emit('cleartextselection');
+                EventBus.$emit('cancelappellation');
+                clearMouseTextSelection();
+            }
         },
-        selectDateAppellation: function(appellation) { 
-            this.$emit('selectdateappellation', appellation); 
-        },
-        
-        // Check if text is currently selected
-        textIsSelected: function() { 
-            return this.selected.startOffset != null; 
-        },
-        
-        // Handle mouse selection of text
         handleMouseup: function(e) {
-            if (e.target.id != 'text-content') return;
+            // Show the instruction message when starting selection
+            this.listening = true;
+
+            // We're looking for an event in which the user has selected some
+            //  text.
+            if (e.target.id != 'text-content') return;    // Out of scope.
             e.stopPropagation();
 
             // Get the selected text range
