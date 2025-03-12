@@ -35,7 +35,15 @@ class CitesphereAPIErrorTest(TestCase):
 @patch('requests.post')  # Global patch to ensure no POST requests are made
 @patch('requests.get')   # Global patch to ensure no GET requests are made
 class CitesphereAPIv1Test(TestCase):
-    """Test cases for the CitesphereAPIv1 class."""
+    """
+    Test cases for the CitesphereAPIv1 class.
+    
+    Note: Some tests in this class intentionally trigger error conditions
+    to verify proper error handling. The following log messages are expected
+    and do not reflect a test failure:
+    - ERROR:repository.managers:Invalid JSON response
+    - ERROR:repository.managers:Failed to fetch data: Request error
+    """
 
     def setUp(self):
         """Set up test data."""
@@ -241,7 +249,18 @@ class CitesphereAPIv1Test(TestCase):
 @patch('requests.post')  # Global patch to ensure no POST requests are made
 @patch('requests.get')   # Global patch to ensure no GET requests are made
 class RepositoryManagerTest(TestCase):
-    """Test cases for the RepositoryManager class."""
+    """
+    Test cases for the RepositoryManager class.
+
+    Note: Several tests in this class deliberately trigger error conditions
+    to verify proper error handling. The following log messages are expected
+    during test execution and do not indicate test failures:
+    - ERROR:repository.managers:Invalid page number: Page must be a positive integer
+    - ERROR:repository.managers:Failed to fetch data: Request error
+    - ERROR:repository.managers:Invalid item data received: missing 'item' key
+    - ERROR:repository.managers:Failed to retrieve text content from Giles for file ID: file1
+    - ERROR:repository.managers:Unexpected error retrieving Giles document: [Error message]
+    """
 
     def setUp(self):
         """Set up test data."""
@@ -568,7 +587,7 @@ class RepositoryManagerTest(TestCase):
             endpoint='https://test-repository.com',
             client_id='test-client-id',
             client_secret='test-client-secret',
-            giles_endpoint='https://giles.test/'
+            giles_endpoint='https://giles.test'
         )
         
         # Call the method and verify exception

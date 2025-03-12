@@ -17,6 +17,11 @@ User = get_user_model()
 # Global mock for all tests to prevent any real HTTP requests
 @patch('requests.get')
 class CitesphereAccountModelTests(TestCase):
+    """
+    Test cases for the CitesphereAccount model.
+    
+    """
+    
     def setUp(self):
         self.user = User.objects.create_user(
             username='testuser',
@@ -140,6 +145,10 @@ class CitesphereAccountModelTests(TestCase):
 
 
 class CitesphereUtilsTests(TestCase):
+    """
+    Test cases for Citesphere utility functions.
+    """
+    
     def test_parse_iso_datetimes(self):
         """Test parsing ISO format datetime strings to dates"""
         test_dates = [
@@ -206,6 +215,17 @@ class CitesphereUtilsTests(TestCase):
 
 @patch('requests.get')
 class CitesphereDecoratorTests(TestCase):
+    """
+    Test cases for the citesphere_authenticated decorator.
+    
+    These tests verify that the decorator correctly handles:
+    - Users with valid Citesphere accounts
+    - Users with expired tokens
+    - Users with no Citesphere account
+    
+    All external HTTP requests are mocked to prevent actual API calls.
+    """
+    
     def setUp(self):
         self.factory = RequestFactory()
         self.user = User.objects.create_user(
