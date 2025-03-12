@@ -262,9 +262,9 @@ def build_concept_node(appellation, user, creation_time, source_uri):
     """
     Build a node dictionary for an appellation event.
     Each appellation gets its own node even if it points to the same concept.
-    The node’s termParts come only from the given appellation.
+    The node's termParts come only from the given appellation.
 
-      - "metadata.interpretation" is the concept’s label.
+      - "metadata.interpretation" is the concept's label.
       - "context.sourceUri" is the URL of the concept source (from appellation.interpretation.master.uri)
     """
     term_parts = []
@@ -316,96 +316,170 @@ def generate_graph_data(relationset, user):
     node_counter = 0
 
     def get_node_id():
-        # use the 'node_counter' variable from the enclosing (non-local) scope.
         nonlocal node_counter
-        # Convert the current counter value to a string to use as the unique node ID.
         node_id = str(node_counter)
-        # Increment the counter so that the next call produces a different (unique) ID.
         node_counter += 1
-        # Return the generated node ID.
         return node_id
 
-    # This mapping uses a unique key for each appellation event.
+    # This mapping tracks appellation/relation IDs to their node IDs
     node_mapping = {}
-
+    
+    # Recursive function to process relations
     def process_relation(relation):
-        """
-        Process a relation event recursively.
-        Creates a new relation node and processes its three roles: subject, predicate, and object.
-        If a role is itself a relation, it is processed recursively; otherwise, it is treated as an appellation.
-        Returns the unique node id for this relation event.
-        """
-        # Generate a unique node id for this relation event.
-        rel_node_id = get_node_id()
-        # Create a relation node using get_relation_node and store it in the nodes dictionary.
-        nodes[rel_node_id] = get_relation_node(user, relationset.occursIn.created, relationset.occursIn.uri)
+        from django.contrib.contenttypes.models import ContentType
+        from annotations.models import Relation, Appellation, DateAppellation
         
-        # -------------------------------
-        # Process the subject of the relation.
-        # -------------------------------
-        subj = relation.source_content_object
-        if isinstance(subj, Relation):
-            # If the subject is itself a relation, process it recursively.
-            subj_node_id = process_relation(subj)
-        else:
-            # Otherwise, treat it as an appellation. Create a unique key using its id and creation timestamp.
-            key = f"app-{subj.id}-{subj.created.isoformat()}"
-            # If this appellation hasn't been processed yet, build its node.
-            if key not in node_mapping:
-                node_id = get_node_id()
-                nodes[node_id] = build_concept_node(subj, user, relationset.occursIn.created, relationset.occursIn.uri)
-                node_mapping[key] = node_id
-            # Retrieve the node id for the subject from the mapping.
-            subj_node_id = node_mapping[key]
-        # Add an edge linking the current relation node to the subject node.
-        edges.append({"source": rel_node_id, "relation": "subject", "target": subj_node_id})
+        appellation_type = ContentType.objects.get_for_model(Appellation)
+        relation_type = ContentType.objects.get_for_model(Relation)
+        dateappellation_type = ContentType.objects.get_for_model(DateAppellation)
         
-        # -------------------------------
-        # Process the predicate of the relation.
-        # -------------------------------
-        pred = relation.predicate
-        key = f"app-{pred.id}-{pred.created.isoformat()}"
-        if key not in node_mapping:
+        # Process source (subject)
+        source_node_id = None
+        if relation.source_content_type_id == relation_type.id:
+            # Source is another relation
+            source_relation = Relation.objects.get(pk=relation.source_object_id)
+            source_node_id = process_relation(source_relation)
+        elif relation.source_content_type_id == appellation_type.id:
+            # Source is an appellation
+            source_appellation = Appellation.objects.get(pk=relation.source_object_id)
+            source_node_id = process_appellation(source_appellation)
+        elif relation.source_content_type_id == dateappellation_type.id:
+            # Source is a date appellation
+            source_dateappellation = DateAppellation.objects.get(pk=relation.source_object_id)
+            source_node_id = process_date_appellation(source_dateappellation)
+        
+        # Process predicate
+        predicate_node_id = process_appellation(relation.predicate)
+        
+        # Process object
+        object_node_id = None
+        if relation.object_content_type_id == relation_type.id:
+            # Object is another relation
+            object_relation = Relation.objects.get(pk=relation.object_object_id)
+            object_node_id = process_relation(object_relation)
+        elif relation.object_content_type_id == appellation_type.id:
+            # Object is an appellation
+            object_appellation = Appellation.objects.get(pk=relation.object_object_id)
+            object_node_id = process_appellation(object_appellation)
+        elif relation.object_content_type_id == dateappellation_type.id:
+            # Object is a date appellation
+            object_dateappellation = DateAppellation.objects.get(pk=relation.object_object_id)
+            object_node_id = process_date_appellation(object_dateappellation)
+        
+        # Create relation node
+        relation_id = f"rel-{relation.id}-{relation.created.isoformat()}"
+        if relation_id not in node_mapping:
             node_id = get_node_id()
-            nodes[node_id] = build_concept_node(pred, user, relationset.occursIn.created, relationset.occursIn.uri)
-            node_mapping[key] = node_id
-        pred_node_id = node_mapping[key]
-        # Add an edge linking the current relation node to the predicate node.
-        edges.append({"source": rel_node_id, "relation": "predicate", "target": pred_node_id})
-        
-        # -------------------------------
-        # Process the object of the relation.
-        # -------------------------------
-        obj = relation.object_content_object
-        if isinstance(obj, Relation):
-            # If the object is itself a relation, process it recursively.
-            obj_node_id = process_relation(obj)
-        else:
-            key = f"app-{obj.id}-{obj.created.isoformat()}"
-            if key not in node_mapping:
-                node_id = get_node_id()
-                nodes[node_id] = build_concept_node(obj, user, relationset.occursIn.created, relationset.occursIn.uri)
-                node_mapping[key] = node_id
-            obj_node_id = node_mapping[key]
-        # Add an edge linking the current relation node to the object node.
-        edges.append({"source": rel_node_id, "relation": "object", "target": obj_node_id})
-        
-        # Return the node id for this processed relation event.
-        return rel_node_id
-
-    # Process the top-level (root) relation.
+            node_mapping[relation_id] = node_id
+            
+            source_uri = relation.occursIn.uri if hasattr(relation.occursIn, 'uri') else ""
+            nodes[node_id] = get_relation_node(user, relation.created, source_uri)
+            
+            # Add edges
+            if source_node_id:
+                edges.append({
+                    "source": node_id,
+                    "relation": "subject",
+                    "target": source_node_id
+                })
+            
+            if predicate_node_id:
+                edges.append({
+                    "source": node_id,
+                    "relation": "predicate",
+                    "target": predicate_node_id
+                })
+            
+            if object_node_id:
+                edges.append({
+                    "source": node_id,
+                    "relation": "object",
+                    "target": object_node_id
+                })
+                
+        return node_mapping[relation_id]
+    
+    def process_appellation(appellation):
+        appellation_id = f"app-{appellation.id}-{appellation.created.isoformat()}"
+        if appellation_id not in node_mapping:
+            node_id = get_node_id()
+            node_mapping[appellation_id] = node_id
+            
+            # Get the source URI from the document or default to empty
+            source_uri = appellation.occursIn.uri if hasattr(appellation.occursIn, 'uri') else ""
+            
+            # Build the node
+            concept_node = build_concept_node(appellation, user, appellation.created, source_uri)
+            nodes[node_id] = concept_node
+            
+        return node_mapping[appellation_id]
+    
+    def process_date_appellation(dateappellation):
+        appellation_id = f"date-{dateappellation.id}-{dateappellation.created.isoformat()}"
+        if appellation_id not in node_mapping:
+            node_id = get_node_id()
+            node_mapping[appellation_id] = node_id
+            
+            # Get the source URI from the document
+            source_uri = dateappellation.occursIn.uri if hasattr(dateappellation.occursIn, 'uri') else ""
+            
+            # Create a simple node for date appellation (adapt as needed)
+            nodes[node_id] = {
+                "label": str(dateappellation),
+                "metadata": {
+                    "type": "appellation_event",
+                    "interpretation": str(dateappellation),
+                    "termParts": [
+                        {
+                            "position": -1,
+                            "expression": str(dateappellation),
+                            "normalization": "",
+                            "formattedPointer": "",
+                            "format": ""
+                        }
+                    ]
+                },
+                "context": {
+                    "creator": user.username,
+                    "creationTime": dateappellation.created.strftime('%Y-%m-%d'),
+                    "creationPlace": settings.QUADRIGA_CREATION_PLACE,
+                    "sourceUri": source_uri
+                }
+            }
+            
+        return node_mapping[appellation_id]
+    
+    # Process the top-level relation
     top_relation = relationset.root
+    # Process the root relation, which will recursively process all nested relations
     process_relation(top_relation)
     
-    # default mapping from the top-level relation's roles.
-    top_subj = top_relation.source_content_object
-    top_pred = top_relation.predicate
-    top_obj = top_relation.object_content_object
-    default_mapping = {
-        "subject": {"type": "REF", "reference": node_mapping.get(f"app-{top_subj.id}-{top_subj.created.isoformat()}", "")},
-        "predicate": {"type": "URI", "uri": top_pred.interpretation.label, "label": top_pred.interpretation.label},
-        "object": {"type": "REF", "reference": node_mapping.get(f"app-{top_obj.id}-{top_obj.created.isoformat()}", "")}
-    }
+    # Build the default mapping using the processed nodes
+    default_mapping = {}
+    
+    # If the top relation has been processed, set up the default mapping
+    if top_relation:
+        top_subj = top_relation.source_content_object
+        top_pred = top_relation.predicate
+        top_obj = top_relation.object_content_object
+        
+        subj_key = f"app-{top_subj.id}-{top_subj.created.isoformat()}" if hasattr(top_subj, 'id') else None
+        obj_key = f"app-{top_obj.id}-{top_obj.created.isoformat()}" if hasattr(top_obj, 'id') else None
+        
+        # For relations that are objects, use the relation key
+        if hasattr(top_obj, 'source_content_type_id'):
+            obj_key = f"rel-{top_obj.id}-{top_obj.created.isoformat()}"
+        
+        default_mapping = {
+            "subject": {"type": "REF", "reference": node_mapping.get(subj_key, "0")},
+            "predicate": {
+                "type": "URI", 
+                "uri": top_pred.interpretation.master.uri if hasattr(top_pred.interpretation, 'master') and hasattr(top_pred.interpretation.master, 'uri') else top_pred.interpretation.label,
+                "label": top_pred.interpretation.label
+            },
+            "object": {"type": "REF", "reference": node_mapping.get(obj_key, "0")}
+        }
+        print("default_mapping", default_mapping) #DEBUG
     
     return {
         "graph": {
@@ -415,7 +489,7 @@ def generate_graph_data(relationset, user):
                     "creator": user.username,
                     "creationTime": relationset.occursIn.created.strftime('%Y-%m-%d'),
                     "creationPlace": settings.QUADRIGA_CREATION_PLACE,
-                    "sourceUri": relationset.occursIn.uri
+                    "sourceUri": relationset.occursIn.uri if hasattr(relationset.occursIn, 'uri') else ""
                 }
             },
             "nodes": nodes,
