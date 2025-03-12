@@ -417,7 +417,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
             if in_relations:
                 return Response(
                     {"detail": "Cannot delete an Appellation used in a Relation."},
-                    status=status.HTTP_409_CONFLICT
+                    status=status.HTTP_400_BAD_REQUEST
                 )
             
             self.perform_destroy(instance)
