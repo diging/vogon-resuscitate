@@ -296,7 +296,7 @@ def build_concept_node(appellation, user, creation_time, source_uri):
         "context": {
             "creator": user.username,
             "creationTime": creation_time.strftime('%Y-%m-%d'),
-            "creationPlace": "phoenix",
+            "creationPlace": settings.QUADRIGA_CREATION_PLACE,
             "sourceUri": concept_source_url
         }
     }
@@ -414,7 +414,7 @@ def generate_graph_data(relationset, user):
                 "context": {
                     "creator": user.username,
                     "creationTime": relationset.occursIn.created.strftime('%Y-%m-%d'),
-                    "creationPlace": "phoenix",
+                    "creationPlace": settings.QUADRIGA_CREATION_PLACE,
                     "sourceUri": relationset.occursIn.uri
                 }
             },
