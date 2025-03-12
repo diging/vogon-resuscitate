@@ -7,6 +7,7 @@ from django.conf import settings
 
 from rest_framework import status
 from rest_framework.settings import api_settings
+from rest_framework.exceptions import ValidationError
 
 from rest_framework import viewsets, exceptions, status
 from rest_framework.authentication import SessionAuthentication
@@ -370,6 +371,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                 concept = Concept.objects.get(uri=interpretation_uri)
                 instance.interpretation = concept
             except Concept.DoesNotExist:
+                logger.error(f"Client error: Concept does not exist")
                 return Response(
                     {"error": "The provided concept (interpretation) does not exist."},
                     status=status.HTTP_400_BAD_REQUEST
@@ -380,11 +382,19 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
             serializer = self.get_serializer(instance)
             return Response(serializer.data)
             
-        except Exception as e:
-            logger.error(f"Error updating appellation: {str(e)}", exc_info=True)
+        except (KeyError, ValueError, ValidationError) as e:
+            # Client errors - bad data or missing required fields
+            logger.error(f"Client error in appellation update: {str(e)}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            # Server errors - unexpected exceptions
+            logger.error(f"Server error updating appellation: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "An unexpected error occurred while processing your request."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     def destroy(self, request, *args, **kwargs):
