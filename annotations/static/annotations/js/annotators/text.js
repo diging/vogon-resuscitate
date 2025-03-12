@@ -2,6 +2,22 @@
  *         Components!
  *****************************************************************************/
 
+// Shared utility function for creating appellations
+function createAppellationHelper(params, successCallback, errorCallback) {
+    Appellation.save(params)
+        .then(function(response) {
+            if (successCallback) {
+                successCallback(response.body);
+            }
+        })
+        .catch(function(error) {
+            console.log('Failed to create appellation', error);
+            if (errorCallback) {
+                errorCallback(error);
+            }
+        });
+}
+
 var ConceptListItem = {
     props: ['concept'],
     template: `<div class="list-group-item concept-item clearfix" id="concept-{{ concept.uri }}">
@@ -256,22 +272,22 @@ ConceptCreator = {
                 return; // Don't proceed with invalid positions
             }
             
-            let stringRep;
-            let positionValue;
-            
-            if (store.getters.showConcepts) {
-                // Don't modify the original position object, create a copy
-                positionValue = "0,0"; // Use placeholder values instead of null
-                stringRep = this.text.title;
-            } else {
-                positionValue = [this.position.startOffset, this.position.endOffset].join(",");
-                stringRep = this.position.representation;
-            }
-            
             if (!(this.submitted || this.saving)) {
                 this.submitted = true;
                 this.saving = true;
-                Appellation.save({
+                
+                let stringRep;
+                let positionValue;
+                
+                if (store.getters.showConcepts) {
+                    positionValue = "0,0"; // Use placeholder values
+                    stringRep = this.text.title;
+                } else {
+                    positionValue = [this.position.startOffset, this.position.endOffset].join(",");
+                    stringRep = this.position.representation;
+                }
+                
+                const params = {
                     position: {
                         occursIn: this.text.id,
                         position_type: "CO",
@@ -286,21 +302,28 @@ ConceptCreator = {
                     interpretation: this.concept.uri || this.concept.interpretation.uri,
                     pos: this.concept.pos || this.concept.interpretation.pos,
                     label: this.concept.label || this.concept.interpretation.label
-                }).then(response => {
-                    this.reset();
-                    if (store.getters.showConcepts) {
-                        store.commit('setTextAppellation', response.body);
-                        if (store.getters.getValidator == 2) {
-                            store.commit('setValidator', 0);
+                };
+                
+                const self = this;
+                createAppellationHelper(
+                    params,
+                    function(responseBody) {
+                        self.reset();
+                        if (store.getters.showConcepts) {
+                            store.commit('setTextAppellation', responseBody);
+                            if (store.getters.getValidator == 2) {
+                                store.commit('setValidator', 0);
+                            }
                         }
+                        store.commit("triggerConcepts", false); // Ensure this is set to false after creation
+                        store.commit("conceptLabel", responseBody.interpretation_label);
+                        self.$emit('createdappellation', responseBody);
+                    },
+                    function(error) {
+                        self.saving = false;
+                        console.log('AppellationCreator:: failed to create appellation', error);
                     }
-                    store.commit("triggerConcepts", false); // Ensure this is set to false after creation
-                    store.commit("conceptLabel", response.body.interpretation_label);
-                    this.$emit('createdappellation', response.body);
-                }).catch(error => {
-                    this.saving = false;
-                    console.log('AppellationCreator:: failed to create appellation', error);
-                });
+                );
             }
         },
         updateTypes: function () {
@@ -375,8 +398,8 @@ DateAppellationCreator = {
         },
         createAppellation: function () {
             if (!(this.submitted || this.saving)) {
-                // this.submitted = true;      // Prevent multiple submissions.
-                // this.saving = true;
+                this.submitted = true; // Prevent multiple submissions.
+                this.saving = true;
                 var self = this;
                 DateAppellation.save({
                     position: {
@@ -644,23 +667,22 @@ AppellationCreator = {
                 return; // Don't proceed with invalid positions
             }
             
-            let stringRep;
-            let positionValue;
-            
-            if (store.getters.showConcepts) {
-                // Don't modify the original position object, create a copy
-                positionValue = "0,0"; // Use placeholder values instead of null
-                stringRep = this.text.title;
-            } else {
-                positionValue = [this.position.startOffset, this.position.endOffset].join(",");
-                stringRep = this.position.representation;
-            }
-            
             if (!(this.submitted || this.saving)) {
                 this.submitted = true;
                 this.saving = true;
-                self = this;
-                Appellation.save({
+                
+                let stringRep;
+                let positionValue;
+                
+                if (store.getters.showConcepts) {
+                    positionValue = "0,0"; // Use placeholder values
+                    stringRep = this.text.title;
+                } else {
+                    positionValue = [this.position.startOffset, this.position.endOffset].join(",");
+                    stringRep = this.position.representation;
+                }
+                
+                const params = {
                     position: {
                         occursIn: this.text.id,
                         position_type: "CO",
@@ -675,21 +697,28 @@ AppellationCreator = {
                     interpretation: this.concept.uri || this.concept.interpretation.uri,
                     pos: this.concept.pos || this.concept.interpretation.pos,
                     label: this.concept.label || this.concept.interpretation.label
-                }).then(function (response) {
-                    self.reset();
-                    if (store.getters.showConcepts) {
-                        store.commit('setTextAppellation', response.body);
-                        if (store.getters.getValidator == 2) {
-                            store.commit('setValidator', 0);
+                };
+                
+                const self = this;
+                createAppellationHelper(
+                    params,
+                    function(responseBody) {
+                        self.reset();
+                        if (store.getters.showConcepts) {
+                            store.commit('setTextAppellation', responseBody);
+                            if (store.getters.getValidator == 2) {
+                                store.commit('setValidator', 0);
+                            }
                         }
+                        store.commit("triggerConcepts", false); // Ensure this is set to false after creation
+                        store.commit("conceptLabel", responseBody.interpretation_label);
+                        self.$emit('createdappellation', responseBody);
+                    },
+                    function(error) {
+                        self.saving = false;
+                        console.log('AppellationCreator:: failed to create appellation', error);
                     }
-                    store.commit("triggerConcepts", false); // Ensure this is set to false after creation
-                    store.commit("conceptLabel", response.body.interpretation_label);
-                    self.$emit('createdappellation', response.body);
-                }).catch(function (error) {
-                    this.saving = false;
-                    console.log('AppellationCreator:: failed to create appellation', error);
-                });
+                );
             }
         },
         ready: function () {
@@ -1077,7 +1106,7 @@ RelationCreator = {
             this.field_data[this.fieldHash(field)] = data;
             this.ready = this.readyToCreate();
         },
-        unregisterData: function (field, data) {
+        unregisterData: function (field) {
             delete(this.field_data[this.fieldHash(field)]);
             this.ready = this.readyToCreate();
         },
