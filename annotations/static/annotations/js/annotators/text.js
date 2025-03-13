@@ -117,6 +117,7 @@ var ConceptSearch = {
 
 
 ConceptCreator = {
+    props: ["defaultName"],
     template: `<div class="form">
                     <div class="form-group">
                         <div class="checkbox">
@@ -180,10 +181,10 @@ ConceptCreator = {
     data: function () {
         return {
             oath: false,
-            name: "",
+            name: this.defaultName || "",
             description: "",
             concept_type: "",
-            pos: "",
+            pos: "noun",
             concept_types: [],
             error: false,
             submitted: false
@@ -193,6 +194,11 @@ ConceptCreator = {
         this.updateTypes();
     },
     watch: {
+        defaultName: function(newName) {
+            if (newName && this.name === "") {
+                this.name = newName;
+            }
+        },
         name: function () {
             this.tryAgain();
         },
@@ -229,7 +235,7 @@ ConceptCreator = {
                 self = this;
                 Concept.save({
                     uri: 'generate',
-                    label: "this.label",
+                    label: this.name,
                     description: this.description,
                     pos: this.pos,
                     typed: this.concept_type
@@ -512,6 +518,7 @@ AppellationCreator = {
                    </concept-search>
                    <concept-creator
                        v-if="create && concept == null"
+                       v-bind:defaultName="position.representation"
                        v-on:createdconcept="createdConcept">
                    </concept-creator>
                    <concept-picker
