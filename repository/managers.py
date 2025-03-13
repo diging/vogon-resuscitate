@@ -57,6 +57,9 @@ class CitesphereAPIv1:
     def get_group_collections(self, group_id, params=None):
         """Fetch all collections within a group with optional parameters."""
         return self._make_request(f"/groups/{group_id}/collections/", params=params)
+    
+    def get_group_subcollections(self, group_id, collection_id, params=None):
+        return self._make_request(f"/groups/{group_id}/collections/{collection_id}/collections/", params=params)
 
     def get_collection_items(self, group_id, collection_id, params=None):
         """Fetch items in a specific collection with optional parameters."""
