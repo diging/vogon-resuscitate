@@ -331,7 +331,6 @@ def generate_graph_data(relationset, user):
         
         appellation_type = ContentType.objects.get_for_model(Appellation)
         relation_type = ContentType.objects.get_for_model(Relation)
-        dateappellation_type = ContentType.objects.get_for_model(DateAppellation)
         
         # Process source (subject)
         source_node_id = None
@@ -343,11 +342,6 @@ def generate_graph_data(relationset, user):
             # Source is an appellation
             source_appellation = Appellation.objects.get(pk=relation.source_object_id)
             source_node_id = process_appellation(source_appellation)
-        elif relation.source_content_type_id == dateappellation_type.id:
-            # Source is a date appellation
-            source_dateappellation = DateAppellation.objects.get(pk=relation.source_object_id)
-            source_node_id = process_date_appellation(source_dateappellation)
-        
         # Process predicate
         predicate_node_id = process_appellation(relation.predicate)
         
@@ -361,10 +355,6 @@ def generate_graph_data(relationset, user):
             # Object is an appellation
             object_appellation = Appellation.objects.get(pk=relation.object_object_id)
             object_node_id = process_appellation(object_appellation)
-        elif relation.object_content_type_id == dateappellation_type.id:
-            # Object is a date appellation
-            object_dateappellation = DateAppellation.objects.get(pk=relation.object_object_id)
-            object_node_id = process_date_appellation(object_dateappellation)
         
         # Create relation node
         relation_id = f"rel-{relation.id}-{relation.created.isoformat()}"
@@ -414,73 +404,72 @@ def generate_graph_data(relationset, user):
             
         return node_mapping[appellation_id]
     
-    def process_date_appellation(dateappellation):
-        appellation_id = f"date-{dateappellation.id}-{dateappellation.created.isoformat()}"
-        if appellation_id not in node_mapping:
-            node_id = get_node_id()
-            node_mapping[appellation_id] = node_id
-            
-            # Get the source URI from the document
-            source_uri = dateappellation.occursIn.uri if hasattr(dateappellation.occursIn, 'uri') else ""
-            
-            # Create a simple node for date appellation (adapt as needed)
-            nodes[node_id] = {
-                "label": str(dateappellation),
-                "metadata": {
-                    "type": "appellation_event",
-                    "interpretation": str(dateappellation),
-                    "termParts": [
-                        {
-                            "position": -1,
-                            "expression": str(dateappellation),
-                            "normalization": "",
-                            "formattedPointer": "",
-                            "format": ""
-                        }
-                    ]
-                },
-                "context": {
-                    "creator": user.username,
-                    "creationTime": dateappellation.created.strftime('%Y-%m-%d'),
-                    "creationPlace": settings.QUADRIGA_CREATION_PLACE,
-                    "sourceUri": source_uri
-                }
-            }
-            
-        return node_mapping[appellation_id]
-    
     # Process the top-level relation
     top_relation = relationset.root
     # Process the root relation, which will recursively process all nested relations
     process_relation(top_relation)
     
-    # Build the default mapping using the processed nodes
+    #############################################################################
+    # DEFAULT MAPPING SECTION
+    # 
+    # The default mapping identifies the "main" or top-level relationship in the graph.
+    # It has three components:
+    # 1. subject - The entity that the relation is about
+    # 2. predicate - The type of relationship
+    # 3. object - The entity that the subject relates to
+    #
+    # For Quadriga, this default mapping:
+    # - Provides an entry point to understand the graph
+    # - Identifies which relationship is most important
+    # - Makes the primary semantic meaning of the annotation clear
+    # - Allows immediate access to key parts without traversing the whole graph
+    #############################################################################
+    
+    # Initialize an empty default mapping dictionary
     default_mapping = {}
     
-    # If the top relation has been processed, set up the default mapping
+    # Only create a default mapping if we have a top relation to work with
     if top_relation:
-        top_subj = top_relation.source_content_object
-        top_pred = top_relation.predicate
-        top_obj = top_relation.object_content_object
+        # Extract the three components of the top-level relation
+        top_subj = top_relation.source_content_object  # The subject entity (what the relation is about)
+        top_pred = top_relation.predicate              # The predicate (relationship type)
+        top_obj = top_relation.object_content_object   # The object entity (what the subject relates to)
         
+        # Create keys to look up the node IDs in our node_mapping dictionary
+        # For appellations, we use the format: "app-{id}-{timestamp}"
+        # The hasattr check protects against potential missing attributes
         subj_key = f"app-{top_subj.id}-{top_subj.created.isoformat()}" if hasattr(top_subj, 'id') else None
         obj_key = f"app-{top_obj.id}-{top_obj.created.isoformat()}" if hasattr(top_obj, 'id') else None
         
-        # For relations that are objects, use the relation key
+        # Special case handling: If the object is itself a relation (not an appellation)
+        # we need to use a different key format: "rel-{id}-{timestamp}"
+        # This is detected by checking for source_content_type_id, which only relations have
         if hasattr(top_obj, 'source_content_type_id'):
             obj_key = f"rel-{top_obj.id}-{top_obj.created.isoformat()}"
         
+        # Construct the complete default mapping dictionary with all three components
         default_mapping = {
-            "subject": {"type": "REF", "reference": node_mapping.get(subj_key, "0")},
-            "predicate": {
-                "type": "URI", 
-                "uri": top_pred.interpretation.master.uri if hasattr(top_pred.interpretation, 'master') and hasattr(top_pred.interpretation.master, 'uri') else top_pred.interpretation.label,
-                "label": top_pred.interpretation.label
+            # Subject component refers to a node in the graph by its ID
+            "subject": {
+                "type": "REF",  # REF means this is a reference to another node
+                "reference": node_mapping.get(subj_key, "0")  # Get node ID from mapping
             },
-            "object": {"type": "REF", "reference": node_mapping.get(obj_key, "0")}
+            
+            # Predicate component represents the relationship type
+            "predicate": {
+                "type": "URI",
+                "uri": top_pred.interpretation.master.uri,
+                "label": top_pred.interpretation.label # Appellation label
+            },
+
+            "object": {
+                "type": "REF",  # Also a reference to another node
+                "reference": node_mapping.get(obj_key, "0")  # Get node ID from mapping
+            }
         }
-        print("default_mapping", default_mapping) #DEBUG
     
+    # Finally, return the complete graph data structure, including the default mapping
+    # The default mapping is included in the metadata section of the graph
     return {
         "graph": {
             "metadata": {
@@ -538,6 +527,7 @@ def submit_to_quadriga(relationset, user, project):
     endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add"
 
     graph_data = generate_graph_data(relationset, user)
+    print(graph_data)
     response = requests.post(endpoint, json=graph_data, headers=headers)
     response.raise_for_status()
 
