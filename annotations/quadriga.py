@@ -421,7 +421,6 @@ def generate_graph_data(relationset, user):
     # For Quadriga, this default mapping:
     # - Provides an entry point to understand the graph
     # - Identifies which relationship is most important
-    # - Makes the primary semantic meaning of the annotation clear
     # - Allows immediate access to key parts without traversing the whole graph
     #############################################################################
     
@@ -527,7 +526,6 @@ def submit_to_quadriga(relationset, user, project):
     endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add"
 
     graph_data = generate_graph_data(relationset, user)
-    print(graph_data)
     response = requests.post(endpoint, json=graph_data, headers=headers)
     response.raise_for_status()
 
