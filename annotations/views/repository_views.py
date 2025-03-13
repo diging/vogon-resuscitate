@@ -28,7 +28,7 @@ from urllib.parse import urlencode
 from external_accounts.utils import parse_iso_datetimes
 
 from external_accounts.decorators import citesphere_authenticated
-from annotations.utils import get_pagination_metadata
+from annotations.utils import get_pagination_metadata, natural_keys
 from repository.exceptions import GilesTextExtractionError, GilesUploadError
 
 import logging
@@ -118,7 +118,13 @@ def repository_collection(request, repository_id, group_id):
     try:
         response_data = manager.collections(group_id=group_id)
         group_info = response_data.get('group')
-        collections = response_data.get('collections', [])
+        # Sort collections using natural_keys() helper from utils.py
+        # natural_keys() handles both alphabetical and numeric sorting
+        # e.g. "Collection 2" comes before "Collection 10"
+        collections = sorted(
+            response_data.get('collections', []),
+            key=lambda x: natural_keys(x['name'].lower())
+        )
         group_texts = manager.group_items(group_id=group_id, page=page)
     except CitesphereAPIError as e:
         print(traceback.format_exc())
