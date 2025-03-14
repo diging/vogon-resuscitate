@@ -125,9 +125,39 @@ class RepositoryManager:
             "total_items": total_items
         }
 
-    def collections(self, group_id):
-        """Fetch all collections within a specific group."""
-        return self.api.get_group_collections(group_id)
+    def collections(self, group_id, include_subcollections=False):
+        """
+        Fetch collections for a given group.
+        
+        If include_subcollections=True, recursively fetch subcollections as well.
+        Returns a dictionary with "group" info and a list of "collections".
+        """
+        data = self.api.get_group_collections(group_id)
+        group_info = data.get('group', {})
+        collections = data.get('collections', [])
+
+        if include_subcollections:
+            for coll in collections:
+                coll_id = coll.get('key')
+                coll['subcollections'] = self.fetch_subcollections_recursive(group_id, coll_id)
+
+        return {
+            'group': group_info,
+            'collections': collections
+        }
+
+    def fetch_subcollections_recursive(self, group_id, parent_collection_id):
+        """
+        Recursively fetch subcollections for a given collection.
+        Each subcollection can itself have subcollections.
+        """
+        subcollections_data = self.api.get_group_subcollections(group_id, parent_collection_id)
+        subcollections = subcollections_data.get('collections', [])
+
+        for subcol in subcollections:
+            subcol_id = subcol.get('key')
+            subcol['subcollections'] = self.fetch_subcollections_recursive(group_id, subcol_id)
+        return subcollections
 
     def collection_items(self, group_id, collection_id, page=1):
         """
