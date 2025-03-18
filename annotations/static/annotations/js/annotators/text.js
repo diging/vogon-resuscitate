@@ -184,7 +184,7 @@ ConceptCreator = {
             name: this.defaultName || "",
             description: "",
             concept_type: "",
-            pos: "noun",
+            pos: "",
             concept_types: [],
             error: false,
             submitted: false
