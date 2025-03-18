@@ -1,5 +1,12 @@
-<div class="list-group-item">
-    <div class="row">
+<div class="list-group-item" style="position: relative; padding: 0px 0px; padding-top: 10px;">
+    <button class="btn btn-link p-0 text-primary" 
+            id="toggle-btn-{{ collection.key }}"
+            onclick="toggleSubcollections('{{ collection.key }}')"
+            style="position: absolute; left: 0.5em; top: 0.8em;">
+        <i id="arrow-{{ collection.key }}" class="arrow-icon">&#9654;</i>
+    </button>
+
+    <div class="row" style="margin-left: 2em;">
         <div class="col-xs-9">
             <h6 class="mb-1">{{ collection.name }}</h6>
             <small class="text-muted">Items: {{ collection.numberOfItems }}</small>
@@ -15,11 +22,8 @@
         </div>
     </div>
 
-    {% if collection.subcollections and collection.subcollections|length > 0 %}
-        <div class="nested-collections" style="margin-left: 1.5em; margin-top: 0.5em;">
-            {% for subcol in collection.subcollections %}
-                {% include "annotations/collection_item.html" with collection=subcol group_id=group_id repository=repository project_id=project_id %}
-            {% endfor %}
-        </div>
-    {% endif %}
+    <div class="list-group" 
+         id="subcollections-{{ collection.key }}"
+         style="margin-left: 1.5em; margin-top: 0.5em; display: none;">
+    </div>
 </div>

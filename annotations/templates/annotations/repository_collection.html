@@ -49,7 +49,6 @@
     <div class="row">
         <div class="col-md-3">
             <div class="list-group">
-                <div class="list-group">
                     <div class="list-group-item active">
                         <h5 class="list-group-item-heading mb-0">Collections</h5>
                     </div>
@@ -61,8 +60,6 @@
                             <p class="mb-0">No collections found</p>
                         </div>
                     {% endfor %}
-                </div>
-                
             </div>
         </div>
 
@@ -175,11 +172,135 @@
 
 {% block scripts %}
 <script>
+    const subcollectionsUrlTemplate = "{% url 'subcollections' repository.id group_id 'collectionID' %}";
+    
+    function toggleSubcollections(collectionId) {
+    const container = document.getElementById("subcollections-" + collectionId);
+    const arrow = document.getElementById("arrow-" + collectionId);
+    
+    if (container.style.display === "block") {
+        container.style.display = "none";
+        arrow.textContent = "▶";
+    } else {
+        if (!container.innerHTML.trim()) {
+        loadSubcollections(collectionId, function() {
+            container.style.display = "block";
+            arrow.textContent = "▼";
+        });
+        } else {
+        container.style.display = "block";
+        arrow.textContent = "▼";
+        }
+    }
+    }
+      
+    function loadSubcollections(collectionId, callback) {
+      const url = subcollectionsUrlTemplate.replace("collectionID", collectionId);
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) {
+            console.error("Error fetching subcollections:", data.error);
+            return;
+          }
+          renderSubcollections(collectionId, data.collections || []);
+          if (typeof callback === "function") {
+            callback();
+          }
+        })
+        .catch(err => console.error("Fetch error:", err));
+    }
+    
+    function renderSubcollections(parentCollectionId, subcols) {
+      const container = document.getElementById("subcollections-" + parentCollectionId);
+    
+      if (!subcols.length) {
+        container.innerHTML = `
+          <div class="list-group-item">
+            <p class="mb-0">No subcollections found.</p>
+          </div>
+        `;
+        return;
+      }
+    
+      let html = "";
+      subcols.forEach(sub => {
+        html += `
+          <div class="list-group-item" style="position: relative;">
+            <!-- Arrow on the left -->
+            <button class="btn btn-link p-0 text-primary"
+                    style="position: absolute; left: 0.5em; top: 0.8em;"
+                    id="toggle-btn-${sub.key}"
+                    onclick="toggleSubcollections('${sub.key}')">
+              <i id="arrow-${sub.key}" class="arrow-icon">&#9654;</i>
+            </button>
+    
+            <div class="row" style="margin-left: 2em;">
+              <div class="col-xs-9">
+                <h6 class="mb-1">${sub.name}</h6>
+                <small class="text-muted">Items: ${sub.numberOfItems || 0}</small>
+              </div>
+              <div class="col-xs-3">
+                <a href="${ buildCollectionUrl(sub.key) }" 
+                   class="btn btn-primary btn-circle pull-right">
+                  <!-- Eye icon -->
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                       fill="white" class="bi bi-eye" viewBox="0 0 16 16">
+                    <path d="M16 8s-3-5.5-8-5.5S0 
+                             8 0 8s3 5.5 8 5.5S16 
+                             8 16 8zM1.173 8a13.133 
+                             13.133 0 0 1 1.66-2.043C4.12 
+                             4.668 5.88 3.5 8 3.5c2.12 
+                             0 3.879 1.168 5.168 2.457A13.133 
+                             13.133 0 0 1 14.828 8c-.058.087-.122.183
+                             -.195.288-.335.48-.83 1.12
+                             -1.465 1.755C11.879 11.332
+                             10.119 12.5 8 12.5c-2.12 0
+                             -3.879-1.168-5.168-2.457A13.134
+                             13.134 0 0 1 1.172 8z"/>
+                    <path d="M8 5.5a2.5 2.5 0 1 
+                             0 0 5 2.5 2.5 0 0 
+                             0 0-5zM4.5 8a3.5 3.5 0 1 
+                             1 7 0 3.5 3.5 0 0 
+                             1-7 0z"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+    
+            <!-- Nested sub-subcollections .list-group -->
+            <div class="list-group"
+                 id="subcollections-${sub.key}"
+                 style="margin-left: 1.5em; margin-top: 0.5em; display: none;">
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+    
+    /** Build the "View" URL for a subcollection. */
+    function buildCollectionUrl(collectionKey) {
+      let base = "{% url 'repository_collections_text_list' repository.id group_id 'collectionID' %}{% if project_id %}?project_id={{ project_id }}{% endif %}";
+      return base.replace("collectionID", collectionKey);
+    }
+    </script>
+    
+    <style>
+    .arrow-icon {
+      transition: transform 0.3s ease;
+      font-size: 1.2rem;
+    }
+    .list-group-item{
+        padding: 0px 0px;
+        padding-top: 10px;
+    }
+    </style>
+    
     window.config = {
         APP_ROOT: "{{ APP_ROOT }}"
     };
 </script>
 <script src="{% static 'annotations/js/files/get-files.js' %}"></script>
 {% endblock %}
-
 {% endblock %}

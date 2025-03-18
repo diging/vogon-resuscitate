@@ -106,7 +106,7 @@ def repository_collections(request, repository_id):
 
 @citesphere_authenticated
 def repository_collection(request, repository_id, group_id):
-    """View to fetch and display collections, subcollections, and group texts within Citesphere Groups"""
+    """View to fetch and display top-level collections and group texts."""
 
     repository = get_object_or_404(Repository, pk=repository_id)
     
@@ -115,7 +115,7 @@ def repository_collection(request, repository_id, group_id):
     page = int(request.GET.get('page', 1))
     
     try:
-        response_data = manager.collections(group_id=group_id, include_subcollections=True)
+        response_data = manager.collections(group_id=group_id)
         group_info = response_data.get('group')
         collections = response_data.get('collections', [])
         group_texts = manager.group_items(group_id=group_id, page=page)
@@ -521,3 +521,17 @@ def _repository_text_fail(request, repository, result, content):
         'project_id': project_id,
     }
     return render(request, template, context)
+
+def subcollections(request, repository_id, group_id, group_collection_id):
+    """AJAX endpoint to fetch subcollections."""
+    repository = get_object_or_404(Repository, pk=repository_id)
+    manager = RepositoryManager(user=request.user, repository=repository)
+
+    try:
+        data = manager.api.get_group_subcollections(group_id, group_collection_id)
+        return JsonResponse(data, safe=False)
+    except CitesphereAPIError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": "An unexpected error occurred"}, status=500)
+
