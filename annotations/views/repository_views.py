@@ -88,6 +88,12 @@ def repository_collections(request, repository_id):
 
     try:
         collections = manager.groups()  # Fetch collections
+        # Sort collections using natural_keys() helper from utils.py
+        # natural_keys() handles both alphabetical and numeric sorting
+        collections = sorted(
+            collections, 
+            key=lambda x: natural_keys(x['name'].lower())
+        )
     except CitesphereAPIError as e:
         print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
