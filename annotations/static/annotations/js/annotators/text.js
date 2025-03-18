@@ -192,11 +192,19 @@ ConceptCreator = {
     },
     mounted: function () {
         this.updateTypes();
+        // Set initial name from defaultName prop
+        if (this.defaultName) {
+            this.name = this.defaultName;
+        }
     },
     watch: {
-        defaultName: function(newName) {
-            if (newName && this.name === "") {
-                this.name = newName;
+        defaultName: {
+            // Make immediate to ensure the name is set when the prop changes
+            immediate: true,
+            handler: function(newName) {
+                if (newName) {
+                    this.name = newName;
+                }
             }
         },
         name: function () {
