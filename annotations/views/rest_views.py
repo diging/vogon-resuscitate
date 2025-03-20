@@ -386,13 +386,13 @@ class RelationSetViewSet(viewsets.ModelViewSet):
     def submit(self, request):
 
         user = request.user
-        pk = request.data.get('pk')
+        quadruple_id = request.data.get('pk')
         
         project_id = request.data.get('project_id')
         project = TextCollection.objects.get(pk=project_id)
         
         try:
-            relationset = RelationSet.objects.get(pk=pk)
+            relationset = RelationSet.objects.get(pk=quadruple_id)
 
         except RelationSet.DoesNotExist:
             return Response({'error': 'RelationSet not found.'}, status=status.HTTP_404_NOT_FOUND)

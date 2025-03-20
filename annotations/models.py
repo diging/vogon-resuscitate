@@ -946,22 +946,9 @@ class RelationSet(models.Model):
         
         if self.ready():  # Check readiness based on the concepts
             if self.status != self.STATUS_SUBMITTED:  # Avoid overriding submitted status
-                if self.status != self.STATUS_READY_TO_SUBMIT:
-                    self.status = self.STATUS_READY_TO_SUBMIT
-                    changed = True
-                if self.submitted:
-                    self.submitted = False
-                    changed = True
-        else:
-            if self.status != self.STATUS_NOT_READY:
-                self.status = self.STATUS_NOT_READY
-                changed = True
-            if self.submitted:
-                self.submitted = False
-                changed = True
-
-        if changed:
-            self.save()
+               self.status = self.STATUS_READY_TO_SUBMIT if self.status != self.STATUS_READY_TO_SUBMIT else self.STATUS_NOT_READY
+               self.submitted = False
+               self.save()
 
     def appellations(self):
         """
