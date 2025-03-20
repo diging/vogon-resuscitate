@@ -175,24 +175,28 @@
     const subcollectionsUrlTemplate = "{% url 'subcollections' repository.id group_id 'collectionID' %}";
     
     function toggleSubcollections(collectionId) {
-    const container = document.getElementById("subcollections-" + collectionId);
-    const arrow = document.getElementById("arrow-" + collectionId);
-    
-    if (container.style.display === "block") {
-        container.style.display = "none";
-        arrow.textContent = "▶";
-    } else {
-        if (!container.innerHTML.trim()) {
-        loadSubcollections(collectionId, function() {
-            container.style.display = "block";
-            arrow.textContent = "▼";
-        });
+        const container = document.getElementById("subcollections-" + collectionId);
+        const arrow = document.getElementById("arrow-" + collectionId);
+        
+        if (container.style.display === "block") {
+            container.style.display = "none";
+            arrow.classList.remove("fa-caret-down");
+            arrow.classList.add("fa-caret-right");
         } else {
-        container.style.display = "block";
-        arrow.textContent = "▼";
+            if (!container.innerHTML.trim()) {
+                loadSubcollections(collectionId, function() {
+                    container.style.display = "block";
+                    arrow.classList.remove("fa-caret-right");
+                    arrow.classList.add("fa-caret-down");
+                });
+            } else {
+                container.style.display = "block";
+                arrow.classList.remove("fa-caret-right");
+                arrow.classList.add("fa-caret-down");
+            }
         }
     }
-    }
+    
       
     function loadSubcollections(collectionId, callback) {
       const url = subcollectionsUrlTemplate.replace("collectionID", collectionId);
@@ -232,7 +236,7 @@
                     style="position: absolute; left: 0.5em; top: 0.8em;"
                     id="toggle-btn-${sub.key}"
                     onclick="toggleSubcollections('${sub.key}')">
-              <i id="arrow-${sub.key}" class="arrow-icon">&#9654;</i>
+              <i id="arrow-${sub.key}" class="fa fa-caret-right fa-lg" aria-hidden="true"></i>
             </button>
     
             <div class="row" style="margin-left: 2em;">
@@ -293,7 +297,9 @@
     }
     .list-group-item{
         padding: 0px 0px;
-        padding-top: 10px;
+    }
+    .btn-primary{
+        margin: 5px;
     }
     </style>
     
