@@ -94,7 +94,7 @@ class TestConceptLifeCycle(TestCase):
             uri = "http://viaf.org/viaf/12345",
         )
         manager = ConceptLifecycle(instance)
-        self.assertEqual(manager.default_state, Concept.PENDING)
+        self.assertEqual(manager.default_state, Concept.APPROVED)
 
     def test_user_created_default_state(self):
         """
