@@ -410,103 +410,76 @@ def generate_graph_data(relationset, user):
     #############################################################################
     # DEFAULT MAPPING SECTION
     # 
-    # The default mapping identifies the "main" or top-level relationship in the graph.
-    # It has three components:
-    # 1. subject - The entity that the relation is about
-    # 2. predicate - The type of relationship
-    # 3. object - The entity that the subject relates to
-    #
-    # For Quadriga, this default mapping:
-    # - Provides an entry point to understand the graph
-    # - Identifies which relationship is most important
-    # - Allows immediate access to key parts without traversing the whole graph
+    # The default mapping is based on the relation template structure.
     #############################################################################
     
     # Initialize an empty default mapping dictionary
     default_mapping = {}
     
-    # DEBUG: Print information about the relationset and its template
-    print("\n=== DEBUG: RelationSet Template Information ===")
-    print(f"RelationSet ID: {relationset.id}")
-    print(f"Has Template: {relationset.template is not None}")
-    if relationset.template:
-        print(f"Template Name: {relationset.template.name}")
-        print(f"Template Description: {relationset.template.description}")
-        print(f"Template Expression: {relationset.template.expression}")
-        print(f"Template Terminal Nodes: {relationset.template.terminal_nodes}")
-        
-        # DEBUG: Print template parts
-        print("\n=== Template Parts ===")
-        for part in relationset.template.template_parts.all().order_by('internal_id'):
-            print(f"\nPart {part.internal_id}:")
-            print(f"Source Node Type: {part.source_node_type}")
-            print(f"Source Label: {part.source_label}")
-            print(f"Predicate Node Type: {part.predicate_node_type}")
-            print(f"Predicate Label: {part.predicate_label}")
-            print(f"Object Node Type: {part.object_node_type}")
-            print(f"Object Label: {part.object_label}")
+    # Get the template part from the relationset's template
+    template_part = relationset.template.template_parts.first()
     
-    # Only create a default mapping if we have a top relation to work with
-    if top_relation:
-        # Extract the three components of the top-level relation
-        top_subj = top_relation.source_content_object  # The subject entity (what the relation is about)
-        top_pred = top_relation.predicate              # The predicate (relationship type)
-        top_obj = top_relation.object_content_object   # The object entity (what the subject relates to)
-        
-        # DEBUG: Print information about the top-level relation components
-        print("\n=== DEBUG: Top-Level Relation Components ===")
-        print(f"Subject Type: {type(top_subj).__name__}")
-        print(f"Subject ID: {getattr(top_subj, 'id', 'N/A')}")
-        print(f"Predicate Type: {type(top_pred).__name__}")
-        print(f"Predicate ID: {getattr(top_pred, 'id', 'N/A')}")
-        print(f"Object Type: {type(top_obj).__name__}")
-        print(f"Object ID: {getattr(top_obj, 'id', 'N/A')}")
-        
-        # Create keys to look up the node IDs in our node_mapping dictionary
-        # For appellations, we use the format: "app-{id}-{timestamp}"
-        # The hasattr check protects against potential missing attributes
-        subj_key = f"app-{top_subj.id}-{top_subj.created.isoformat()}" if hasattr(top_subj, 'id') else None
-        obj_key = f"app-{top_obj.id}-{top_obj.created.isoformat()}" if hasattr(top_obj, 'id') else None
-        
-        # DEBUG: Print the generated keys
-        print("\n=== DEBUG: Generated Node Keys ===")
-        print(f"Subject Key: {subj_key}")
-        print(f"Object Key: {obj_key}")
-        
-        # Special case handling: If the object is itself a relation (not an appellation)
-        # we need to use a different key format: "rel-{id}-{timestamp}"
-        # This is detected by checking for source_content_type_id, which only relations have
-        if hasattr(top_obj, 'source_content_type_id'):
-            obj_key = f"rel-{top_obj.id}-{top_obj.created.isoformat()}"
-            print(f"Updated Object Key (Relation): {obj_key}")
-        
-        # Construct the complete default mapping dictionary with all three components
-        default_mapping = {
-            # Subject component refers to a node in the graph by its ID
-            "subject": {
-                "type": "REF",  # REF means this is a reference to another node
-                "reference": node_mapping.get(subj_key, "0")  # Get node ID from mapping
-            },
-            
-            # Predicate component represents the relationship type
-            "predicate": {
-                "type": "URI",
-                "uri": top_pred.interpretation.master.uri,
-                "label": top_pred.interpretation.label # Appellation label
-            },
-
-            "object": {
-                "type": "REF",  # Also a reference to another node
-                "reference": node_mapping.get(obj_key, "0")  # Get node ID from mapping
-            }
+    # Get the subject node from the relation
+    subject_node = None
+    if template_part.source_node_type == 'CO':  # Specific concept
+        subject_node = top_relation.source_content_object
+    elif template_part.source_node_type == 'TP':  # Open concept
+        subject_node = top_relation.source_content_object
+    elif template_part.source_node_type == 'DT':  # Date
+        subject_node = top_relation.source_content_object
+    elif template_part.source_node_type == 'RE':  # Relation
+        subject_node = top_relation.source_content_object
+    
+    # Get the predicate node
+    predicate_node = top_relation.predicate
+    
+    # Get the object node from the relation
+    object_node = None
+    if template_part.object_node_type == 'CO':  # Specific concept
+        object_node = top_relation.object_content_object
+    elif template_part.object_node_type == 'TP':  # Open concept
+        object_node = top_relation.object_content_object
+    elif template_part.object_node_type == 'DT':  # Date
+        object_node = top_relation.object_content_object
+    elif template_part.object_node_type == 'RE':  # Relation
+        object_node = top_relation.object_content_object
+    
+    # Create keys for looking up node IDs
+    subj_key = None
+    obj_key = None
+    
+    if subject_node:
+        if hasattr(subject_node, 'source_content_type_id'):
+            subj_key = f"rel-{subject_node.id}-{subject_node.created.isoformat()}"
+        else:
+            subj_key = f"app-{subject_node.id}-{subject_node.created.isoformat()}"
+    
+    if object_node:
+        if hasattr(object_node, 'source_content_type_id'):
+            obj_key = f"rel-{object_node.id}-{object_node.created.isoformat()}"
+        else:
+            obj_key = f"app-{object_node.id}-{object_node.created.isoformat()}"
+    
+    # Construct the default mapping based on template
+    default_mapping = {
+        "subject": {
+            "type": "REF",
+            "reference": node_mapping.get(subj_key, "0"),
+            "label": template_part.source_label if template_part.source_label else ""
+        },
+        "predicate": {
+            "type": "URI",
+            "uri": predicate_node.interpretation.master.uri,
+            "label": template_part.predicate_label if template_part.predicate_label else predicate_node.interpretation.label
+        },
+        "object": {
+            "type": "REF",
+            "reference": node_mapping.get(obj_key, "0"),
+            "label": template_part.object_label if template_part.object_label else ""
         }
-        
-        # DEBUG: Print the final default mapping
-        print("\n=== DEBUG: Final Default Mapping ===")
-        print(f"Default Mapping: {default_mapping}")
+    }
     
-    # Finally, return the complete graph data structure, including the default mapping
-    # The default mapping is included in the metadata section of the graph
+    # Finally, return the complete graph data structure
     return {
         "graph": {
             "metadata": {
