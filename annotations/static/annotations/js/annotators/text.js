@@ -37,7 +37,13 @@ var ConceptSearch = {
                             <span class="input-group-btn">
                                 <a v-if="ready()" class="btn btn-sm glyphicon glyphicon-search" v-on:click="search" style="color: green;"></a>
                                 <span v-if="searching" class="btn btn-sm glyphicon glyphicon-hourglass" style="color: orange;"></span>
-                                <span v-if="error" class="btn btn-sm glyphicon glyphicon-exclamation-sign" style="color: red;"></span>
+                                <span v-if="error || (hasSearched && concepts.length === 0)" 
+                                      class="btn btn-sm glyphicon glyphicon-exclamation-sign" 
+                                      style="color: red; cursor: default;"
+                                      :title="getErrorMessage()"
+                                      data-toggle="tooltip"
+                                      data-placement="bottom">
+                                </span>
                             </span>
                         </div>
                       </div>
@@ -72,10 +78,20 @@ var ConceptSearch = {
     methods: {
         selectConcept: function (concept) {
             this.concepts = [];
-            this.$emit('selectconcept', concept);
+            this.$emit('selectconcept', this.concept);
         },
         ready: function () {
             return !(this.searching || this.error);
+        },
+        getErrorMessage: function() {
+            if (this.error) {
+                return this.errorMessage || 'An error occurred during the search. Please try again.';
+            }
+            if (this.hasSearched && this.concepts.length === 0) {
+                let posType = this.pos ? ` (${this.pos})` : '';
+                return `No concepts found matching "${this.query}"${posType}. Try a different search term or part of speech.`;
+            }
+            return '';
         },
         search: function () { // TODO: should be able to recover from errors.
             this.searching = true;
@@ -104,7 +120,9 @@ var ConceptSearch = {
                 
                 // Handle error message from backend
                 if (error.body && error.body.error) {
-                    self.errorMessage = 'Concept Search has failed. Please try again later.';
+                    self.errorMessage = error.body.error;
+                } else {
+                    self.errorMessage = 'An error occurred while searching for concepts. Please try again.';
                 }
             });
         }
