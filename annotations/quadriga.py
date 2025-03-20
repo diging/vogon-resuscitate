@@ -2,7 +2,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 from django.utils import timezone
 
-from annotations.models import Relation, Appellation, DateAppellation, DocumentPosition
+from annotations.models import Relation, Appellation, DateAppellation, DocumentPosition, RelationTemplate
 from external_accounts.models import CitesphereAccount
 
 import xml.etree.ElementTree as ET
@@ -264,8 +264,6 @@ def build_concept_node(appellation, user, creation_time, source_uri):
     Each appellation gets its own node even if it points to the same concept.
     The node's termParts come only from the given appellation.
 
-      - "metadata.interpretation" is the concept's label.
-      - "context.sourceUri" is the URL of the concept source (from appellation.interpretation.master.uri)
     """
     term_parts = []
     pos = appellation.startPos
@@ -279,7 +277,7 @@ def build_concept_node(appellation, user, creation_time, source_uri):
     })
     
     # concept's label for the interpretation.
-    interpretation_label = appellation.interpretation.label if appellation.interpretation.label else ""
+    interpretation_label = appellation.interpretation.label
     # concept source URL from the master attribute if available.
     if hasattr(appellation.interpretation, 'master') and hasattr(appellation.interpretation.master, 'uri'):
         concept_source_url = appellation.interpretation.master.uri
@@ -297,7 +295,7 @@ def build_concept_node(appellation, user, creation_time, source_uri):
             "creator": user.username,
             "creationTime": creation_time.strftime('%Y-%m-%d'),
             "creationPlace": settings.QUADRIGA_CREATION_PLACE,
-            "sourceUri": concept_source_url
+            "sourceUri": appellation.stringRep
         }
     }
 
@@ -427,6 +425,27 @@ def generate_graph_data(relationset, user):
     # Initialize an empty default mapping dictionary
     default_mapping = {}
     
+    # DEBUG: Print information about the relationset and its template
+    print("\n=== DEBUG: RelationSet Template Information ===")
+    print(f"RelationSet ID: {relationset.id}")
+    print(f"Has Template: {relationset.template is not None}")
+    if relationset.template:
+        print(f"Template Name: {relationset.template.name}")
+        print(f"Template Description: {relationset.template.description}")
+        print(f"Template Expression: {relationset.template.expression}")
+        print(f"Template Terminal Nodes: {relationset.template.terminal_nodes}")
+        
+        # DEBUG: Print template parts
+        print("\n=== Template Parts ===")
+        for part in relationset.template.template_parts.all().order_by('internal_id'):
+            print(f"\nPart {part.internal_id}:")
+            print(f"Source Node Type: {part.source_node_type}")
+            print(f"Source Label: {part.source_label}")
+            print(f"Predicate Node Type: {part.predicate_node_type}")
+            print(f"Predicate Label: {part.predicate_label}")
+            print(f"Object Node Type: {part.object_node_type}")
+            print(f"Object Label: {part.object_label}")
+    
     # Only create a default mapping if we have a top relation to work with
     if top_relation:
         # Extract the three components of the top-level relation
@@ -434,17 +453,32 @@ def generate_graph_data(relationset, user):
         top_pred = top_relation.predicate              # The predicate (relationship type)
         top_obj = top_relation.object_content_object   # The object entity (what the subject relates to)
         
+        # DEBUG: Print information about the top-level relation components
+        print("\n=== DEBUG: Top-Level Relation Components ===")
+        print(f"Subject Type: {type(top_subj).__name__}")
+        print(f"Subject ID: {getattr(top_subj, 'id', 'N/A')}")
+        print(f"Predicate Type: {type(top_pred).__name__}")
+        print(f"Predicate ID: {getattr(top_pred, 'id', 'N/A')}")
+        print(f"Object Type: {type(top_obj).__name__}")
+        print(f"Object ID: {getattr(top_obj, 'id', 'N/A')}")
+        
         # Create keys to look up the node IDs in our node_mapping dictionary
         # For appellations, we use the format: "app-{id}-{timestamp}"
         # The hasattr check protects against potential missing attributes
         subj_key = f"app-{top_subj.id}-{top_subj.created.isoformat()}" if hasattr(top_subj, 'id') else None
         obj_key = f"app-{top_obj.id}-{top_obj.created.isoformat()}" if hasattr(top_obj, 'id') else None
         
+        # DEBUG: Print the generated keys
+        print("\n=== DEBUG: Generated Node Keys ===")
+        print(f"Subject Key: {subj_key}")
+        print(f"Object Key: {obj_key}")
+        
         # Special case handling: If the object is itself a relation (not an appellation)
         # we need to use a different key format: "rel-{id}-{timestamp}"
         # This is detected by checking for source_content_type_id, which only relations have
         if hasattr(top_obj, 'source_content_type_id'):
             obj_key = f"rel-{top_obj.id}-{top_obj.created.isoformat()}"
+            print(f"Updated Object Key (Relation): {obj_key}")
         
         # Construct the complete default mapping dictionary with all three components
         default_mapping = {
@@ -466,6 +500,10 @@ def generate_graph_data(relationset, user):
                 "reference": node_mapping.get(obj_key, "0")  # Get node ID from mapping
             }
         }
+        
+        # DEBUG: Print the final default mapping
+        print("\n=== DEBUG: Final Default Mapping ===")
+        print(f"Default Mapping: {default_mapping}")
     
     # Finally, return the complete graph data structure, including the default mapping
     # The default mapping is included in the metadata section of the graph
@@ -526,6 +564,7 @@ def submit_to_quadriga(relationset, user, project):
     endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add"
 
     graph_data = generate_graph_data(relationset, user)
+    print(graph_data) # DEBUG
     response = requests.post(endpoint, json=graph_data, headers=headers)
     response.raise_for_status()
 
