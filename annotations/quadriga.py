@@ -295,7 +295,12 @@ def build_concept_node(appellation, user, creation_time, source_uri):
             "creator": user.username,
             "creationTime": creation_time.strftime('%Y-%m-%d'),
             "creationPlace": settings.QUADRIGA_CREATION_PLACE,
-            "sourceUri": "FILLER" # TODO: add source URI of text hence giles url
+            # Get the URI from the Text model that this appellation occurs in:
+            # 1. appellation.occursIn -> Text model instance
+            # 2. Text.uri contains the full URI like "urn:repository:1:item:W2BW4HMG:file:FILENf0m6N7QEY46"
+            # 3. Split on ':' and take last part to get just the file ID "FILENf0m6N7QEY46"
+            # 4. Prepend QUADRIGA_GILES_TEXT_ENDPOINT to get full Giles text URL
+            "sourceUri": settings.QUADRIGA_GILES_TEXT_ENDPOINT + appellation.occursIn.uri.split(':')[-1] + "/content"
         }
     }
 
@@ -360,7 +365,7 @@ def generate_graph_data(relationset, user):
             node_id = get_node_id()
             node_mapping[relation_id] = node_id
             
-            source_uri = relation.occursIn.uri if hasattr(relation.occursIn, 'uri') else ""
+            source_uri = settings.QUADRIGA_GILES_TEXT_ENDPOINT + relation.part_of.occursIn.uri.split(':')[-1] + "/content"
             nodes[node_id] = get_relation_node(user, relation.created, source_uri)
             
             # Add edges
@@ -465,17 +470,14 @@ def generate_graph_data(relationset, user):
         "subject": {
             "type": "REF",
             "reference": node_mapping.get(subj_key, "0"),
-            "label": template_part.source_label if template_part.source_label else ""
         },
         "predicate": {
             "type": "URI",
             "uri": predicate_node.interpretation.master.uri,
-            "label": template_part.predicate_label if template_part.predicate_label else predicate_node.interpretation.label
         },
         "object": {
             "type": "REF",
             "reference": node_mapping.get(obj_key, "0"),
-            "label": template_part.object_label if template_part.object_label else ""
         }
     }
     
