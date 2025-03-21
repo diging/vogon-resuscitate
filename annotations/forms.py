@@ -16,7 +16,8 @@ from django.utils.html import format_html
 from django.forms.utils import flatatt
 from django.utils.encoding import force_str
 import networkx as nx
-
+import requests, json
+from concepts.conceptpower import Conceptpower
 
 class RegistrationForm(forms.Form):
     """
@@ -147,7 +148,7 @@ class AutocompleteWidget(widgets.TextInput):
     def render(self, name, value, attrs=None, renderer=None):
         if value is None:
             value = ''
-        final_attrs = self.build_attrs(attrs, {'type': self.input_type, 'name': name})
+        final_attrs = {**self.attrs, **(attrs or {}), 'type': self.input_type, 'name': name}
         if value != '':
             # Only add the 'value' attribute if a value is non-empty.
             final_attrs['value'] = force_str(self._format_value(value))
@@ -169,7 +170,32 @@ class ConceptField(forms.CharField):
         """
         return obj.uri
 
-
+    def to_python(self, value):
+        if value in self.empty_values:
+            return None
+        try:
+            key = 'uri'
+            py_value = self.queryset.get(**{key: value})
+        except self.queryset.model.DoesNotExist:
+            headers = {
+                    'Accept': 'application/json',
+            }
+            conceptpower = Conceptpower(settings.CONCEPTPOWER_ENDPOINT, settings.CONCEPTPOWER_NAMESPACE)
+            concept_entry = conceptpower.get(value, headers=headers)
+            data = dict(
+                uri=value,
+                label=concept_entry.get('lemma',''),
+                description=concept_entry.get('description',''),
+                pos=concept_entry.get('pos',''),
+                authority=concept_entry.get('authority',{'name': 'Conceptpower'}),
+                concept_state=Concept.RESOLVED,
+            )
+            ctype_data = concept_entry.get('type','')
+            if ctype_data:
+                data.update({'typed': Type.objects.get_or_create(uri=ctype_data['type_uri'])[0]})
+            py_value = Concept.objects.create(**data)
+        return py_value
+    
 class TemplateChoiceField(forms.ChoiceField):
     def label_from_instance(self, obj):
         """
@@ -381,13 +407,7 @@ class RelationTemplatePartForm(forms.ModelForm):
                 field.widget.attrs['description'] = 'id_{0}-'.format(self.prefix) + field.widget.attrs['description']
 
     def clean(self, *args, **kwargs):
-        cleaned_data = super(RelationTemplatePartForm, self).clean(*args, **kwargs)
 
-        concept_fields = ['source_concept', 'predicate_concept', 'object_concept']
-        for field_name in concept_fields:
-            concept = cleaned_data.get(field_name)
-            if not concept:
-                cleaned_data[field_name] = None
             
         for field in ['source', 'object']:
             selected_node_type = self.cleaned_data.get('%s_node_type' % field)
