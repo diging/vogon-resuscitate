@@ -79,7 +79,6 @@ var ConceptSearch = {
         selectConcept: function (concept) {
             this.concepts = [];
             this.$emit('selectconcept', concept);
-            this.display = false;
         },
         ready: function () {
             return !(this.searching || this.error);
