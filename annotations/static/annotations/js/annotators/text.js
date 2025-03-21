@@ -288,11 +288,6 @@ ConceptCreator = {
                 }
             }
         },
-        createdConcept: function (concept) {
-            this.concept = concept;
-            this.create = false;
-            this.display = false;
-        }
     }
 }
 
@@ -592,12 +587,10 @@ AppellationCreator = {
         },
         selectConcept: function (concept) {
             this.concept = concept;
-            this.display = false;
         },
         createdConcept: function (concept) {
             this.concept = concept;
             this.create = false;
-            this.display = false;
         },
         getConceptLabel: function() {
             if (this.concept) {
