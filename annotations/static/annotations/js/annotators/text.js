@@ -78,7 +78,8 @@ var ConceptSearch = {
     methods: {
         selectConcept: function (concept) {
             this.concepts = [];
-            this.$emit('selectconcept', this.concept);
+            this.$emit('selectconcept', concept);
+            this.display = false;
         },
         ready: function () {
             return !(this.searching || this.error);
@@ -287,6 +288,11 @@ ConceptCreator = {
                     return truncateURI(ctype.uri);
                 }
             }
+        },
+        createdConcept: function (concept) {
+            this.concept = concept;
+            this.create = false;
+            this.display = false;
         }
     }
 }
@@ -587,10 +593,12 @@ AppellationCreator = {
         },
         selectConcept: function (concept) {
             this.concept = concept;
+            this.display = false;
         },
         createdConcept: function (concept) {
             this.concept = concept;
             this.create = false;
+            this.display = false;
         },
         getConceptLabel: function() {
             if (this.concept) {
