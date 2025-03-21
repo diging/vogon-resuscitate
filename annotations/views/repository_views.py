@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, render
 from django.db.models import Q
 from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
-
+import json
 from annotations.forms import RepositorySearchForm
 from annotations.tasks import tokenize
 from repository.models import Repository
@@ -282,7 +282,6 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     manager = RepositoryManager(user=user, repository=repository)
 
     page = int(request.GET.get('page', 1))
-
     try:
         texts = manager.collection_items(group_id, group_collection_id, page=page)
     except CitesphereAPIError as e:
@@ -295,8 +294,16 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     # retrieve items per page from settings and calculate pagination metadata from util function
     items_per_page = settings.PAGINATION_PAGE_SIZE
     pagination = get_pagination_metadata(total_items=texts.get('total_items'), page=page, items_per_page=items_per_page)
-
+    try:
+        subcollections_data = manager.api.get_group_subcollections(group_id, group_collection_id)
+        # Assuming your API returns a dict with a key "items" containing the subcollections list.
+        subcollections = subcollections_data.get('collections', [])
+    except Exception as e:
+        # Log the error if needed and fall back to an empty list.
+        print("Error fetching subcollections:", e)
+        subcollections = []
     project_id = request.GET.get('project_id')
+    # print(subcollections)
     context = {
         'user': user,
         'repository': repository,
@@ -309,9 +316,12 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         'total_pages': pagination['total_pages'],
         'page_range': pagination['page_range'],
         'APP_ROOT': settings.APP_ROOT,
+        'subcollections': subcollections
     }
-
     return render(request, 'annotations/repository_collections_text_list.html', context)
+    
+
+    
 
 
 @citesphere_authenticated
