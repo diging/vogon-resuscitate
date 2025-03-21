@@ -146,6 +146,9 @@ ConceptCreator = {
                             id="concept-creator-description"
                             v-model="description">
                         </textarea>
+                        <span class="help-block">
+                            Description must be at least 3 words or 10 characters long.
+                        </span>
                    </div>
                    <div class="form-group">
                        <label class="control-label">Type</label>
