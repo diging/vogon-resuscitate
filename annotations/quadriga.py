@@ -267,10 +267,10 @@ def build_concept_node(appellation, user, creation_time, source_uri):
     """
     term_parts = []
     pos = appellation.startPos
-    exp = appellation.stringRep if appellation.stringRep is not None else ""
+    appellation_expression = appellation.stringRep if appellation.stringRep is not None else ""
     term_parts.append({
         "position": pos,
-        "expression": exp,
+        "expression": appellation_expression,
         "normalization": "",
         "formattedPointer": "",
         "format": ""
@@ -288,14 +288,14 @@ def build_concept_node(appellation, user, creation_time, source_uri):
         "label": interpretation_label,
         "metadata": {
             "type": "appellation_event",
-            "interpretation": interpretation_label,
+            "interpretation": concept_source_url,
             "termParts": term_parts
         },
         "context": {
             "creator": user.username,
             "creationTime": creation_time.strftime('%Y-%m-%d'),
             "creationPlace": settings.QUADRIGA_CREATION_PLACE,
-            "sourceUri": appellation.stringRep
+            "sourceUri": "FILLER" # TODO: add source URI of text hence giles url
         }
     }
 
