@@ -37,8 +37,6 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
             });
             fileListHtml += '</ul>';
             fileListDiv.innerHTML = fileListHtml;
-        } else {
-            fileListDiv.innerHTML = '<div class="alert alert-warning">No files available for this item.</div>';
         }
     })
     .catch(error => {
