@@ -165,18 +165,11 @@ class RepositoryManager:
         try:
             collections_data = self.api.get_group_collections(group_id).get('collections', [])
             # TODO: Once there is a collection information endpoint,this will need to be updated
-            collection_info = next(
-                (c for c in collections_data if c.get('key') == collection_id), 
-                {}
-            )
-
-            # Get the total_items from that specific collection
-            total_items = collection_info.get('numberOfItems', 0)
+            total_items = next((c.get('numberOfItems', 0) for c in collections_data if c.get('key') == collection_id), 0)
             # Fetch paginated items for the collection
             items = self.api.get_collection_items(group_id, collection_id, params={'page': page}).get('items', [])
-            print(collections_data)
             return {
-                "group": collection_info,
+                "group": collections_data,
                 "items": items,
                 "total_items": total_items
             }

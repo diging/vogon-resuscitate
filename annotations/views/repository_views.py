@@ -300,16 +300,14 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     # retrieve items per page from settings and calculate pagination metadata from util function
     items_per_page = settings.PAGINATION_PAGE_SIZE
     pagination = get_pagination_metadata(total_items=texts.get('total_items'), page=page, items_per_page=items_per_page)
+    subcollections = []
     try:
         subcollections_data = manager.api.get_group_subcollections(group_id, group_collection_id)
-        # Assuming your API returns a dict with a key "items" containing the subcollections list.
         subcollections = subcollections_data.get('collections', [])
     except Exception as e:
         # Log the error if needed and fall back to an empty list.
         print("Error fetching subcollections:", e)
-        subcollections = []
     project_id = request.GET.get('project_id')
-    # print(subcollections)
     context = {
         'user': user,
         'repository': repository,
