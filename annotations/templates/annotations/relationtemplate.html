@@ -74,13 +74,60 @@
                         {{ templateform.description }}
                     </p>
                     <p>
-                        {% if templateform.expression.errors %}
-                            {% for error in templateform.expression.errors %}
-                            <div class="alert alert-warning">{{ error }}</div>
-                            {% endfor %}
-                        {% endif %}
-                        {{ templateform.expression }}
+                        <div class="form-group">
+                            <label>Choose input method:</label>
+                            <select class="form-control input-sm" id="input-method-selector">
+                                <option value="expression">Expression Pattern</option>
+                                <option value="relation-nodes">Relation Nodes</option>
+                            </select>
+                        </div>
                     </p>
+                    <div id="expression-input">
+                        <p>
+                            {% if templateform.expression.errors %}
+                                {% for error in templateform.expression.errors %}
+                                <div class="alert alert-warning">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                            {{ templateform.expression }}
+                        </p>
+                    </div>
+                    <div id="relation-nodes-input" style="display: none;">
+                        <p>
+                            <div class="form-group">
+                                {% if templateform.relation_node_1.errors %}
+                                    {% for error in templateform.relation_node_1.errors %}
+                                    <div class="alert alert-warning">{{ error }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                                {{ templateform.relation_node_1 }}
+                            </div>
+                            <div class="form-group">
+                                {% if templateform.relation_node_2.errors %}
+                                    {% for error in templateform.relation_node_2.errors %}
+                                    <div class="alert alert-warning">{{ error }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                                {{ templateform.relation_node_2 }}
+                            </div>
+                            <div class="form-group">
+                                {% if templateform.concept_behavior.errors %}
+                                    {% for error in templateform.concept_behavior.errors %}
+                                    <div class="alert alert-warning">{{ error }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                                {{ templateform.concept_behavior }}
+                            </div>
+                            <div class="form-group">
+                                {% if templateform.predicate_concept.errors %}
+                                    {% for error in templateform.predicate_concept.errors %}
+                                    <div class="alert alert-warning">{{ error }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                                {{ templateform.predicate_concept }}
+                            </div>
+                        </p>
+                    </div>
                     <p>
                         {% if templateform.terminal_nodes.errors %}
                             {% for error in templateform.terminal_nodes.errors %}
