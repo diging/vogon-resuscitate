@@ -9,7 +9,6 @@ from django.shortcuts import get_object_or_404, render
 from django.db.models import Q
 from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
-import json
 from annotations.forms import RepositorySearchForm
 from annotations.tasks import tokenize
 from repository.models import Repository
@@ -106,7 +105,7 @@ def repository_collections(request, repository_id):
 
 @citesphere_authenticated
 def repository_collection(request, repository_id, group_id):
-    """View to fetch and display top-level collections and group texts."""
+    """View to fetch and display top-level collections and group texts within Citesphere Groups."""
 
     repository = get_object_or_404(Repository, pk=repository_id)
     
@@ -282,6 +281,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     manager = RepositoryManager(user=user, repository=repository)
 
     page = int(request.GET.get('page', 1))
+
     try:
         texts = manager.collection_items(group_id, group_collection_id, page=page)
     except CitesphereAPIError as e:
@@ -300,6 +300,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     # retrieve items per page from settings and calculate pagination metadata from util function
     items_per_page = settings.PAGINATION_PAGE_SIZE
     pagination = get_pagination_metadata(total_items=texts.get('total_items'), page=page, items_per_page=items_per_page)
+
     subcollections = []
     try:
         subcollections_data = manager.api.get_group_subcollections(group_id, group_collection_id)
@@ -323,10 +324,8 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         'APP_ROOT': settings.APP_ROOT,
         'subcollections': subcollections
     }
-    return render(request, 'annotations/repository_collections_text_list.html', context)
-    
 
-    
+    return render(request, 'annotations/repository_collections_text_list.html', context)
 
 
 @citesphere_authenticated

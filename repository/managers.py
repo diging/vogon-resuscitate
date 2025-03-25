@@ -168,6 +168,7 @@ class RepositoryManager:
             total_items = next((c.get('numberOfItems', 0) for c in collections_data if c.get('key') == collection_id), 0)
             # Fetch paginated items for the collection
             items = self.api.get_collection_items(group_id, collection_id, params={'page': page}).get('items', [])
+
             return {
                 "group": collections_data,
                 "items": items,
