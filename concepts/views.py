@@ -13,6 +13,7 @@ import re, urllib.request, urllib.parse, urllib.error, string
 from unidecode import unidecode
 from urllib.parse import urlencode
 from annotations.decorators import vogon_admin_or_staff_required
+from django.contrib import messages
 
 
 
@@ -153,8 +154,11 @@ def add_concept(request, concept_id):
         try:
             manager.add()
         except ConceptUpstreamException as E:
-            return HttpResponse("Conceptpower is causing all kinds of problems"
-                                " right now: %s" % str(E), status=500)
+            messages.error(
+                    request,
+                    'ERROR: There was an error while communicating with Conceptpower.'
+                )
+            return HttpResponseRedirect(reverse('concepts'))
         return HttpResponseRedirect(next_page)
 
 

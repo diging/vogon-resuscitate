@@ -24,6 +24,20 @@
 </style>
 
 <div class="container-fluid">
+    {% if messages %}
+    <div class="row">
+        <div class="col-md-12">
+            {% for message in messages %}
+            <div class="alert alert-danger alert-dismissible" role="alert">
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
     <form class="form" action="" method="get">
         <div class="row">
             <div class="col-sm-6">
@@ -210,6 +224,12 @@
                     </ul>
         </div>
         {% endif %}
+            {% if concept_state == concept.FLAGGED and concept.comment %}
+            <div style="color: #d9534f;">
+                <i class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></i>
+                <span>{{ concept.comment }}</span>
+            </div>
+            {% endif %}
         </div>
         {% endwith %}
         {% endwith %}
