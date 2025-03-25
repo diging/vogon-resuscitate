@@ -162,6 +162,12 @@
 
             </div>
             {% endif %}
+            {% if concept_state == concept.FLAGGED and concept.comment %}
+            <div style="color: #d9534f;">
+                <i class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></i>
+                <span>{{ concept.comment }}</span>
+            </div>
+            {% endif %}
         </div>
         {% endwith %}
         {% endwith %}

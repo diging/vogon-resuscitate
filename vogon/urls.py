@@ -123,7 +123,6 @@ urlpatterns = [
     re_path(r'^concept/(?P<source_concept_id>[0-9]+)/merge/$', conceptViews.merge_concepts, name='merge_concepts'),
     re_path(r'^concept/(?P<source_concept_id>[0-9]+)/flag/$', conceptViews.flag_concept, name='flag_concept'),
 
-
     # url(r'^concept_autocomplete/', views.search_views.concept_autocomplete, name='concept_autocomplete'),
 
     re_path(r'^quadruples/appellation/(?P<appellation_id>[0-9]+).xml$', views.quadruple_views.appellation_xml, name='appellation_xml'),
