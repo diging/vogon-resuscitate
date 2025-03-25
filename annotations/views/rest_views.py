@@ -552,7 +552,6 @@ class ConceptViewSet(viewsets.ModelViewSet):
             
             if response.status_code == 200:
                 data = response.json()
-                concept_entries = data.get('conceptEntries', [])
                 concepts = []
                 for concept_entry in data.get('conceptEntries', []):
                     concept = parse_concept(concept_entry)
