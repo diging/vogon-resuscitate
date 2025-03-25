@@ -104,7 +104,8 @@
                         <th class="col-sm-1"></th>
                         <th class="col-sm-3">Name</th>
                         <th>Description</th>
-                        <th>Edit/Delete</th>
+                        <th>Edit</th>
+                        <th>Delete</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -119,8 +120,10 @@
                                title="Edit relation template"
                                class="action-btn edit-btn"
                                aria-hidden="true">
-                               <i class="fa fa-pencil"></i>
+                               <i class="fa fa-edit"></i>
                             </a>
+                        </td>
+                        <td>
                             <a href="#"
                                class="action-btn delete-btn openDeleteTemplateModal"
                                aria-hidden="true"
@@ -136,7 +139,7 @@
                     {% endfor %}
                     {% else %}
                     <tr>
-                        <td colspan="4" class="text-center">
+                        <td colspan="5" class="text-center">
                             {% if all_templates %}
                                 <p>No templates available. You can add new templates <a href="{% url "add_relationtemplate" %}">here</a>.</p>
                             {% else %}
