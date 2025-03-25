@@ -6,7 +6,7 @@
 <a href="{% url "repository_list" %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Repositories</a>&raquo;
 <a href="{% url "repository_details" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ repository.name }}</a>&raquo;
 <a href="{% url "repository_collections" repository.id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Collections</a>&raquo;
-<a href="{% url "repository_collection" repository.id group_id %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">{{ group_info.name }}</a>
+<a class="btn btn-xs">{{ group_collection_id }}</a>
 {% endblock %}
 
 {% block main %}
@@ -45,7 +45,7 @@
         </div>
         <div class="col-md-9">
             <div class="list-group-item active mb-4">
-                <h5 class="list-group-item-heading mb-0">{{ title }} {{ group_info.name }}</h5>
+                <h5 class="list-group-item-heading mb-0">{{ title }} {{ collection_name }}</h5>
             </div>
             {% comment %} <h1>{{ title }} {{ group_info.name }} test</h1><br> {% endcomment %}
             <div class="table-responsive">
