@@ -292,6 +292,11 @@ class RelationTemplateForm(forms.ModelForm):
             # Create expression and terminal_nodes from alternative input
             cleaned_data['expression'] = f"{{{node1}}} {behavior}:{predicate_uri} {{{node2}}}"
             cleaned_data['terminal_nodes'] = f"{node1},{node2}"
+            
+            # Validate that relation nodes match terminal nodes
+            terminal_nodes = cleaned_data['terminal_nodes'].split(',')
+            if sorted([node1, node2]) != sorted(terminal_nodes):
+                raise forms.ValidationError("Relation node IDs must match the terminal nodes identifiers")
         else:
             # Using direct expression input - validate required fields
             if not cleaned_data.get('expression'):
