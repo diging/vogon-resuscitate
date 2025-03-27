@@ -565,6 +565,49 @@ class ConceptViewSet(viewsets.ModelViewSet):
             logger.error(f'Error searching concepts: {str(e)}')
             return Response({'error': str(e), 'results': []}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=False)
+    def viaf_search(self, request, **kwargs):
+        """
+        Search VIAF (Virtual International Authority File) for entities.
+        Uses the VIAF AutoSuggest API to find matching authority clusters.
+        """
+        q = request.GET.get('search', None)
+        if not q:
+            return Response({'results': []})
+            
+        # VIAF API endpoint
+        url = "https://viaf.org/viaf/AutoSuggest"
+        parameters = {
+            'query': q
+        }
+        headers = {
+            'Accept': 'application/json',
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, params=parameters)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if not isinstance(data, dict):
+                    logger.error(f'Invalid VIAF response format: {data}')
+                    return Response({'results': []})
+                
+                results = []
+                for entry in data.get('result', []):
+                    try:
+                        viaf_result = parse_viaf_result(entry)
+                        results.append(viaf_result)
+                    except Exception as e:
+                        logger.warning(f'Error parsing VIAF entry: {str(e)}')
+                        continue
+                        
+                return Response({'results': results})
+            else:
+                return Response({'results': []})
+        except Exception as e:
+            logger.error(f'Error searching VIAF: {str(e)}')
+            return Response({'results': []})
 
     def get_queryset(self, *args, **kwargs):
         """
@@ -664,3 +707,38 @@ def parse_concept(concept_entry):
         concept['authority'] = {'name': 'Unknown'}
     
     return concept
+
+def parse_viaf_result(entry):
+    """
+    Parse a VIAF result entry and return a format compatible with the UI.
+    """
+    viaf_id = entry.get('viafid', '')
+    name = entry.get('term', '')
+    
+    # Create description from available metadata
+    description_parts = []
+    if entry.get('nametype'):
+        description_parts.append(f"Type: {entry.get('nametype')}")
+    
+    # Add authority identifiers to description
+    authority_ids = []
+    for auth in ['lc', 'dnb', 'bnf']:  # Add main authority IDs
+        if entry.get(auth):
+            authority_ids.append(f"{auth.upper()}: {entry.get(auth)}")
+    if authority_ids:
+        description_parts.append("Authority IDs: " + ", ".join(authority_ids))
+    
+    description = "; ".join(description_parts)
+    
+    result = {
+        'uri': f"http://viaf.org/viaf/{viaf_id}",
+        'label': name,
+        'description': description,
+        'type': 'viaf',
+        'authority': {
+            'name': 'VIAF',
+            'uri': f"http://viaf.org/viaf/{viaf_id}"
+        }
+    }
+    
+    return result
