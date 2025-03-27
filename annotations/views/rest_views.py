@@ -537,33 +537,72 @@ class ConceptViewSet(viewsets.ModelViewSet):
         q = request.GET.get('search', None)
         if not q:
             return Response({'results': []})
+            
         pos = request.GET.get('pos', None)
-        url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
-        parameters = {
+        results = []
+        
+        # ConceptPower search
+        conceptpower_url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
+        conceptpower_params = {
             'word': q,
             'pos': pos if pos else None,
         }
         headers = {
             'Accept': 'application/json',
+            "Cache-Control": "no-cache",
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
         }
         
         try:
-            response = requests.get(url, headers=headers, params=parameters)
+            conceptpower_response = requests.get(conceptpower_url, headers=headers, params=conceptpower_params)
             
-            if response.status_code == 200:
-                data = response.json()
-                concepts = []
+            if conceptpower_response.status_code == 200:
+                data = conceptpower_response.json()
                 for concept_entry in data.get('conceptEntries', []):
-                    concept = parse_concept(concept_entry)
-                    concept = _relabel(concept)
-                    concepts.append(concept)
-                return Response({'results': concepts})
-            else:
-                # Return empty results
-                return Response({'results': []})
+                    try:
+                        concept = parse_concept(concept_entry)
+                        concept = _relabel(concept)
+                        results.append(concept)
+                    except Exception as e:
+                        logger.warning(f'Error parsing ConceptPower entry: {str(e)}')
+                        continue
         except Exception as e:
-            logger.error(f'Error searching concepts: {str(e)}')
-            return Response({'error': str(e), 'results': []}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f'Error searching ConceptPower: {str(e)}')
+        
+        # VIAF search
+        viaf_url = "https://viaf.org/viaf/AutoSuggest"
+        viaf_params = {
+            'query': q
+        }
+        
+        try:
+            viaf_response = requests.get(viaf_url, headers=headers, params=viaf_params)
+            print(f"VIAF Response Details:\n"
+                  f"Status Code: {viaf_response.status_code}\n"
+                  f"Headers: {viaf_response.headers}\n"
+                  f"Content: {viaf_response.content}\n"
+                  f"Text: {viaf_response.text}\n"
+                  f"URL: {viaf_response.url}\n"
+                  f"Encoding: {viaf_response.encoding}\n"
+                  f"Elapsed Time: {viaf_response.elapsed}")  # DEBUG
+            
+            if viaf_response.status_code == 200:
+                data = viaf_response.json()
+                if isinstance(data, dict):
+                    for entry in data.get('result', []):
+                        try:
+                            viaf_result = parse_viaf_result(entry)
+                            results.append(viaf_result)
+                        except Exception as e:
+                            logger.warning(f'Error parsing VIAF entry: {str(e)}')
+                            continue
+        except Exception as e:
+            logger.error(f'Error searching VIAF: {str(e)}')
+
+        print(results) #DEBUG
+            
+        return Response({'results': results})
 
     @action(detail=False)
     def viaf_search(self, request, **kwargs):
@@ -739,6 +778,7 @@ def parse_viaf_result(entry):
             'name': 'VIAF',
             'uri': f"http://viaf.org/viaf/{viaf_id}"
         }
-    }
-    
+    }    
+
+    print(result)
     return result
