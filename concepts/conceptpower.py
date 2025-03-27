@@ -50,7 +50,7 @@ class Conceptpower:
         return concept_entries[0] if concept_entries else {}
 
     def create(self, user, password, label, pos, conceptlist, description,
-               concepttype, synonym_ids=[], equal_to=[], similar_uris=[]):
+               concepttype, synonym_ids=[], equal_to=[], similar_uris=[], instance=None):
 
         auth = HTTPBasicAuth(user,password)
         rest_url = "{0}concept/add".format(self.endpoint)
@@ -72,6 +72,13 @@ class Conceptpower:
             raise RuntimeError(r.status_code, r.text)
 
         # Returned data after successful response
+        # After successful response, the response is {'synonymids': [], 'equal_to': '', 'similar': [], 'pos': 'noun', 'conceptlist': 'Vogon', 'description': 'a free, multilingual, online encyclopedia written and maintained by a community of volunteers through a model of open collaboration, using a wiki-based editing system', 'id': 'CONKJuon5TZTkX6', 'type': 'http://www.digitalhps.org/types/TYPE_52cbe154-2ee7-4ee1-861f-67fb3c7d9511', 'word': 'Wikipedia', 'uri': 'http://www.digitalhps.org/concepts/CONKJuon5TZTkX6'}
+        print(r.json()) #DEBUG
+
+        # Update the instance with the conceptpower uri
+        instance.uri = r.json()['uri']
+        instance.save()
+
         return r.json()
     
     def parse_concept(self,concept_entry):

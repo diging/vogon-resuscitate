@@ -211,7 +211,9 @@ class ConceptLifecycle(object):
                                             self.DEFAULT_LIST,
                                             self.instance.description,
                                             concept_type,
-                                            equal_to=equal_uri)
+                                            equal_to=equal_uri,
+                                            instance=self.instance
+                                            )
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
                                            " concept to Conceptpower:"
