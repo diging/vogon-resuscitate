@@ -39,20 +39,18 @@ var AppellationListItem = {
         });
     },
     watch: {
-        checked: function () {
-            if (this.checked == false) {
-                store.commit('removeAppellation', this.index);
-                store.commit('setSelectFalse')
-            } else {
-                if (store.getters.getValidator == 3) {
-                    store.commit('setValidator', 0);
-                }
-                store.commit('addAppellation', this.appellation)
-                store.commit('setDeselectFalse')
-            }
-        },
-
-    },
+        // Instead of removing from the array when unchecked,
+        // we just set `.selected = false`.
+        checked(newVal) {
+          if (!newVal) {
+            // Unselect it without removing from the array
+            this.appellation.selected = false;
+          } else {
+            // Mark it selected
+            this.appellation.selected = true;
+          }
+        }
+      },
     methods: {
         watchUncheckStore: function () {
             store.watch(
