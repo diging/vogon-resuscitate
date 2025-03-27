@@ -578,21 +578,25 @@ class ConceptViewSet(viewsets.ModelViewSet):
         headers = {
             'Accept': 'application/json',
         }
+        
         try:
             response = requests.get(url, headers=headers, params=parameters)
+            
             if response.status_code == 200:
                 data = response.json()
                 concepts = []
-                for concept_entry in data['conceptEntries']:
+                for concept_entry in data.get('conceptEntries', []):
                     concept = parse_concept(concept_entry)
                     concept = _relabel(concept)
                     concept['authority']['name'] = 'Conceptpower'
                     concepts.append(concept)
-                return concepts
+                return Response({'results': concepts})
+            else:
+                # Return empty results
+                return Response({'results': []})
         except Exception as e:
-            logger.error(f"Error searching ConceptPower: {str(e)}")
-            return []
-        return []
+            logger.error(f'Error searching concepts: {str(e)}')
+            return Response({'error': str(e), 'results': []}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def _search_viaf(self, q):
         encoded_query = requests.utils.quote(f'local.names all "{q}"')

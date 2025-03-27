@@ -14,15 +14,15 @@ class VogonUserAdmin(UserAdmin):
     # The fields to be used in displaying the User model.
     # These override the definitions on the base UserAdmin
     # that reference specific fields on auth.User.
-    list_display = ('username', 'full_name', 'email', 'affiliation', 'is_admin')
-    list_filter = ('is_admin',)
+    list_display = ('username', 'full_name', 'email', 'affiliation', 'is_admin', 'is_vogon_admin_display')
+    list_filter = ('is_admin', 'vogon_admin')
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         ('Personal info', {
-            'fields': ('full_name', 'affiliation', 'location', 'link',
+            'fields': ('username', 'full_name', 'affiliation', 'location', 'link',
                        'conceptpower_uri')
         }),
-        ('Permissions', {'fields': ('is_admin', 'is_active')}),
+        ('Permissions', {'fields': ('is_admin', 'vogon_admin', 'is_active')}),
     )
     # add_fieldsets is not a standard ModelAdmin attribute. UserAdmin
     # overrides get_fieldsets to use this attribute when creating a user.
@@ -36,6 +36,12 @@ class VogonUserAdmin(UserAdmin):
     search_fields = ('email',)
     ordering = ('email',)
     filter_horizontal = ()
+
+    # Custom display method for is_vogon_admin
+    def is_vogon_admin_display(self, obj):
+        return obj.vogon_admin
+    is_vogon_admin_display.boolean = True
+    is_vogon_admin_display.short_description = 'Is Vogon Admin'
 
 
 class TextAdmin(admin.ModelAdmin):

@@ -1,7 +1,13 @@
-from external_accounts.utils import get_giles_document_details
+from external_accounts.giles import GilesAPI
+from repository.exceptions import GilesTextExtractionError, GilesUploadError
 from repository import auth
 from requests.exceptions import RequestException
+
 import requests
+
+import traceback
+import logging
+logger = logging.getLogger(__name__)
 
 class CitesphereAPIError(Exception):
     """Base exception class for Citesphere API errors"""
@@ -32,8 +38,12 @@ class CitesphereAPIv1:
             response.raise_for_status()
             return response.json()
         except RequestException as e:
+            error_trace = traceback.format_exc()
+            logger.error(f"API request failed:\n{error_trace}")
             raise CitesphereAPIError(message="API request failed", error_code="REQUEST_ERROR", details=str(e))
         except ValueError as e:
+            error_trace = traceback.format_exc()
+            logger.error(f"Invalid JSON response:\n{error_trace}")
             raise CitesphereAPIError(message="Invalid JSON response", error_code="RESPONSE_ERROR", details=str(e))
 
     def get_groups(self, params=None):
@@ -71,6 +81,7 @@ class RepositoryManager:
             response.raise_for_status()
             return response.content
         except RequestException as e:
+            logger.error(f"Failed to fetch data: {str(e)}")
             raise CitesphereAPIError(message="Failed to fetch data", error_code="RAW_DATA_ERROR", details=str(e))
 
     def groups(self):
@@ -95,6 +106,7 @@ class RepositoryManager:
             CitesphereAPIError
         """
         if not isinstance(page, int) or page < 1:
+            logger.error("Invalid page number: Page must be a positive integer")
             raise CitesphereAPIError(message="Invalid page number", error_code="INVALID_PAGE", details="Page must be a positive integer")
 
         # Make the API call using CitesphereAPIv1
@@ -133,6 +145,7 @@ class RepositoryManager:
             CitesphereAPIError
         """
         if not isinstance(page, int) or page < 1:
+            logger.error("Invalid page number: Page must be a positive integer")
             raise CitesphereAPIError(message="Invalid page number", error_code="INVALID_PAGE", details="Page must be a positive integer")
 
         try:
@@ -150,9 +163,55 @@ class RepositoryManager:
         
         # TODO: Once there is a collection information endpoint, this will no longer be needed, this will be an Exception error
         except StopIteration:
+            logger.error(f"Collection {collection_id} not found in group {group_id}")
             raise CitesphereAPIError(message="Collection not found", error_code="COLLECTION_NOT_FOUND", details=f"Collection {collection_id} not found in group {group_id}")
 
-    def item(self, group_id, item_id):
+    def item_files(self, groupId, itemId):
+        """
+        Fetch individual item from repository's endpoint and list all associated files for import.
+
+        Args:
+            groupId: The group ID in the repository
+            itemId: The item ID in the repository
+
+        Returns:
+            A dictionary containing a list of files with their respective details and processing status.
+        """
+        headers = auth.citesphere_auth(self.user, self.repository)
+        url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            item_data = response.json()
+
+            files = []
+            is_file_processing = False
+            
+            # Extract Giles upload file details if available
+            giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
+            if giles_uploads:
+                for giles_upload in giles_uploads:
+                    extracted_text = giles_upload.get('extractedText', {})
+                    if extracted_text and extracted_text.get('content-type') == 'text/plain':
+                        files.append({
+                            'id': extracted_text.get('id'),
+                            'filename': extracted_text.get('filename'),
+                            'url': extracted_text.get('url')
+                        })
+                    else:
+                        upload_id = giles_upload.get("progressId")
+                        if upload_id:
+                            is_file_processing = True
+
+            return {
+                "files": files,
+                "is_file_processing": is_file_processing
+            }
+        else:
+            logger.error(f"Failed to fetch item files: {response.status_code}")
+            response.raise_for_status()
+
+    def item(self, groupId, itemId, fileId, repository):
         """
         Fetch individual item details from the repository and extract Giles document text.
 
@@ -164,12 +223,15 @@ class RepositoryManager:
             A dictionary containing item details and Giles document text.
             
         Raises:
-            CitesphereAPIError
+            GilesUploadError: When there's an issue with Giles uploads
+            GilesTextExtractionError: When text content cannot be extracted
+            CitesphereAPIError: When API request fails or returns invalid data
         """
         # Fetch item details using CitesphereAPIv1
-        item_data = self.api.get_item_details(group_id, item_id)
+        item_data = self.api.get_item_details(groupId, itemId)
         
         if not item_data or 'item' not in item_data:
+            logger.error("Invalid item data received: missing 'item' key")
             raise CitesphereAPIError(message="Invalid item data", error_code="INVALID_ITEM_DATA", details="Response missing item data")
 
         # Extract core item details
@@ -184,60 +246,26 @@ class RepositoryManager:
         }
 
         # Extract Giles uploads and their text if available
-        giles_uploads = item.get('gilesUploads', [])
-        item_data['item']['text'] = self._fetch_giles_text(giles_uploads)
-        item_data['item']['details'] = item_details
-
-        return item_data
-
-    def _fetch_giles_text(self, giles_uploads):
-        """
-        Extract text from Giles uploads.
-        
-        Args:
-            giles_uploads: List of Giles upload objects
-            
-        Returns:
-            str: Extracted text content or error message
-            
-        Raises:
-            CitesphereAPIError
-        """
-        if not giles_uploads:
-            return "No Giles uploads available."
-
         try:
-            upload = giles_uploads[0]
-            text_content = ""
-
-           # Extract plain text from Giles extracted text if available
-            extracted_text = upload.get('extractedText', {})
-            if extracted_text and extracted_text.get('content-type') == 'text/plain':
-                text_content = get_giles_document_details(self.user, extracted_text['id'])
-                if text_content is None:
-                    raise CitesphereAPIError(message="Failed to fetch document text from Giles, please try again later.", error_code="GILES_TEXT_ERROR", details="Failed to fetch document text from Giles")
-    
-            # Extract plain text from upload file if available
-            elif upload.get('uploadedFile').get('content-type') == 'text/plain' and upload.get('uploadedFile').get('id'):
-                text_content = get_giles_document_details(self.user, upload.get('uploadedFile')['id'])
-                if text_content is None:
-                    raise CitesphereAPIError(message="Failed to fetch document text from Giles, please try again later.", error_code="GILES_UPLOAD_PLAIN_TEXT_ERROR", details=f"Failed to fetch text from plain text file {upload.get('uploadedFile')['id']}")
-
-            # Fallback to extracting text from pages
-            elif 'pages' in upload:
-                for page in upload['pages']:
-                    text_data = page.get('text')
-                    if text_data and text_data.get('content-type') == 'text/plain':
-                        page_text = get_giles_document_details(self.user, text_data['id'])
-                        if page_text is not None:
-                            text_content += page_text
-                        else:
-                            raise CitesphereAPIError(message="Failed to fetch document text from Giles, please try again later.", error_code="GILES_PAGE_ERROR", details=f"Failed to fetch text for page {page.get('number', 'unknown')}")
-
-            return text_content or "No valid text/plain content found."
-            
+            giles = GilesAPI(self.user, repository)
+            text = giles.get_file_content(fileId)
+            if text is None:
+                error_trace = traceback.format_exc()
+                logger.error(f"Failed to retrieve text content from Giles for file ID: {fileId}\n{error_trace}")
+                raise GilesTextExtractionError("Failed to retrieve text content from Giles, the file does not exist.")
+        except requests.RequestException as e:
+            error_trace = traceback.format_exc()
+            logger.error(f"Error accessing Giles API: {str(e)}\n{error_trace}")
+            raise GilesUploadError(f"Error accessing Giles API: {str(e)}")
+        except ValueError as e:
+            error_trace = traceback.format_exc()
+            logger.error(f"Authentication error with Giles: {str(e)}\n{error_trace}")
+            raise GilesUploadError(f"Authentication error with Giles: {str(e)}")
         except Exception as e:
-            # If the exception is already a CitesphereAPIError, re-raise it directly to preserve the original error details.
-            if isinstance(e, CitesphereAPIError):
-                raise
-            raise CitesphereAPIError(message="Giles text extraction has failed", error_code="GILES_EXTRACTION_ERROR", details=str(e))
+            error_trace = traceback.format_exc()
+            logger.error(f"Unexpected error retrieving Giles document: {str(e)}\n{error_trace}")
+            raise GilesTextExtractionError(f"Unexpected error retrieving Giles document: {str(e)}")
+
+        item_data['item']['text'] = text
+        item_data['item']['details'] = item_details
+        return item_data

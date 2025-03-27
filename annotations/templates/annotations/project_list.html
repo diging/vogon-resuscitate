@@ -5,6 +5,16 @@
 <script src="{% static "annotations/js/spin.min.js" %}"></script>
 <script src="{% static "annotations/js/jquery.spin.js" %}"></script>
 <script src="{% static "annotations/js/cytoscape.min.js" %}"></script>
+
+<script>
+$(document).ready(function() {
+    // Show loading spinner when clicking on a project link for text import
+    $('.project-import-link').click(function(e) {
+        $(this).spin();
+    });
+});
+</script>
+
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -27,8 +37,8 @@
         {% if projects %}
             {% for project in projects %}
             {% if redirect_to_text_import %}
-                <a class="list-group-item"
-                    href="{% url 'repository_text_import' repository_id group_id text_key project.id %}">
+                <a class="list-group-item project-import-link"
+                    href="{% url 'repository_text_import' repository_id group_id text_key file_id project.id %}">
             {% else %}
                 <a class="list-group-item"
                     href="{% url "view_project" project.id %}">
