@@ -296,6 +296,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     for collection_item in texts['group']:
         if collection_item['key'] == group_collection_id:
             collection_name = collection_item['name']
+            break
 
     # retrieve items per page from settings and calculate pagination metadata from util function
     items_per_page = settings.PAGINATION_PAGE_SIZE
@@ -309,6 +310,16 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         # Log the error if needed and fall back to an empty list.
         print("Error fetching subcollections:", e)
     project_id = request.GET.get('project_id')
+    
+    if not collection_name:
+        parent_collection_key = request.GET.get('parent_collection_key')
+        if parent_collection_key:
+            parent_data = manager.api.get_group_subcollections(group_id, parent_collection_key).get('collections', [])
+            for collection_item in parent_data:
+                if collection_item['key'] == group_collection_id:
+                    collection_name = collection_item['name']
+                    break
+
     context = {
         'user': user,
         'repository': repository,
@@ -316,7 +327,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         'group_collection_id': group_collection_id,
         'title': 'Texts in Collection:',
         'group_id': group_id,
-        'collection_name': collection_name,
+        'collection_name': collection_name or "Unknown Collection",
         'project_id': project_id,
         'current_page': pagination['current_page'],
         'total_pages': pagination['total_pages'],
@@ -326,7 +337,6 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     }
 
     return render(request, 'annotations/repository_collections_text_list.html', context)
-
 
 @citesphere_authenticated
 def repository_text_files(request, repository_id, group_id, item_id):
