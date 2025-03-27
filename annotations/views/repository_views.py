@@ -309,11 +309,13 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
     subcollections = []
     try:
-        subcollections_data = manager.api.get_group_subcollections(group_id, group_collection_id)
-        subcollections = subcollections_data.get('collections', [])
+        subcollections = manager.api.get_group_subcollections(group_id, group_collection_id).get('collections', [])
+    except CitesphereAPIError as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
     except Exception as e:
-        # Log the error if needed and fall back to an empty list.
-        print("Error fetching subcollections:", e)
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
     project_id = request.GET.get('project_id')
     
     if not collection_name:
@@ -551,17 +553,4 @@ def _repository_text_fail(request, repository, result, content):
         'project_id': project_id,
     }
     return render(request, template, context)
-
-def subcollections(request, repository_id, group_id, group_collection_id):
-    """View to fetch and return subcollections for a specific collection from Citesphere."""
-    repository = get_object_or_404(Repository, pk=repository_id)
-    manager = RepositoryManager(user=request.user, repository=repository)
-
-    try:
-        data = manager.api.get_group_subcollections(group_id, group_collection_id)
-        return JsonResponse(data, safe=False)
-    except CitesphereAPIError as e:
-        return JsonResponse({"error": str(e)}, status=400)
-    except Exception as e:
-        return JsonResponse({"error": "An unexpected error occurred"}, status=500)
 
