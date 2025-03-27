@@ -465,6 +465,16 @@ def generate_graph_data(relationset, user):
         else:
             obj_key = f"app-{object_node.id}-{object_node.created.isoformat()}"
     
+    # Check if using alternative expression format (node1 behavior:uri node2)
+    expression = relationset.template.expression
+    is_alternative_format = expression and ':' in expression and any(c.isalpha() for c in expression.split(':')[0])
+    
+    # Extract URI from alternative format if present
+    alt_format_uri = None
+    if is_alternative_format:
+        # Split on colon and get the URI part, strip any whitespace
+        alt_format_uri = expression.split(':')[1].strip()
+    
     # Construct the default mapping based on template
     default_mapping = {
         "subject": {
@@ -472,8 +482,8 @@ def generate_graph_data(relationset, user):
             "reference": node_mapping.get(subj_key, "0"),
         },
         "predicate": {
-            "type": "URI",
-            "uri": predicate_node.interpretation.master.uri,
+            "type": "REF" if is_alternative_format else "URI",
+            "uri": alt_format_uri if is_alternative_format else predicate_node.interpretation.master.uri,
         },
         "object": {
             "type": "REF",
