@@ -126,19 +126,8 @@ class RepositoryManager:
         }
 
     def collections(self, group_id):
-        """
-        Fetch collections for a given group.
-        
-        Returns a dictionary with "group" info and a list of "collections".
-        """
-        data = self.api.get_group_collections(group_id)
-        group_info = data.get('group', {})
-        collections = data.get('collections', [])
-
-        return {
-            'group': group_info,
-            'collections': collections
-        }
+        """Fetch all collections within a specific group."""
+        return self.api.get_group_collections(group_id)
 
     def collection_items(self, group_id, collection_id, page=1):
         """

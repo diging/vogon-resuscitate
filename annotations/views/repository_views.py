@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, render
 from django.db.models import Q
 from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
+
 from annotations.forms import RepositorySearchForm
 from annotations.tasks import tokenize
 from repository.models import Repository
@@ -327,16 +328,17 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         'group_collection_id': group_collection_id,
         'title': 'Texts in Collection:',
         'group_id': group_id,
-        'collection_name': collection_name or "Unknown Collection",
+        'collection_name': collection_name,
         'project_id': project_id,
         'current_page': pagination['current_page'],
         'total_pages': pagination['total_pages'],
         'page_range': pagination['page_range'],
         'APP_ROOT': settings.APP_ROOT,
-        'subcollections': subcollections
+        'subcollections': subcollections,
     }
 
     return render(request, 'annotations/repository_collections_text_list.html', context)
+
 
 @citesphere_authenticated
 def repository_text_files(request, repository_id, group_id, item_id):
@@ -547,7 +549,7 @@ def _repository_text_fail(request, repository, result, content):
     return render(request, template, context)
 
 def subcollections(request, repository_id, group_id, group_collection_id):
-    """AJAX endpoint to fetch subcollections."""
+    """View to fetch and return subcollections for a specific collection from Citesphere."""
     repository = get_object_or_404(Repository, pk=repository_id)
     manager = RepositoryManager(user=request.user, repository=repository)
 
