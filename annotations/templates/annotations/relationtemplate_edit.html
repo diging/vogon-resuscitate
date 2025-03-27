@@ -347,7 +347,8 @@
                         </tr>
                     </table>
                     <button class="btn btn-primary pull-right" type="submit" value="Submit">Save Changes</button>
-                    <a href="{% url 'list_relationtemplate' %}" class="btn btn-warning pull-right" style="margin: 0px 4px;">Back</a>
+                    <!-- The back button is set to javascript:history.back() since this page is accessible via the relationtemplate_show.html page and the relationtemplate_list.html page and we want to redirect back to the page that called the edit page -->
+                    <a href="javascript:history.back()" class="btn btn-warning pull-right" style="margin: 0px 4px;">Back</a>
                 </form>
             </div>
         </div>
