@@ -106,7 +106,7 @@ def repository_collections(request, repository_id):
 
 @citesphere_authenticated
 def repository_collection(request, repository_id, group_id):
-    """View to fetch and display top-level collections and group texts within Citesphere Groups."""
+    """View to fetch and display collections and group texts within Citesphere Groups"""
 
     repository = get_object_or_404(Repository, pk=repository_id)
     
@@ -131,6 +131,10 @@ def repository_collection(request, repository_id, group_id):
     items_per_page = settings.PAGINATION_PAGE_SIZE
     pagination = get_pagination_metadata(total_items=group_texts.get('total_items'), page=page, items_per_page=items_per_page)
 
+    base_params = {}
+    if project_id:
+        base_params.update({'project_id': project_id})
+    
     context = {
         'user': request.user,
         'repository': repository,
