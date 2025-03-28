@@ -18,7 +18,7 @@ AppellationDisplayItem = {
                     v-bind:class="{
                         'appellation': appellation.interpretation != null,
                         'date-appellation': appellation.dateRepresentation != null,
-                        'appellation-selected': appellation.selected && !isDeleted
+                        'appellation-selected': isSelected && !isDeleted
                     }">
                 </li>
                 <li v-if="manyLinesAreSelected()"
@@ -28,7 +28,7 @@ AppellationDisplayItem = {
                      v-bind:class="{
                          'appellation': appellation.interpretation != null,
                          'date-appellation': appellation.dateRepresentation != null,
-                         'appellation-selected': appellation.selected
+                         'appellation-selected': isSelected
                      }"
                      v-bind:style="{
                        height: line.height,
@@ -55,7 +55,7 @@ AppellationDisplayItem = {
                      v-bind:class="{
                          'appellation': appellation.interpretation != null,
                          'date-appellation': appellation.dateRepresentation != null,
-                         'appellation-selected': appellation.selected
+                         'appellation-selected': isSelected
                      }">
                 </li>
                 </div>`,
@@ -74,6 +74,11 @@ AppellationDisplayItem = {
             end_position: {},
             isDeleted: false,
             cleanupTimeout: null
+        }
+    },
+    computed: {
+        isSelected: function() {
+            return this.appellation.selected;
         }
     },
     computed: {
@@ -238,8 +243,9 @@ AppellationDisplay = {
                 <appellation-display-item
                     v-on:selectappellation="selectAppellation"
                     v-bind:appellation=appellation
-                    v-bind:key="appellation.id + '-' + appellation.position.position_value"
-                    v-for="appellation in current_appellations"></appellation-display-item>
+                    v-for="appellation in appellations"
+                    :key="appellation.id">
+                </appellation-display-item>
                 </ul>`,
     components: {
         'appellation-display-item': AppellationDisplayItem
