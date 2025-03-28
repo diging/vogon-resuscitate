@@ -68,7 +68,10 @@ def flag_concept(request, source_concept_id):
         concept.comment = comment
         concept.save()
         next_page = request.GET.get('next', reverse('concepts'))
-    return HttpResponseRedirect(next_page)
+        return HttpResponseRedirect(next_page)
+    
+    return HttpResponseRedirect(reverse('concepts'))
+
 
 @login_required
 def concepts(request):
@@ -138,30 +141,31 @@ def add_concept(request, concept_id):
         'next_page': urllib.parse.quote_plus(next_page),
         'back_to_page': back_to_page
     }
-    if concept.concept_state != Concept.PENDING and concept.concept_state != Concept.FLAGGED:
-        return HttpResponseRedirect(next_page)
 
-    if request.GET.get('confirmed', False):
-        try:
-            manager.add()
-        except ConceptUpstreamException as E:
-            messages.error(
-                    request,
-                    'ERROR: There was an error while communicating with Conceptpower.'
-                )
-            return HttpResponseRedirect(reverse('concepts'))
-        return HttpResponseRedirect(next_page)
+    # Process only if the concept is still in a resolvable state (e.g., PENDING or FLAGGED)
+    if concept.concept_state in [Concept.PENDING, Concept.FLAGGED]:
+        if request.GET.get('confirmed', False):
+            try:
+                manager.add()
+            except ConceptUpstreamException as E:
+                messages.error(
+                        request,
+                        'ERROR: There was an error while communicating with Conceptpower.'
+                    )
+                return HttpResponseRedirect(reverse('concepts'))
+            return HttpResponseRedirect(next_page)
 
 
-    candidates = manager.get_similar()
-    matches = manager.get_matching()
+        candidates = manager.get_similar()
+        matches = manager.get_matching()
 
-    context.update({
-        'candidates': candidates,
-        'matches': matches,
-    })
+        context.update({
+            'candidates': candidates,
+            'matches': matches,
+        })
 
-    return render(request, "annotations/concept_add.html", context)
+        return render(request, "annotations/concept_add.html", context)
+    return HttpResponseRedirect(next_page)
 
 
 @login_required
