@@ -130,7 +130,9 @@ TextDisplay = {
                    
                    <!-- Main text content area -->
                    <pre id="text-content"
-                        v-on:mouseup="handleMouseup">{{ text }}</pre>
+                        v-on:mouseup="handleMouseup"
+                        v-on:mousedown="handleMousedown"
+                        style="position: relative; white-space: pre-wrap; word-wrap: break-word;">{{ text }}</pre>
                    
                    <!-- Regular annotations display -->
                    <appellation-display
@@ -151,12 +153,10 @@ TextDisplay = {
     data: function() {
         return {
             text: TEXT_CONTENT,
-            // Tracks current text selection
             selected: {
                 startOffset: null,
                 endOffset: null
             },
-            // Position data for selection highlighting
             selected_position: {
                 top: 0,
                 left: 0,
@@ -166,38 +166,38 @@ TextDisplay = {
             selected_multi_line: false,
             selected_mid_lines: null,
             selected_end_position: null,
-            // State flags
             isEditing: false,
             showSuccessMessage: false,
             successMessageTimeout: null,
-            listening: false
+            listening: false,
+            isSelecting: false
         }
     },
     mounted: function() {
-        // Listen for events to clear text selection
         EventBus.$on('cleartextselection', this.resetTextSelection);
-        
-        // Handle entering edit mode
         EventBus.$on('startEdit', () => {
             this.isEditing = true;
             document.addEventListener('keydown', this.handleEscKey);
         });
-        
-        // Handle canceling edit mode
         EventBus.$on('cancelEdit', () => {
             this.isEditing = false;
             localStorage.removeItem('editingAppellation');
             document.removeEventListener('keydown', this.handleEscKey);
         });
-        // Add ESC key listener
         window.addEventListener('keyup', this.handleKeyup);
+        window.addEventListener('resize', this.handleResize);
     },
     beforeDestroy: function() {
-        // Clean up event listener
-        window.removeEventListener('keyup', this.handleKeyup); 
+        window.removeEventListener('keyup', this.handleKeyup);
+        window.removeEventListener('resize', this.handleResize);
+        EventBus.$off('cleartextselection');
+        EventBus.$off('startEdit');
+        EventBus.$off('cancelEdit');
+        if (this.successMessageTimeout) {
+            clearTimeout(this.successMessageTimeout);
+        }
     },
     methods: {
-        // Handle ESC key press to cancel editing
         handleEscKey: function(e) {
             if (e.key === 'Escape' && this.isEditing) {
                 EventBus.$emit('cancelEdit');
@@ -205,7 +205,13 @@ TextDisplay = {
             }
         },
         
-        // Reset all selection-related state
+        handleResize: function() {
+            // Force update positions when window is resized
+            this.$nextTick(() => {
+                store.commit('updatePositions');
+            });
+        },
+        
         resetTextSelection: function() {
             this.selected = {
                 startOffset: null,
@@ -221,51 +227,62 @@ TextDisplay = {
             this.selected_mid_lines = null;
             this.selected_end_position = null;
             this.listening = false;
+            this.isSelecting = false;
         },
-        selectAppellation: function(appellation) { this.$emit('selectappellation', appellation); },
-        selectDateAppellation: function(appellation) { this.$emit('selectdateappellation', appellation); },
-        textIsSelected: function() { return this.selected.startOffset != null; },
+        
+        handleMousedown: function(e) {
+            if (e.target.id === 'text-content') {
+                this.isSelecting = true;
+            }
+        },
+        
+        selectAppellation: function(appellation) { 
+            this.$emit('selectappellation', appellation); 
+        },
+        
+        selectDateAppellation: function(appellation) { 
+            this.$emit('selectdateappellation', appellation); 
+        },
+        
+        textIsSelected: function() { 
+            return this.selected.startOffset != null; 
+        },
+        
         handleKeyup: function(e) {
             if (e.key === 'Escape') {
                 this.resetTextSelection();
                 this.listening = false;
-                // Cancel concept selection
                 EventBus.$emit('cleartextselection');
                 EventBus.$emit('cancelappellation');
                 clearMouseTextSelection();
             }
         },
+        
         handleMouseup: function(e) {
-            // Show the instruction message when starting selection
+            if (!this.isSelecting || e.target.id !== 'text-content') return;
+            
+            e.stopPropagation();
+            this.isSelecting = false;
             this.listening = true;
 
-            // We're looking for an event in which the user has selected some
-            //  text.
-            if (e.target.id != 'text-content') return;    // Out of scope.
-            e.stopPropagation();
+            const selection = document.getSelection();
+            const startOffset = Math.min(selection.anchorOffset, selection.focusOffset);
+            const endOffset = Math.max(selection.anchorOffset, selection.focusOffset);
 
-            // Get the selected text range
-            var selection = document.getSelection();
-            var startOffset = Math.min(selection.anchorOffset, selection.focusOffset);
-            var endOffset = Math.max(selection.anchorOffset, selection.focusOffset);
+            if (endOffset === startOffset) return;
 
-            if (endOffset == startOffset) return;
-
-            // Get the actual selected text
-            var raw = document.getElementById('text-content').childNodes[0].textContent.slice(startOffset, endOffset);
+            const raw = document.getElementById('text-content').childNodes[0].textContent.slice(startOffset, endOffset);
             this.selected = {
                 startOffset: startOffset,
                 endOffset: endOffset,
                 representation: raw
             }
 
-            // Handle edit mode selection
             if (this.isEditing) {
                 const editingAppellation = localStorage.getItem('editingAppellation');
                 if (editingAppellation) {
                     const appellation = JSON.parse(editingAppellation);
                     
-                    // Update the appellation with new position
                     Appellation.update({ id: appellation.id }, {
                         position: {
                             occursIn: this.text.id,
@@ -275,20 +292,12 @@ TextDisplay = {
                         stringRep: raw,
                         interpretation: appellation.interpretation.uri
                     }).then(response => {
-                        // Clear editing state
                         localStorage.removeItem('editingAppellation');
                         this.isEditing = false;
-                        
-                        // Emit cancel edit to clear edit mode for all components
                         EventBus.$emit('cancelEdit');
-                        
-                        // Emit update event with updated appellation
                         this.$root.$emit('appellationUpdated', response.body);
-                        
-                        // Clear selection
                         this.resetTextSelection();
                         
-                        // Show success message
                         EventBus.$emit('showMessage', {
                             text: 'Successfully updated annotation',
                             type: 'success'
@@ -303,25 +312,14 @@ TextDisplay = {
                     });
                 }
             } else {
-                // Normal text selection handling
                 this.$emit('selecttext', this.selected);
             }
             
             clearMouseTextSelection();
-        },
+        }
     },
     components: {
         'appellation-display': AppellationDisplay,
         'text-selection-display': TextSelectionDisplay
-    },
-    beforeDestroy() {
-        // Clean up all event listeners and timeouts
-        EventBus.$off('cleartextselection');
-        EventBus.$off('startEdit');
-        EventBus.$off('cancelEdit');
-        document.removeEventListener('keydown', this.handleEscKey);
-        if (this.successMessageTimeout) {
-            clearTimeout(this.successMessageTimeout);
-        }
     }
 }

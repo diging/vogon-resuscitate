@@ -11,14 +11,17 @@ AppellationDisplayItem = {
                         height: line_height + 'px',
                         'z-index': 2,
                         transition: 'all 0.2s ease',
-                        opacity: isDeleted ? 0 : (appellation.selected ? 0.5 : 0.3),
+                        opacity: isDeleted ? 0 : 0.5,
                         visibility: shouldShow ? 'visible' : 'hidden',
-                        pointerEvents: isDeleted ? 'none' : 'auto'
+                        pointerEvents: isDeleted ? 'none' : 'auto',
+                        backgroundColor: appellation.selected ? '#ffd700' : (appellation.interpretation ? '#fff176' : '#90caf9'),
+                        cursor: 'pointer',
+                        border: 'none',
+                        outline: 'none'
                     }"
                     v-bind:class="{
                         'appellation': appellation.interpretation != null,
-                        'date-appellation': appellation.dateRepresentation != null,
-                        'appellation-selected': isSelected && !isDeleted
+                        'date-appellation': appellation.dateRepresentation != null
                     }">
                 </li>
                 <li v-if="manyLinesAreSelected()"
@@ -27,8 +30,7 @@ AppellationDisplayItem = {
                      v-tooltip="getLabel()"
                      v-bind:class="{
                          'appellation': appellation.interpretation != null,
-                         'date-appellation': appellation.dateRepresentation != null,
-                         'appellation-selected': isSelected
+                         'date-appellation': appellation.dateRepresentation != null
                      }"
                      v-bind:style="{
                        height: line.height,
@@ -37,7 +39,11 @@ AppellationDisplayItem = {
                        position: 'absolute',
                        width: line.width,
                        'z-index': 2,
-                       opacity: appellation.selected ? 0.5 : 0.3
+                       opacity: isDeleted ? 0 : 0.5,
+                       backgroundColor: appellation.selected ? '#ffd700' : (appellation.interpretation ? '#fff176' : '#90caf9'),
+                       cursor: 'pointer',
+                       border: 'none',
+                       outline: 'none'
                    }">
                 </li>
                 <li v-if="multipleLinesAreSelected()"
@@ -50,12 +56,15 @@ AppellationDisplayItem = {
                          position: 'absolute',
                          width: end_position.width,
                          'z-index': 2,
-                         opacity: appellation.selected ? 0.5 : 0.3
+                         opacity: isDeleted ? 0 : 0.5,
+                         backgroundColor: appellation.selected ? '#ffd700' : (appellation.interpretation ? '#fff176' : '#90caf9'),
+                         cursor: 'pointer',
+                         border: 'none',
+                         outline: 'none'
                      }"
                      v-bind:class="{
                          'appellation': appellation.interpretation != null,
-                         'date-appellation': appellation.dateRepresentation != null,
-                         'appellation-selected': isSelected
+                         'date-appellation': appellation.dateRepresentation != null
                      }">
                 </li>
                 </div>`,
@@ -79,11 +88,9 @@ AppellationDisplayItem = {
     computed: {
         isSelected: function() {
             return this.appellation.selected;
-        }
-    },
-    computed: {
+        },
         shouldShow() {
-            return this.appellation.visible && !this.isDeleted;
+            return this.appellation.visible && !this.isDeleted && this.appellation.position && this.appellation.position.position_value;
         }
     },
     watch: {
