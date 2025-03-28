@@ -71,6 +71,7 @@ class Conceptpower:
         if r.status_code != requests.codes.ok:
             raise RuntimeError(r.status_code, r.text)
 
+        # Returned data after successful response
         return r.json()
     
     def parse_concept(self,concept_entry):

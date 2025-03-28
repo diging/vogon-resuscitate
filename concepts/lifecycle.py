@@ -213,8 +213,6 @@ class ConceptLifecycle(object):
                                             concept_type,
                                             equal_to=equal_uri
                                             )
-            print(data) #DEBUG
-            print(self.instance) #DEBUG
             
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
