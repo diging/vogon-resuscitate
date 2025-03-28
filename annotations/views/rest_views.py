@@ -386,13 +386,13 @@ class RelationSetViewSet(viewsets.ModelViewSet):
     def submit(self, request):
 
         user = request.user
-        pk = request.data.get('pk')
+        quadruple_id = request.data.get('pk')
         
         project_id = request.data.get('project_id')
         project = TextCollection.objects.get(pk=project_id)
         
         try:
-            relationset = RelationSet.objects.get(pk=pk)
+            relationset = RelationSet.objects.get(pk=quadruple_id)
 
         except RelationSet.DoesNotExist:
             return Response({'error': 'RelationSet not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -597,23 +597,24 @@ class ConceptViewSet(viewsets.ModelViewSet):
         headers = {
             'Accept': 'application/json',
         }
-        response = requests.get(url, headers=headers, params=parameters)
         
-        if response.status_code == 200:
-            try:
-                # Parse the JSON response
+        try:
+            response = requests.get(url, headers=headers, params=parameters)
+            
+            if response.status_code == 200:
                 data = response.json()
                 concepts = []
-                for concept_entry in data['conceptEntries']:
+                for concept_entry in data.get('conceptEntries', []):
                     concept = parse_concept(concept_entry)
-                    # Now relabel the fields
                     concept = _relabel(concept)
                     concepts.append(concept)
                 return Response({'results': concepts})
-            except Exception as e:
-                return Response({'error': f'Error parsing ConceptPower response: {str(e)}'}, status=400)
-        else:
-            return Response({'error': 'Error fetching concepts from ConceptPower'}, status=response.status_code)
+            else:
+                # Return empty results
+                return Response({'results': []})
+        except Exception as e:
+            logger.error(f'Error searching concepts: {str(e)}')
+            return Response({'error': str(e), 'results': []}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
     def get_queryset(self, *args, **kwargs):

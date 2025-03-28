@@ -16,7 +16,8 @@ from django.utils.html import format_html
 from django.forms.utils import flatatt
 from django.utils.encoding import force_str
 import networkx as nx
-
+import requests, json
+from concepts.conceptpower import Conceptpower
 
 class RegistrationForm(forms.Form):
     """
@@ -147,7 +148,7 @@ class AutocompleteWidget(widgets.TextInput):
     def render(self, name, value, attrs=None, renderer=None):
         if value is None:
             value = ''
-        final_attrs = self.build_attrs(attrs, {'type': self.input_type, 'name': name})
+        final_attrs = {**self.attrs, **(attrs or {}), 'type': self.input_type, 'name': name}
         if value != '':
             # Only add the 'value' attribute if a value is non-empty.
             final_attrs['value'] = force_str(self._format_value(value))
@@ -169,7 +170,32 @@ class ConceptField(forms.CharField):
         """
         return obj.uri
 
-
+    def to_python(self, value):
+        if value in self.empty_values:
+            return None
+        try:
+            key = 'uri'
+            py_value = self.queryset.get(**{key: value})
+        except self.queryset.model.DoesNotExist:
+            headers = {
+                    'Accept': 'application/json',
+            }
+            conceptpower = Conceptpower(settings.CONCEPTPOWER_ENDPOINT, settings.CONCEPTPOWER_NAMESPACE)
+            concept_entry = conceptpower.get(value, headers=headers)
+            data = dict(
+                uri=value,
+                label=concept_entry.get('lemma',''),
+                description=concept_entry.get('description',''),
+                pos=concept_entry.get('pos',''),
+                authority=concept_entry.get('authority',{'name': 'Conceptpower'}),
+                concept_state=Concept.RESOLVED,
+            )
+            ctype_data = concept_entry.get('type','')
+            if ctype_data:
+                data.update({'typed': Type.objects.get_or_create(uri=ctype_data['type_uri'])[0]})
+            py_value = Concept.objects.create(**data)
+        return py_value
+    
 class TemplateChoiceField(forms.ChoiceField):
     def label_from_instance(self, obj):
         r"""
@@ -208,9 +234,10 @@ class RelationTemplateForm(forms.ModelForm):
             'rows': 2,
             'placeholder': 'Please describe this relation.',
         }))
-    expression = forms.CharField(widget=forms.Textarea(attrs={
+    expression = forms.CharField(required=False, widget=forms.Textarea(attrs={
             'class': 'form-control input-sm',
             'rows': 3,
+            'id': 'id_expression',
             'placeholder': "Enter an expression pattern for this relation."
                            " This should be a full-sentence structure that"
                            " expresses the content of the relation. Indicate"
@@ -220,16 +247,70 @@ class RelationTemplateForm(forms.ModelForm):
                            " of the second part, or {2p} for the predicate of"
                            " the third part."
         }))
-    terminal_nodes = forms.CharField(widget=forms.TextInput(attrs={
+    terminal_nodes = forms.CharField(required=False, widget=forms.TextInput(attrs={
             'class': 'form-control input-sm',
             'rows': 2,
             'placeholder': "Enter comma-separated node identifiers. E.g."
                            " ``0s,1o``."
         }))
     
+    # Alternative input fields - these won't be saved to the model
+    relation_node_1 = forms.CharField(required=False, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm relation-node-input',
+            'placeholder': 'First relation node ID'
+        }))
+    relation_node_2 = forms.CharField(required=False, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm relation-node-input',
+            'placeholder': 'Second relation node ID'
+        }))
+    concept_behavior = forms.CharField(required=False, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm relation-node-input',
+            'placeholder': 'How does the concept behave? (e.g. teaches, influences)'
+        }))
+    predicate_concept = forms.CharField(required=False, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm relation-node-input',
+            'placeholder': 'Enter concept URI'
+        }))
+
+    class Meta:
+        model = RelationTemplate
+        fields = ['name', 'description', 'expression', 'terminal_nodes']
+
+    def clean(self):
+        cleaned_data = super().clean()
+        node1 = cleaned_data.pop('relation_node_1', None)
+        node2 = cleaned_data.pop('relation_node_2', None)
+        behavior = cleaned_data.pop('concept_behavior', None)
+        predicate_uri = cleaned_data.pop('predicate_concept', None)
+        
+        # Check if using alternative input method
+        if any([node1, node2, behavior, predicate_uri]):
+            # Validate all fields are present for alternative method
+            if not all([node1, node2, behavior, predicate_uri]):
+                raise forms.ValidationError("All fields are required when using relation nodes input")
+            
+            # Create expression and terminal_nodes from alternative input
+            cleaned_data['expression'] = f"{{{node1}}} {behavior}:{predicate_uri} {{{node2}}}"
+            cleaned_data['terminal_nodes'] = f"{node1},{node2}"
+            
+            # Validate that relation nodes match terminal nodes
+            terminal_nodes = cleaned_data['terminal_nodes'].split(',')
+            if sorted([node1, node2]) != sorted(terminal_nodes):
+                raise forms.ValidationError("Relation node IDs must match the terminal nodes identifiers")
+        else:
+            # Using direct expression input - validate required fields
+            if not cleaned_data.get('expression'):
+                raise forms.ValidationError("Please either enter an expression or use the relation nodes input method")
+            if not cleaned_data.get('terminal_nodes'):
+                raise forms.ValidationError("Terminal nodes are required when using direct expression input")
+            
+        return cleaned_data
+
     def clean_expression(self):
         from string import Formatter
         value = self.cleaned_data.get('expression')
+        if not value:  # Allow empty expression if using alternative input
+            return value
         try:
             [k[1] for k in Formatter().parse(value)]
         except Exception as E:
@@ -238,20 +319,17 @@ class RelationTemplateForm(forms.ModelForm):
 
     def clean_terminal_nodes(self):
         value = self.cleaned_data.get('terminal_nodes')
+        if not value:  # Allow empty terminal_nodes if using alternative input
+            return value
         try:
             for u, v in map(tuple, value.split(',')):
                 pass
         except Exception as E:
             raise ValidationError('Invalid terminal nodes')
         return value
-    
-    class Meta:
-        model = RelationTemplate
-        exclude = ['createdBy']
 
     def __init__(self, *args, **kwargs):
         super(RelationTemplateForm, self).__init__(*args, **kwargs)
-        # Set the initial value of 'terminal_nodes' field from the instance's current value for editing form
         if self.instance and hasattr(self.instance, 'terminal_nodes'):
             self.fields['terminal_nodes'].initial = self.instance.terminal_nodes
 
@@ -381,13 +459,7 @@ class RelationTemplatePartForm(forms.ModelForm):
                 field.widget.attrs['description'] = 'id_{0}-'.format(self.prefix) + field.widget.attrs['description']
 
     def clean(self, *args, **kwargs):
-        cleaned_data = super(RelationTemplatePartForm, self).clean(*args, **kwargs)
 
-        concept_fields = ['source_concept', 'predicate_concept', 'object_concept']
-        for field_name in concept_fields:
-            concept = cleaned_data.get(field_name)
-            if not concept:
-                cleaned_data[field_name] = None
             
         for field in ['source', 'object']:
             selected_node_type = self.cleaned_data.get('%s_node_type' % field)
