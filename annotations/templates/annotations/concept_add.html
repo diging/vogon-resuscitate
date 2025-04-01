@@ -7,79 +7,184 @@
 <a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "concepts" %}" class="btn btn-xs">Concepts</a>&raquo;<a href="{% url "concept" concept.id %}" class="btn btn-xs">{{ concept.label }}</a>&raquo;<a href="" class="btn btn-xs">Add</a>
 {% endblock %}
 
-
 {% block main %}
 <div class="container-fluid">
-    <div class="h3">Are you sure?</div>
-    <p class="text-warning">
-        This will ultimately create a permanent record in the Conceptpower name authority.
-        Creating a new record that duplicates an existing record can lead to all kinds of
-        nasty things in the future.
-        <dl class="dl-horizontal">
-            <dt>Label</dt>
-            <dd>{{ concept.label }}</dd>
-            <dt>URI</dt>
-            <dd>{{ concept.uri }}</dd>
-            <dt>Type</dt>
-            <dd>{{ concept.typed }}</dd>
-            <dt>Description</dt>
-            <dd>{{ concept.description }}</dd>
-        </dl>
-    </p>
-    {% if matches %}
-    <div class="alert alert-danger">
-        <div class="h4">This concept matches an existing entry!</div>
-        <p>
-            Another user (maybe you) has previously indicated that a concept
-            with the same URI is equivalent to the Conceptpower record(s) below.
-            Unless you have some reason to disagree with that equivalence, it is
-            highly recommended that you merge the concept above with (one of)
-            the Conceptpower record(s) below.
-        </p>
+    <div class="h3">Add Concept</div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h4 class="panel-title">Search for Existing Concept</h4>
+                </div>
+                <div class="panel-body">
+                    <div ng-controller='ConceptSearchController'>
+                        <div id="concept-search">
+                            <div class="input-group">
+                                <input
+                                    type="text"
+                                    name="search"
+                                    id="concept-search-id"
+                                    ng-model="query"
+                                    class="form-control"
+                                    ng-disabled="data.selectedConcept"
+                                    placeholder="Search for existing concepts...">
+                                </input>
+                                <select class="form-control"
+                                    ng-model="pos"
+                                    ng-options="item as item.label for item in pos_options track by item.id">
+                                </select>
+                                <span class="input-group-addon btn btn-sm btn-success" ng-show="!data.selectedConcept" ng-click="search()">
+                                    <span class="glyphicon glyphicon-search"></span>
+                                </span>
+                                <span class="input-group-addon btn btn-sm btn-danger"
+                                    ng-click="unselectConcept()"
+                                    ng-show="data.selectedConcept">
+                                    <span class="glyphicon glyphicon-remove"></span>
+                                </span>
+                            </div>
+                            <span class="text text-info">{{ message }}</span>
+                            <ul class="list-group concept-search-results" ng-hide="creatingConcept">
+                                <a class="list-group-item concept-item"
+                                    ng-repeat="concept in concepts"
+                                    ng-click="select(concept)">
+                                    <strong>{{ concept.label }}</strong>
+                                    <div class="pull-right">
+                                        <label class="label label-primary" ng-show="concept.concept_type.name != ''">{{ concept.concept_type.name }}</label>
+                                        <label class="label label-primary" ng-show="concept.concept_type.name == ''">{{ concept.concept_type.identifier | truncatechars:30 }}</label>
+                                    </div>
+                                    <div class="text-warning">{{ concept.authority.name }}: {{ concept.uri | truncatechars:30 }}</div>
+                                    <p><span class="text text-muted">{{ concept.description }}</span></p>
+                                </a>
+                            </ul>
+                            <div class="checkbox">
+                                <label ng-show="canCreateConcept()">
+                                    <input type="checkbox"
+                                        value=""
+                                        ng-click="startCreatingConcept()"
+                                        ng-model="assertUnique">
+                                    I've tried my hardest, but I can't find a matching concept.
+                                </label>
+                            </div>
+                        </div>
+                        <div class="panel" ng-show="creatingConcept">
+                            <div class="form-group">
+                                <label for="description">Description</label>
+                                <textarea
+                                    class="form-control"
+                                    name="description"
+                                    required="true"
+                                    ng-model="newConcept.description"
+                                    id="description"
+                                    placeholder="Describe this concept in as much detail as you can.">
+                                </textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="type">Type</label>
+                                <select
+                                    class="form-control"
+                                    ng-model="newConcept.typed"
+                                    required="true"
+                                    ng-options="t.label for t in conceptTypes">
+                                    <option></option>
+                                </select>
+                            </div>
+                            <div class="clearfix">
+                                <div ng-show="readyToCreateConcept()">
+                                    <span class="btn-group pull-right btn-group-sm">
+                                        <a class="btn btn-primary"
+                                           type="submit"
+                                           ng-click="createConceptAndAppellation()">Create</a>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h4 class="panel-title">Existing Concept Details</h4>
+                </div>
+                <div class="panel-body">
+                    <p class="text-warning">
+                        This will ultimately create a permanent record in the Conceptpower name authority.
+                        Creating a new record that duplicates an existing record can lead to all kinds of
+                        nasty things in the future.
+                        <dl class="dl-horizontal">
+                            <dt>Label</dt>
+                            <dd>{{ concept.label }}</dd>
+                            <dt>URI</dt>
+                            <dd>{{ concept.uri }}</dd>
+                            <dt>Type</dt>
+                            <dd>{{ concept.typed }}</dd>
+                            <dt>Description</dt>
+                            <dd>{{ concept.description }}</dd>
+                        </dl>
+                    </p>
+
+                    {% if matches %}
+                    <div class="alert alert-danger">
+                        <div class="h4">This concept matches an existing entry!</div>
+                        <p>
+                            Another user (maybe you) has previously indicated that a concept
+                            with the same URI is equivalent to the Conceptpower record(s) below.
+                            Unless you have some reason to disagree with that equivalence, it is
+                            highly recommended that you merge the concept above with (one of)
+                            the Conceptpower record(s) below.
+                        </p>
+                    </div>
+
+                    <ul class="list-group">
+                        {% for candidate in matches %}
+                        <li class="list-group-item clearfix">
+                            <div class="pull-right btn-group">
+                                <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
+                            </div>
+                            <div><strong>{{ candidate.label }}</strong> </div>
+                            <div class="text-warning">
+                                <span class="glyphicon glyphicon-globe"></span>
+                                {{ candidate.uri }}
+                            </div>
+                            <p>
+                                {{ candidate.description }}
+                            </p>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+
+                    {% if candidates %}
+                    <div class="h4">This concept looks a lot like...</div>
+                    <ul class="list-group">
+                        {% for candidate in candidates %}
+                        <li class="list-group-item clearfix">
+                            <div class="pull-right btn-group">
+                                <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
+                            </div>
+                            <div><strong>{{ candidate.label }}</strong> </div>
+                            <div class="text-warning">
+                                <span class="glyphicon glyphicon-globe"></span>
+                                {{ candidate.uri }}
+                            </div>
+                            <p>
+                                {{ candidate.description }}
+                            </p>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+
+                    <div class="clearfix">
+                        <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
+                        <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %} pull-right" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <ul class="list-group">
-        {% for candidate in matches %}
-        <li class="list-group-item clearfix">
-            <div class="pull-right btn-group">
-                <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
-            </div>
-            <div><strong>{{ candidate.label }}</strong> </div>
-            <div class="text-warning">
-                <span class="glyphicon glyphicon-globe"></span>
-                {{ candidate.uri }}
-            </div>
-            <p>
-                {{ candidate.description }}
-            </p>
-        </li>
-        {% endfor %}
-    </ul>
-    {% endif %}
-    {% if candidates %}
-    <div class="h4">This concept looks a lot like...</div>
-    <ul class="list-group">
-        {% for candidate in candidates %}
-        <li class="list-group-item clearfix">
-            <div class="pull-right btn-group">
-                <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
-            </div>
-            <div><strong>{{ candidate.label }}</strong> </div>
-            <div class="text-warning">
-                <span class="glyphicon glyphicon-globe"></span>
-                {{ candidate.uri }}
-            </div>
-            <p>
-                {{ candidate.description }}
-            </p>
-        </li>
-        {% endfor %}
-    </ul>
-    {% endif %}
-
-    <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
-    <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}</a>
 </div>
-
-
 {% endblock %}
