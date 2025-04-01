@@ -1,27 +1,21 @@
 AppellationDisplayItem = {
     props: ['appellation'],
-    template: `<div v-show="shouldShow">
+    template: `<div v-if="appellation.visible">
                 <li v-tooltip="getLabel()"
+                    v-if="appellation.visible"
                     v-on:click="selectAppellation"
                     v-bind:style="{
-                        top: position.top + 'px',
-                        left: position.left + 'px',
+                        top: position.top,
+                        left: position.left,
                         position: 'absolute',
-                        width: position.width + 'px',
-                        height: line_height + 'px',
-                        'z-index': 2,
-                        transition: 'all 0.2s ease',
-                        opacity: isDeleted ? 0 : 0.5,
-                        visibility: shouldShow ? 'visible' : 'hidden',
-                        pointerEvents: isDeleted ? 'none' : 'auto',
-                        backgroundColor: appellation.selected ? '#ffd700' : (appellation.interpretation ? '#fff176' : '#90caf9'),
-                        cursor: 'pointer',
-                        border: 'none',
-                        outline: 'none'
+                        width: position.width,
+                        height: line_height,
+                        'z-index': 2
                     }"
                     v-bind:class="{
                         'appellation': appellation.interpretation != null,
-                        'date-appellation': appellation.dateRepresentation != null
+                        'date-appellation': appellation.dateRepresentation != null,
+                        'appellation-selected': isSelected
                     }">
                 </li>
                 <li v-if="manyLinesAreSelected()"
@@ -30,7 +24,8 @@ AppellationDisplayItem = {
                      v-tooltip="getLabel()"
                      v-bind:class="{
                          'appellation': appellation.interpretation != null,
-                         'date-appellation': appellation.dateRepresentation != null
+                         'date-appellation': appellation.dateRepresentation != null,
+                         'appellation-selected': isSelected
                      }"
                      v-bind:style="{
                        height: line.height,
@@ -38,12 +33,7 @@ AppellationDisplayItem = {
                        left: line.left,
                        position: 'absolute',
                        width: line.width,
-                       'z-index': 2,
-                       opacity: isDeleted ? 0 : 0.5,
-                       backgroundColor: appellation.selected ? '#ffd700' : (appellation.interpretation ? '#fff176' : '#90caf9'),
-                       cursor: 'pointer',
-                       border: 'none',
-                       outline: 'none'
+                       'z-index': 2
                    }">
                 </li>
                 <li v-if="multipleLinesAreSelected()"
@@ -55,16 +45,12 @@ AppellationDisplayItem = {
                          left: end_position.left,
                          position: 'absolute',
                          width: end_position.width,
-                         'z-index': 2,
-                         opacity: isDeleted ? 0 : 0.5,
-                         backgroundColor: appellation.selected ? '#ffd700' : (appellation.interpretation ? '#fff176' : '#90caf9'),
-                         cursor: 'pointer',
-                         border: 'none',
-                         outline: 'none'
+                         'z-index': 2
                      }"
                      v-bind:class="{
                          'appellation': appellation.interpretation != null,
-                         'date-appellation': appellation.dateRepresentation != null
+                         'date-appellation': appellation.dateRepresentation != null,
+                         'appellation-selected': isSelected
                      }">
                 </li>
                 </div>`,
@@ -74,72 +60,25 @@ AppellationDisplayItem = {
                 top: 0,
                 left: 0,
                 width: 0,
-                bottom: 0,
-                right: 0
+                right: 0,
+                bottom: 0
             },
             line_height: 0,
             multi_line: null,
             mid_lines: [],
-            end_position: {},
-            isDeleted: false,
-            cleanupTimeout: null
+            end_position: {}
         }
     },
     computed: {
         isSelected: function() {
             return this.appellation.selected;
-        },
-        shouldShow() {
-            return this.appellation.visible && !this.isDeleted && this.appellation.position && this.appellation.position.position_value;
         }
     },
-    watch: {
-        'appellation.visible': function(newVal, oldVal) {
-            if (!newVal && this.cleanupTimeout) {
-                // If visibility is turned off and we're waiting to cleanup,
-                // do it immediately
-                clearTimeout(this.cleanupTimeout);
-                this.cleanupComponent();
-            }
-        },
-        'appellation.position.position_value': {
-            handler() {
-                this.$nextTick(() => {
-                    this.updatePosition();
-                });
-            },
-            immediate: true
-        }
+    mounted: function () {
+        this.updatePosition();
+        window.addEventListener('resize', this.updatePosition);
     },
     methods: {
-        cleanupComponent() {
-            // Remove the element from DOM
-            if (this.$el && this.$el.parentNode) {
-                this.$el.parentNode.removeChild(this.$el);
-            }
-            this.$destroy();
-        },
-        
-        handleDeletion(deletedAppellation) {
-            // Only handle if this is the appellation being deleted
-            if (deletedAppellation.id === this.appellation.id) {
-                // Immediately remove selection and highlighting
-                this.isDeleted = true;
-                this.appellation.visible = false;
-                this.appellation.selected = false;
-                
-                // Force remove from DOM immediately for newly created annotations
-                if (this.$el && this.$el.parentNode) {
-                    this.$el.parentNode.removeChild(this.$el);
-                }
-                
-                // Clear all stores to ensure clean state
-                store.commit('removeAppellation', deletedAppellation);
-                store.commit('setTextAppellation', []);
-                store.commit('resetCreateAppelltionsToText');
-                store.commit('deselectAppellation', this.appellation);
-            }
-        },
         getLabel: function () {
             if (this.appellation.interpretation) {
                 return this.appellation.interpretation.label;
@@ -153,38 +92,20 @@ AppellationDisplayItem = {
         manyLinesAreSelected: function () {
             return this.mid_lines.length > 0;
         },
-        selectAppellation() {
-            if (!this.isDeleted) {
-                // Only allow selection if not being deleted
-                this.$emit('selectappellation', this.appellation);
-            }
+        selectAppellation: function () {
+            this.$emit('selectappellation', this.appellation);
         },
         updatePosition: function () {
             this.mid_lines = [];
-            const lineHeight = parseInt(getStyle('text-content', 'line-height'));
+            var lineHeight = parseInt(getStyle('text-content', 'line-height'));
+            this.position = getTextPosition(this.appellation.position);
             this.line_height = lineHeight - 1;
-
-            if (!this.appellation.position || !this.appellation.position.position_value) return;
-            
-            const [startOffset, endOffset] = this.appellation.position.position_value.split(',').map(Number);
-            const startPoint = getPointPosition(startOffset);
-            const endPoint = getPointPosition(endOffset);
-            
-            if (!startPoint || !endPoint) return;
-
-            this.position = {
-                top: startPoint.top,
-                left: startPoint.left,
-                width: endPoint.right - startPoint.left,
-                bottom: startPoint.bottom,
-                right: endPoint.right
-            };
-
+            var endPoint = getPointPosition(this.appellation.position.endOffset);
             var nLines = 1 + (endPoint.bottom - this.position.bottom) / lineHeight;
-            if (nLines > 1) {
-                // Handle multi-line highlights
+            if (nLines > 1) { // The selection may span several lines.
+                // clientLeft/clientWidth don't account for inner padding.
                 var _padding = parseInt(getStyle('text-content', 'padding'));
-                if (!_padding) {
+                if (!_padding) { // Firefox.
                     _padding = parseInt(getStyle('text-content', 'paddingLeft'));
                 }
                 var _left = parseInt(document.getElementById('text-content').clientLeft);
@@ -192,53 +113,25 @@ AppellationDisplayItem = {
                 var left = _left + _padding;
                 var width = _width - (2 * _padding);
 
-                this.end_position = {
-                    top: endPoint.top,
-                    left: left,
+                this.end_position = { // This is the last line, running from
+                    top: endPoint.top, //  far left to the end of the
+                    left: left, //   selection.
                     width: endPoint.right - left
                 }
 
-                for (var i = 0; i < Math.max(0, nLines - 2); i++) {
+                // If the selection spans more than two lines, we need to
+                //  highlight the intermediate lines at full width.
+                for (i = 0; i < Math.max(0, nLines - 2); i++) {
                     this.mid_lines.push({
                         top: this.position.top + (i + 1) * lineHeight,
                         left: left,
                         width: width,
                         height: lineHeight - 1
-                    });
+                    })
                 }
             } else {
                 this.end_position = {};
-                this.mid_lines = [];
             }
-        }
-    },
-    mounted() {
-        this.updatePosition();
-        window.addEventListener('resize', this.updatePosition);
-        
-        // Subscribe to store for deletion events
-        this.unsubscribeDelete = store.subscribe((mutation, state) => {
-            if (mutation.type === 'deleteAppellation' && mutation.payload.id === this.appellation.id) {
-                this.handleDeletion(mutation.payload);
-            }
-            if (mutation.type === 'forceCleanupAppellation' && mutation.payload === this.appellation.id) {
-                this.handleDeletion(this.appellation);
-            }
-            if (mutation.type === 'updatePositions') {
-                this.$nextTick(() => {
-                    this.updatePosition();
-                });
-            }
-        });
-    },
-    beforeDestroy() {
-        window.removeEventListener('resize', this.updatePosition);
-        // Clean up store subscription
-        if (this.unsubscribeDelete) {
-            this.unsubscribeDelete();
-        }
-        if (this.cleanupTimeout) {
-            clearTimeout(this.cleanupTimeout);
         }
     }
 }
@@ -257,49 +150,9 @@ AppellationDisplay = {
     components: {
         'appellation-display-item': AppellationDisplayItem
     },
-    data: function () {
-        return {
-            current_appellations: this.appellations
-        }
-    },
-    mounted() {
-        // Subscribe to store for appellation updates
-        this.unsubscribeUpdate = store.subscribe((mutation, state) => {
-            if (mutation.type === 'updateAppellation') {
-                const updatedAppellation = mutation.payload;
-                const index = this.current_appellations.findIndex(a => a.id === updatedAppellation.id);
-                if (index !== -1) {
-                    // Create a new array with the updated appellation
-                    const newAppellations = [...this.current_appellations];
-                    newAppellations[index] = updatedAppellation;
-                    
-                    // Force Vue to re-render by replacing the entire array
-                    this.current_appellations = newAppellations;
-                    
-                    // Force a refresh of positions
-                    this.$nextTick(() => {
-                        store.commit('updatePositions');
-                    });
-                }
-            }
-        });
-    },
-    beforeDestroy() {
-        // Clean up store subscription
-        if (this.unsubscribeUpdate) {
-            this.unsubscribeUpdate();
-        }
-    },
-    watch: {
-        appellations: {
-            handler(newVal) {
-                this.current_appellations = [...newVal];
-            },
-            deep: true
-        }
-    },
     methods: {
         selectAppellation: function (appellation) {
+            this.$root.$emit('appellationClicked', appellation);
             this.$emit('selectappellation', appellation);
         }
     }
