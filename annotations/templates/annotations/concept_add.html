@@ -11,108 +11,118 @@
 <div class="container-fluid">
     <div class="h3">Add Concept</div>
     
-    <div class="row">
-        <div class="col-md-6">
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <h4 class="panel-title">Search for Existing Concept</h4>
-                </div>
-                <div class="panel-body">
-                    <div class="form-group">
-                        <div class="input-group">
-                            <input type="text" 
-                                   class="form-control" 
-                                   id="concept-search-input"
-                                   placeholder="Search for existing concepts..."
-                                   data-target="concept-search-results"
-                                   data-status-target="concept-search-status">
-                            <span class="input-group-addon">
-                                <span class="glyphicon glyphicon-search" id="concept-search-status"></span>
-                            </span>
+    <div class="row" style="display: flex; align-items: flex-start;">
+        <div class="col-md-12">
+            <div class="row" style="display: flex; align-items: flex-start;">
+                <div class="col-md-6" id="search-panel" style="transition: all 0.3s ease;">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <h4 class="panel-title">Search for a concept in Conceptpower</h4>
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <input type="text" 
+                                           class="form-control" 
+                                           id="concept-search-input"
+                                           placeholder="Search for a concept in Conceptpower..."
+                                           data-target="concept-search-results"
+                                           data-status-target="concept-search-status">
+                                    <span class="input-group-addon">
+                                        <span class="glyphicon glyphicon-search" id="concept-search-status"></span>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="list-group list-group-compact" id="concept-search-results"></div>
                         </div>
                     </div>
-                    <div class="list-group list-group-compact" id="concept-search-results"></div>
                 </div>
-            </div>
-        </div>
 
-        <div class="col-md-6">
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <h4 class="panel-title">Existing Concept Details</h4>
+                <div class="col-md text-center">
+                    <a type="button" class="btn" id="toggle-search">
+                        <span class="glyphicon glyphicon-chevron-left"></span>
+                    </a>
                 </div>
-                <div class="panel-body">
-                    <p class="text-warning">
-                        This will ultimately create a permanent record in the Conceptpower name authority.
-                        Creating a new record that duplicates an existing record can lead to all kinds of
-                        nasty things in the future.
-                        <dl class="dl-horizontal">
-                            <dt>Label</dt>
-                            <dd>{{ concept.label }}</dd>
-                            <dt>URI</dt>
-                            <dd>{{ concept.uri }}</dd>
-                            <dt>Type</dt>
-                            <dd>{{ concept.typed }}</dd>
-                            <dt>Description</dt>
-                            <dd>{{ concept.description }}</dd>
-                        </dl>
-                    </p>
 
-                    {% if matches %}
-                    <div class="alert alert-danger">
-                        <div class="h4">This concept matches an existing entry!</div>
-                        <p>
-                            Another user (maybe you) has previously indicated that a concept
-                            with the same URI is equivalent to the Conceptpower record(s) below.
-                            Unless you have some reason to disagree with that equivalence, it is
-                            highly recommended that you merge the concept above with (one of)
-                            the Conceptpower record(s) below.
-                        </p>
-                    </div>
-
-                    <ul class="list-group">
-                        {% for candidate in matches %}
-                        <li class="list-group-item clearfix">
-                            <div class="pull-right btn-group">
-                                <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
-                            </div>
-                            <div><strong>{{ candidate.label }}</strong> </div>
-                            <div class="text-warning">
-                                <span class="glyphicon glyphicon-globe"></span>
-                                {{ candidate.uri }}
-                            </div>
-                            <p>
-                                {{ candidate.description }}
+                <div class="col-md-6" id="details-panel" style="transition: all 0.3s ease;">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <h4 class="panel-title">Existing Concept Details</h4>
+                        </div>
+                        <div class="panel-body">
+                            <p class="text-warning">
+                                This will ultimately create a permanent record in the Conceptpower name authority.
+                                Creating a new record that duplicates an existing record can lead to all kinds of
+                                nasty things in the future.
+                                <dl class="dl-horizontal">
+                                    <dt>Label</dt>
+                                    <dd>{{ concept.label }}</dd>
+                                    <dt>URI</dt>
+                                    <dd>{{ concept.uri }}</dd>
+                                    <dt>Type</dt>
+                                    <dd>{{ concept.typed }}</dd>
+                                    <dt>Description</dt>
+                                    <dd>{{ concept.description }}</dd>
+                                </dl>
                             </p>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% endif %}
 
-                    {% if candidates %}
-                    <div class="h4">This concept looks a lot like...</div>
-                    <ul class="list-group">
-                        {% for candidate in candidates %}
-                        <li class="list-group-item clearfix">
-                            <div class="pull-right btn-group">
-                                <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
+                            {% if matches %}
+                            <div class="alert alert-danger">
+                                <div class="h4">This concept matches an existing entry!</div>
+                                <p>
+                                    Another user (maybe you) has previously indicated that a concept
+                                    with the same URI is equivalent to the Conceptpower record(s) below.
+                                    Unless you have some reason to disagree with that equivalence, it is
+                                    highly recommended that you merge the concept above with (one of)
+                                    the Conceptpower record(s) below.
+                                </p>
                             </div>
-                            <div><strong>{{ candidate.label }}</strong> </div>
-                            <div class="text-warning">
-                                <span class="glyphicon glyphicon-globe"></span>
-                                {{ candidate.uri }}
-                            </div>
-                            <p>
-                                {{ candidate.description }}
-                            </p>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% endif %}
 
-                    <div class="clearfix">
-                        <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
-                        <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %} pull-right" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}</a>
+                            <ul class="list-group">
+                                {% for candidate in matches %}
+                                <li class="list-group-item clearfix">
+                                    <div class="pull-right btn-group">
+                                        <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
+                                    </div>
+                                    <div><strong>{{ candidate.label }}</strong> </div>
+                                    <div class="text-warning">
+                                        <span class="glyphicon glyphicon-globe"></span>
+                                        {{ candidate.uri }}
+                                    </div>
+                                    <p>
+                                        {{ candidate.description }}
+                                    </p>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+
+                            {% if candidates %}
+                            <div class="h4">This concept looks a lot like...</div>
+                            <ul class="list-group">
+                                {% for candidate in candidates %}
+                                <li class="list-group-item clearfix">
+                                    <div class="pull-right btn-group">
+                                        <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
+                                    </div>
+                                    <div><strong>{{ candidate.label }}</strong> </div>
+                                    <div class="text-warning">
+                                        <span class="glyphicon glyphicon-globe"></span>
+                                        {{ candidate.uri }}
+                                    </div>
+                                    <p>
+                                        {{ candidate.description }}
+                                    </p>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+
+                            <div class="clearfix">
+                                <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
+                                <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %} pull-right" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}</a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -120,11 +130,33 @@
     </div>
 </div>
 
+<style>
+#search-panel.collapsed {
+    width: 0;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+}
+
+#details-panel.expanded {
+    width: 100%;
+}
+</style>
+
 <script>
 $(document).ready(function() {
     var searchInput = $('#concept-search-input');
     var resultsContainer = $('#concept-search-results');
     var statusIcon = $('#concept-search-status');
+    var searchPanel = $('#search-panel');
+    var detailsPanel = $('#details-panel');
+    var toggleButton = $('#toggle-search');
+    
+    toggleButton.click(function() {
+        searchPanel.toggleClass('collapsed');
+        detailsPanel.toggleClass('expanded');
+        $(this).find('.glyphicon').toggleClass('glyphicon-chevron-left glyphicon-chevron-right');
+    });
     
     searchInput.on('input', function() {
         var query = $(this).val();
