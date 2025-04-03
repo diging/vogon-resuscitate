@@ -126,11 +126,13 @@ TextDisplay = {
                         v-on:mouseup="handleMouseup">{{ text }}</pre>
                    <appellation-display
                        v-bind:appellations=appellations
-                       v-on:selectappellation="selectAppellation">
+                       v-on:selectappellation="selectAppellation"
+                       v-on:removeappellation="removeAppellation">
                    </appellation-display>
                    <appellation-display
                        v-bind:appellations=dateappellations
-                       v-on:selectappellation="selectDateAppellation">
+                       v-on:selectappellation="selectDateAppellation"
+                       v-on:removeappellation="removeAppellation">
                    </appellation-display>
                    <text-selection-display
                        v-bind:selected=selected></text-selection-display>
@@ -182,6 +184,18 @@ TextDisplay = {
         },
         selectAppellation: function(appellation) { this.$emit('selectappellation', appellation); },
         selectDateAppellation: function(appellation) { this.$emit('selectdateappellation', appellation); },
+        removeAppellation: function(appellation) {
+            // Remove from appellations array
+            const index = this.appellations.indexOf(appellation);
+            if (index > -1) {
+                this.appellations.splice(index, 1);
+            }
+            // Also check dateappellations if needed
+            const dateIndex = this.dateappellations.indexOf(appellation);
+            if (dateIndex > -1) {
+                this.dateappellations.splice(dateIndex, 1);
+            }
+        },
         textIsSelected: function() { return this.selected.startOffset != null; },
         handleKeyup: function(e) {
             if (e.key === 'Escape') {

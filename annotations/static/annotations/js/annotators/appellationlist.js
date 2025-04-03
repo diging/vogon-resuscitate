@@ -14,7 +14,14 @@ var AppellationListItem = {
 						<span v-if="appellation.visible" class="glyphicon glyphicon glyphicon-eye-open"></span>
 						<span v-else class="glyphicon glyphicon glyphicon-eye-close"></span>
 					</a>
+					<a class="btn btn-xs" v-on:click="deleteAppellation" data-tooltip="Delete appellation">
+						<span class="glyphicon glyphicon-trash"></span>
+					</a>
 				</span>
+				
+				<div v-if="deleteError" class="text-danger" style="margin-bottom: 5px;">
+					{{ deleteError }}
+				</div>
 				
 				{{ label() }}
 				<div class="text-warning">
@@ -26,7 +33,8 @@ var AppellationListItem = {
         return {
             checked: true,
             canUncheckAll: false,
-            canCheckAll: false
+            canCheckAll: false,
+            deleteError: null
         }
     },
     mounted: function () {
@@ -119,8 +127,20 @@ var AppellationListItem = {
         },
         getFormattedDate: function (isodate) {
             return moment(isodate).format('dddd LL [at] LT');
-        }
-
+        },
+        deleteAppellation: function() {
+            this.deleteError = null;
+            Appellation.delete({id: this.appellation.id}).then(response => {
+                // Emit event to parent to remove from list and text display
+                this.$emit('removeappellation', this.appellation);
+            }).catch(error => {
+                if (error.status === 400) {
+                    this.deleteError = "Cannot delete - this annotation is used in a relation";
+                } else {
+                    this.deleteError = "Error deleting annotation";
+                }
+            });
+        },
     }
 }
 
@@ -168,8 +188,8 @@ AppellationList = {
 									v-on:hideappellation="hideAppellation"
 									v-on:showappellation="showAppellation"
 									v-on:selectappellation="selectAppellation"
-									v-on:removeAppellation="removeAppellation($event)"
-									v-on:addAppellation="addAppellation($event)"
+                                    v-on:addAppellation="addAppellation($event)"
+									v-on:removeappellation="removeAppellation"
 									v-for="(appellation, index) in current_appellations"
 									v-bind:appellation=appellation
 									v-if="appellation != null"
@@ -303,6 +323,15 @@ AppellationList = {
         },
         selectAppellation: function (appellation) {
             this.$emit('selectappellation', appellation);
+        },
+        removeAppellation: function(appellation) {
+            // Remove from current_appellations array
+            const index = this.current_appellations.indexOf(appellation);
+            if (index > -1) {
+                this.current_appellations.splice(index, 1);
+            }
+            // Emit to parent to remove from text display
+            this.$emit('removeappellation', appellation);
         },
     }
 }
