@@ -88,6 +88,7 @@ AppellationDisplayItem = {
                 
                 // Force a refresh of positions
                 this.$nextTick(() => {
+                    this.updatePosition();
                     EventBus.$emit('updatepositions');
                 });
             }

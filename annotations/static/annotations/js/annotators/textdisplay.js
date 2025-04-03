@@ -276,6 +276,9 @@ TextDisplay = {
                         const editingAppellation = localStorage.getItem('editingAppellation');
                         if (editingAppellation) {
                             const appellation = JSON.parse(editingAppellation);
+                            console.log(appellation);
+                            console.log(startOffset, endOffset);
+                            
                             
                             // Update the appellation with new position
                             Appellation.update({ id: appellation.id }, {

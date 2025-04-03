@@ -68,16 +68,11 @@ var AppellationListItem = {
                 // Reset edit mode
                 this.isEditMode = false;
                 
-                EventBus.$emit('updatepositions');
-
                 // Ensure visibility is on
                 this.appellation.visible = true;
                 
                 // Force a re-render of the component
                 this.$forceUpdate();
-
-                console.log(this.appellation);
-                console.log(this.appellation.visible);
             }
         });
     },
