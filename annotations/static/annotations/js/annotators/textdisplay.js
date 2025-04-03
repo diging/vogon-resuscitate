@@ -109,6 +109,11 @@ TextSelectionDisplay = {
 TextDisplay = {
     props: ['appellations', 'dateappellations'],
     template: `<div style="position: relative;">
+                   <div v-if="isEditing" 
+                        class="edit-mode-message alert alert-info"
+                        style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+                       Edit Mode: Select new text position (Press ESC to cancel)
+                   </div>
                    <div v-if="listening" 
                         style="position: fixed; 
                                top: 20px; 
@@ -153,13 +158,25 @@ TextDisplay = {
             selected_multi_line: false,
             selected_mid_lines: null,
             selected_end_position: null,
-            listening: false
+            listening: false,
+            isEditing: false
         }
     },
     mounted: function() {
         EventBus.$on('cleartextselection', this.resetTextSelection);
         // Add ESC key listener
         window.addEventListener('keyup', this.handleKeyup);
+        
+        EventBus.$on('startEdit', () => {
+            this.isEditing = true;
+            document.addEventListener('keydown', this.handleEscKey);
+        });
+        
+        EventBus.$on('cancelEdit', () => {
+            this.isEditing = false;
+            localStorage.removeItem('editingAppellation');
+            document.removeEventListener('keydown', this.handleEscKey);
+        });
     },
     beforeDestroy: function() {
         // Clean up event listener
@@ -258,8 +275,43 @@ TextDisplay = {
                     // Calculate position after selection is fully established
                     self.selected_position = getTextPosition(self.selected);
                     
-                    // Emit the selection event
-                    self.$emit('selecttext', self.selected);
+                    // Handle edit mode selection
+                    if (this.isEditing) {
+                        const editingAppellation = localStorage.getItem('editingAppellation');
+                        if (editingAppellation) {
+                            const appellation = JSON.parse(editingAppellation);
+                            
+                            Appellation.update({ id: appellation.id }, {
+                                position: {
+                                    occursIn: this.text.id,
+                                    position_type: "CO",
+                                    position_value: [startOffset, endOffset].join(",")
+                                },
+                                stringRep: raw,
+                                interpretation: appellation.interpretation.uri
+                            }).then(response => {
+                                localStorage.removeItem('editingAppellation');
+                                this.isEditing = false;
+                                EventBus.$emit('cancelEdit');
+                                this.$root.$emit('appellationUpdated', response.body);
+                                this.resetTextSelection();
+                                
+                                EventBus.$emit('showMessage', {
+                                    text: 'Successfully updated annotation',
+                                    type: 'success'
+                                });
+                            }).catch(error => {
+                                console.error('Failed to update appellation:', error);
+                                EventBus.$emit('showMessage', {
+                                    text: 'Failed to update annotation',
+                                    type: 'error' 
+                                });
+                            });
+                        }
+                    } else {
+                        // Normal text selection handling
+                        self.$emit('selecttext', self.selected);
+                    }
                     
                     // Store a backup of the selection in case it gets lost
                     self._lastValidSelection = {
@@ -281,6 +333,12 @@ TextDisplay = {
                 }
             }, 50); // Increased delay for more reliable selection capture
         },
+        handleEscKey: function(e) {
+            if (e.key === 'Escape' && this.isEditing) {
+                EventBus.$emit('cancelEdit');
+                this.resetTextSelection();
+            }
+        }
     },
     components: {
         'appellation-display': AppellationDisplay,

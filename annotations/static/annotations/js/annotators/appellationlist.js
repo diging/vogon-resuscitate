@@ -7,14 +7,17 @@ var AppellationListItem = {
 					}">
 					
 				<span class="pull-right text-muted btn-group">
-					<a class="btn btn-xs" v-on:click="select" data-tooltip="Select appellation">
+					<a class="btn btn-xs" v-on:click="select" :disabled="isEditMode" data-tooltip="Select appellation">
 						<span class="glyphicon glyphicon-hand-down"></span>
 					</a>
-					<a class="btn btn-xs" v-on:click="toggle" v-bind:data-tooltip="appellation.visible ? 'Hide appellation' : 'Show appellation'">
+					<a class="btn btn-xs" v-on:click="toggle" :disabled="isEditMode" v-bind:data-tooltip="appellation.visible ? 'Hide appellation' : 'Show appellation'">
 						<span v-if="appellation.visible" class="glyphicon glyphicon glyphicon-eye-open"></span>
 						<span v-else class="glyphicon glyphicon glyphicon-eye-close"></span>
 					</a>
-					<a class="btn btn-xs" v-on:click="deleteAppellation" data-tooltip="Delete appellation">
+					<a class="btn btn-xs" @click="editAppellation" :disabled="isEditMode" data-tooltip="Edit appellation">
+						<span class="glyphicon glyphicon-pencil"></span>
+					</a>
+					<a class="btn btn-xs" v-on:click="deleteAppellation" :disabled="isEditMode" data-tooltip="Delete appellation">
 						<span class="glyphicon glyphicon-trash" style="color: #d9534f;"></span>
 					</a>
 				</span>
@@ -25,7 +28,7 @@ var AppellationListItem = {
 				
 				{{ label() }}
 				<div class="text-warning">
-					<input v-if="sidebar == 'submitAllAppellations'" type="checkbox" v-model="checked" aria-label="...">
+					<input v-if="sidebar == 'submitAllAppellations'" type="checkbox" v-model="checked" :disabled="isEditMode" aria-label="...">
 					Created by <strong>{{ getCreatorName(appellation.createdBy) }}</strong> on {{ getFormattedDate(appellation.created) }}
 				</div>
 				</li>`,
@@ -34,7 +37,8 @@ var AppellationListItem = {
             checked: true,
             canUncheckAll: false,
             canCheckAll: false,
-            deleteError: null
+            deleteError: null,
+            isEditMode: false
         }
     },
     mounted: function () {
@@ -45,6 +49,30 @@ var AppellationListItem = {
                 this.checked = !this.checked;
             }
         });
+        
+        // Listen for edit mode changes
+        EventBus.$on('startEdit', () => {
+            this.isEditMode = true;
+        });
+        
+        EventBus.$on('cancelEdit', () => {
+            this.isEditMode = false;
+        });
+        
+        // Listen for appellation updates
+        this.$root.$on('appellationUpdated', (updatedAppellation) => {
+            if (updatedAppellation.id === this.appellation.id) {
+                Object.assign(this.appellation, updatedAppellation);
+                this.isEditMode = false;
+                this.appellation.visible = true;
+                this.$forceUpdate();
+            }
+        });
+    },
+    beforeDestroy() {
+        EventBus.$off('startEdit');
+        EventBus.$off('cancelEdit');
+        this.$root.$off('appellationUpdated');
     },
     watch: {
         // Instead of removing from the array when unchecked,
@@ -146,6 +174,24 @@ var AppellationListItem = {
                 }, 5000);
             });
         },
+        editAppellation() {
+            if (this.isEditMode) return;
+            
+            // Store the appellation to edit
+            localStorage.setItem('editingAppellation', JSON.stringify(this.appellation));
+            
+            // Deselect current appellation
+            this.appellation.selected = false;
+            
+            // Enter edit mode
+            EventBus.$emit('startEdit');
+            
+            // Show message to user
+            EventBus.$emit('showMessage', {
+                text: 'Please select the new text position. Press ESC to cancel.',
+                type: 'info'
+            });
+        }
     }
 }
 
