@@ -18,88 +18,20 @@
                     <h4 class="panel-title">Search for Existing Concept</h4>
                 </div>
                 <div class="panel-body">
-                    <div ng-controller='ConceptSearchController'>
-                        <div id="concept-search">
-                            <div class="input-group">
-                                <input
-                                    type="text"
-                                    name="search"
-                                    id="concept-search-id"
-                                    ng-model="query"
-                                    class="form-control"
-                                    ng-disabled="data.selectedConcept"
-                                    placeholder="Search for existing concepts...">
-                                </input>
-                                <select class="form-control"
-                                    ng-model="pos"
-                                    ng-options="item as item.label for item in pos_options track by item.id">
-                                </select>
-                                <span class="input-group-addon btn btn-sm btn-success" ng-show="!data.selectedConcept" ng-click="search()">
-                                    <span class="glyphicon glyphicon-search"></span>
-                                </span>
-                                <span class="input-group-addon btn btn-sm btn-danger"
-                                    ng-click="unselectConcept()"
-                                    ng-show="data.selectedConcept">
-                                    <span class="glyphicon glyphicon-remove"></span>
-                                </span>
-                            </div>
-                            <span class="text text-info">{{ message }}</span>
-                            <ul class="list-group concept-search-results" ng-hide="creatingConcept">
-                                <a class="list-group-item concept-item"
-                                    ng-repeat="concept in concepts"
-                                    ng-click="select(concept)">
-                                    <strong>{{ concept.label }}</strong>
-                                    <div class="pull-right">
-                                        <label class="label label-primary" ng-show="concept.concept_type.name != ''">{{ concept.concept_type.name }}</label>
-                                        <label class="label label-primary" ng-show="concept.concept_type.name == ''">{{ concept.concept_type.identifier | truncatechars:30 }}</label>
-                                    </div>
-                                    <div class="text-warning">{{ concept.authority.name }}: {{ concept.uri | truncatechars:30 }}</div>
-                                    <p><span class="text text-muted">{{ concept.description }}</span></p>
-                                </a>
-                            </ul>
-                            <div class="checkbox">
-                                <label ng-show="canCreateConcept()">
-                                    <input type="checkbox"
-                                        value=""
-                                        ng-click="startCreatingConcept()"
-                                        ng-model="assertUnique">
-                                    I've tried my hardest, but I can't find a matching concept.
-                                </label>
-                            </div>
-                        </div>
-                        <div class="panel" ng-show="creatingConcept">
-                            <div class="form-group">
-                                <label for="description">Description</label>
-                                <textarea
-                                    class="form-control"
-                                    name="description"
-                                    required="true"
-                                    ng-model="newConcept.description"
-                                    id="description"
-                                    placeholder="Describe this concept in as much detail as you can.">
-                                </textarea>
-                            </div>
-                            <div class="form-group">
-                                <label for="type">Type</label>
-                                <select
-                                    class="form-control"
-                                    ng-model="newConcept.typed"
-                                    required="true"
-                                    ng-options="t.label for t in conceptTypes">
-                                    <option></option>
-                                </select>
-                            </div>
-                            <div class="clearfix">
-                                <div ng-show="readyToCreateConcept()">
-                                    <span class="btn-group pull-right btn-group-sm">
-                                        <a class="btn btn-primary"
-                                           type="submit"
-                                           ng-click="createConceptAndAppellation()">Create</a>
-                                    </span>
-                                </div>
-                            </div>
+                    <div class="form-group">
+                        <div class="input-group">
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="concept-search-input"
+                                   placeholder="Search for existing concepts..."
+                                   data-target="concept-search-results"
+                                   data-status-target="concept-search-status">
+                            <span class="input-group-addon">
+                                <span class="glyphicon glyphicon-search" id="concept-search-status"></span>
+                            </span>
                         </div>
                     </div>
+                    <div class="list-group list-group-compact" id="concept-search-results"></div>
                 </div>
             </div>
         </div>
@@ -187,4 +119,79 @@
         </div>
     </div>
 </div>
+
+<script>
+$(document).ready(function() {
+    var searchInput = $('#concept-search-input');
+    var resultsContainer = $('#concept-search-results');
+    var statusIcon = $('#concept-search-status');
+    
+    searchInput.on('input', function() {
+        var query = $(this).val();
+        if (query.length < 3) {
+            resultsContainer.empty();
+            statusIcon.removeClass('glyphicon-ok glyphicon-remove').addClass('glyphicon-search');
+            return;
+        }
+        
+        statusIcon.removeClass('glyphicon-search glyphicon-ok glyphicon-remove').addClass('glyphicon-hourglass');
+        
+        $.ajax({
+            url: BASE_URL + '/rest/concept/search',
+            data: { search: query },
+            success: function(data) {
+                resultsContainer.empty();
+                if (data.results && data.results.length > 0) {
+                    data.results.forEach(function(concept) {
+                        var item = $('<a class="list-group-item concept-item"></a>');
+                        
+                        // Add merge button
+                        var mergeButton = $('<div class="pull-right btn-group"></div>');
+                        var mergeLink = $('<a class="btn btn-success"></a>')
+                            .text('Merge')
+                            .attr('href', '{% url "merge_concepts" concept.id %}?target=' + concept.uri + '&next={{ next_page }}');
+                        mergeButton.append(mergeLink);
+                        item.append(mergeButton);
+                        
+                        item.append($('<strong></strong>').text(concept.label));
+                        
+                        var typeLabel = $('<div class="pull-right"></div>');
+                        if (concept.concept_type && concept.concept_type.name) {
+                            typeLabel.append($('<label class="label label-primary"></label>').text(concept.concept_type.name));
+                        } else if (concept.concept_type && concept.concept_type.identifier) {
+                            typeLabel.append($('<label class="label label-primary"></label>').text(concept.concept_type.identifier));
+                        }
+                        item.append(typeLabel);
+                        
+                        var uriDiv = $('<div class="text-warning"></div>');
+                        uriDiv.text(concept.authority.name + ': ' + concept.uri);
+                        item.append(uriDiv);
+                        
+                        if (concept.description) {
+                            item.append($('<p><span class="text text-muted"></span></p>').text(concept.description));
+                        }
+                        
+                        item.click(function() {
+                            searchInput.val(concept.label);
+                            statusIcon.removeClass('glyphicon-hourglass glyphicon-search').addClass('glyphicon-ok');
+                            // Store the selected concept for later use
+                            $(this).data('concept', concept);
+                        });
+                        
+                        resultsContainer.append(item);
+                    });
+                    statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-search');
+                } else {
+                    statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-remove');
+                    resultsContainer.append($('<div class="list-group-item">No results found</div>'));
+                }
+            },
+            error: function(xhr, status, error) {
+                statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-remove');
+                resultsContainer.empty().append($('<div class="list-group-item alert alert-danger">Error searching concepts: ' + error + '</div>'));
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
