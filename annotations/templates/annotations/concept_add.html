@@ -7,10 +7,9 @@
 <a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "concepts" %}" class="btn btn-xs">Concepts</a>&raquo;<a href="{% url "concept" concept.id %}" class="btn btn-xs">{{ concept.label }}</a>&raquo;<a href="" class="btn btn-xs">Add</a>
 {% endblock %}
 
+
 {% block main %}
 <div class="container-fluid">
-    <div class="h3">Add Concept</div>
-    
     <div class="row" style="display: flex; align-items: flex-start;">
         <div class="col-md-12">
             <div class="row" style="display: flex; align-items: flex-start;">
@@ -46,10 +45,8 @@
 
                 <div class="col-md-6" id="details-panel" style="transition: all 0.3s ease;">
                     <div class="panel panel-default">
-                        <div class="panel-heading">
-                            <h4 class="panel-title">Existing Concept Details</h4>
-                        </div>
                         <div class="panel-body">
+                            <div class="h3">Are you sure?</div>
                             <p class="text-warning">
                                 This will ultimately create a permanent record in the Conceptpower name authority.
                                 Creating a new record that duplicates an existing record can lead to all kinds of
@@ -120,7 +117,7 @@
 
                             <div class="clearfix">
                                 <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
-                                <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %} pull-right" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}</a>
+                                <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}</a>
                             </div>
                         </div>
                     </div>
@@ -177,7 +174,6 @@ $(document).ready(function() {
                     data.results.forEach(function(concept) {
                         var item = $('<a class="list-group-item concept-item"></a>');
                         
-                        // Add merge button
                         var mergeButton = $('<div class="pull-right btn-group"></div>');
                         var mergeLink = $('<a class="btn btn-success"></a>')
                             .text('Merge')
@@ -206,8 +202,6 @@ $(document).ready(function() {
                         item.click(function() {
                             searchInput.val(concept.label);
                             statusIcon.removeClass('glyphicon-hourglass glyphicon-search').addClass('glyphicon-ok');
-                            // Store the selected concept for later use
-                            $(this).data('concept', concept);
                         });
                         
                         resultsContainer.append(item);
