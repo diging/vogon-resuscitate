@@ -15,7 +15,7 @@ var AppellationListItem = {
 						<span v-else class="glyphicon glyphicon glyphicon-eye-close"></span>
 					</a>
 					<a class="btn btn-xs" v-on:click="deleteAppellation" data-tooltip="Delete appellation">
-						<span class="glyphicon glyphicon-trash"></span>
+						<span class="glyphicon glyphicon-trash" style="color: #d9534f;"></span>
 					</a>
 				</span>
 				
@@ -135,10 +135,15 @@ var AppellationListItem = {
                 this.$emit('removeappellation', this.appellation);
             }).catch(error => {
                 if (error.status === 400) {
-                    this.deleteError = "Cannot delete - this annotation is used in a relation";
+                    this.deleteError = "This annotation is used in a relation and cannot be deleted.";
                 } else {
-                    this.deleteError = "Error deleting annotation";
+                    this.deleteError = "Error deleting annotation, Please try again later.";
                 }
+                
+                // Clear error message after 5 seconds
+                setTimeout(() => {
+                    this.deleteError = null;
+                }, 5000);
             });
         },
     }
