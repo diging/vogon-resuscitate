@@ -13,7 +13,7 @@ AppellationDisplayItem = {
                         'z-index': 2
                     }"
                     v-bind:class="{
-                        'appellation': appellation.interpretation != null,
+                        'appellation': true,
                         'date-appellation': appellation.dateRepresentation != null,
                         'appellation-selected': isSelected
                     }">
@@ -23,7 +23,7 @@ AppellationDisplayItem = {
                      v-for="line in mid_lines"
                      v-tooltip="getLabel()"
                      v-bind:class="{
-                         'appellation': appellation.interpretation != null,
+                         'appellation': true,
                          'date-appellation': appellation.dateRepresentation != null,
                          'appellation-selected': isSelected
                      }"
@@ -48,7 +48,7 @@ AppellationDisplayItem = {
                          'z-index': 2
                      }"
                      v-bind:class="{
-                         'appellation': appellation.interpretation != null,
+                         'appellation': true,
                          'date-appellation': appellation.dateRepresentation != null,
                          'appellation-selected': isSelected
                      }">
@@ -77,6 +77,21 @@ AppellationDisplayItem = {
     mounted: function () {
         this.updatePosition();
         window.addEventListener('resize', this.updatePosition);
+
+        this.$root.$on('appellationUpdated', (updatedAppellation) => {
+            if (this.appellation.id === updatedAppellation.id) {
+                // Update the appellation data
+                Object.assign(this.appellation, updatedAppellation);
+                
+                // Ensure visibility is set
+                this.appellation.visible = true;
+                
+                // Force a refresh of positions
+                this.$nextTick(() => {
+                    EventBus.$emit('updatepositions');
+                });
+            }
+        });
     },
     methods: {
         getLabel: function () {

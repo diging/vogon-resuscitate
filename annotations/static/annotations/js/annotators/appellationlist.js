@@ -62,17 +62,29 @@ var AppellationListItem = {
         // Listen for appellation updates
         this.$root.$on('appellationUpdated', (updatedAppellation) => {
             if (updatedAppellation.id === this.appellation.id) {
+                // Update the appellation data
                 Object.assign(this.appellation, updatedAppellation);
+                
+                // Reset edit mode
                 this.isEditMode = false;
+                
+                EventBus.$emit('updatepositions');
+
+                // Ensure visibility is on
                 this.appellation.visible = true;
+                
+                // Force a re-render of the component
                 this.$forceUpdate();
+
+                console.log(this.appellation);
+                console.log(this.appellation.visible);
             }
         });
     },
     beforeDestroy() {
         EventBus.$off('startEdit');
         EventBus.$off('cancelEdit');
-        this.$root.$off('appellationUpdated');
+        this.$root.$off('appellationUpdated', this.updateAppellation);
     },
     watch: {
         // Instead of removing from the array when unchecked,
@@ -85,7 +97,8 @@ var AppellationListItem = {
             // Mark it selected
             this.appellation.selected = true;
           }
-        }
+        },
+        
       },
     methods: {
         watchUncheckStore: function () {
@@ -384,5 +397,13 @@ AppellationList = {
             // Emit to parent to remove from text display
             this.$emit('removeappellation', appellation);
         },
-    }
+        updateAppellation: function(updatedAppellation) {
+            const index = this.current_appellations.findIndex(a => a.id === updatedAppellation.id);
+            if (index !== -1) {
+                // Create a new array with the updated appellation
+                const newAppellations = [...this.current_appellations];
+                newAppellations[index] = updatedAppellation;
+            }
+        }
+    },
 }

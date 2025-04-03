@@ -43,7 +43,7 @@ TextSelectionDisplay = {
         //  the calculated position of the overlay.
         self = this;
         EventBus.$on('updatepositions', function() {
-            sleep(1500).then(self.updatePosition)
+            sleep(200).then(self.updatePosition)
         });
     },
     data: function() {
@@ -294,7 +294,10 @@ TextDisplay = {
                                 localStorage.removeItem('editingAppellation');
                                 self.isEditing = false;
                                 EventBus.$emit('cancelEdit');
+
+                                // Update text selection
                                 self.$root.$emit('appellationUpdated', response.body);
+                                
                                 self.resetTextSelection();
                                 
                                 // Show success message
