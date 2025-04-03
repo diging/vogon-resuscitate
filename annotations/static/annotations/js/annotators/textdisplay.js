@@ -225,20 +225,19 @@ TextDisplay = {
             }
         },
         handleMouseup: function(e) {
-            // Show the instruction message when starting selection
-            this.listening = true;
+            if (!this.isEditing) {
+                this.listening = true;
+            }
 
-            // We're looking for an event in which the user has selected some
-            //  text.
+            // We're looking for an event in which the user has selected some text.
             if (e.target.id != 'text-content') return;    // Out of scope.
             e.stopPropagation();
 
-            // Increase the delay for more reliable selection capture
+            // Increase the delay for reliable selection capture
             var self = this;
             setTimeout(function() {
                 try {
-                    // Get the start and end position of the selection. The selection
-                    //  may have been left-to-right or right-to-left.
+                    // Get the start and end position of the selection
                     var selection = document.getSelection();
                     
                     // Make sure we have a valid selection
@@ -247,9 +246,6 @@ TextDisplay = {
                     var startOffset = Math.min(selection.anchorOffset, selection.focusOffset);
                     var endOffset = Math.max(selection.anchorOffset, selection.focusOffset);
 
-                    // If the user double-clicks (e.g. to select a whole word), the
-                    // first mouse-up will get as far as here, even though no text has
-                    // actually been selected.
                     if (endOffset == startOffset) return;
 
                     // Get the actual text content node
@@ -258,44 +254,50 @@ TextDisplay = {
                     
                     var raw = textContent.textContent.slice(startOffset, endOffset);
                     
-                    // Ensure we have a non-empty selection with valid offsets
+                    // Ensure we have a non-empty selection
                     if (!raw || raw.trim().length === 0 || 
                         startOffset < 0 || endOffset > textContent.textContent.length) {
                         return;
                     }
                     
-                    // Create a more robust selection object
+                    // Create selection object
                     self.selected = {
                         startOffset: startOffset,
                         endOffset: endOffset,
                         representation: raw,
-                        timestamp: new Date().getTime() // Add timestamp for tracking
+                        timestamp: new Date().getTime()
                     };
                     
-                    // Calculate position after selection is fully established
+                    // Calculate position
                     self.selected_position = getTextPosition(self.selected);
                     
                     // Handle edit mode selection
-                    if (this.isEditing) {
+                    if (self.isEditing) {
                         const editingAppellation = localStorage.getItem('editingAppellation');
                         if (editingAppellation) {
                             const appellation = JSON.parse(editingAppellation);
                             
+                            // Update the appellation with new position
                             Appellation.update({ id: appellation.id }, {
                                 position: {
-                                    occursIn: this.text.id,
+                                    occursIn: appellation.position.occursIn,
                                     position_type: "CO",
                                     position_value: [startOffset, endOffset].join(",")
                                 },
                                 stringRep: raw,
-                                interpretation: appellation.interpretation.uri
+                                startPos: startOffset,
+                                endPos: endOffset,
+                                interpretation: appellation.interpretation.uri,
+                                project: appellation.project
                             }).then(response => {
+                                // Clear editing state
                                 localStorage.removeItem('editingAppellation');
-                                this.isEditing = false;
+                                self.isEditing = false;
                                 EventBus.$emit('cancelEdit');
-                                this.$root.$emit('appellationUpdated', response.body);
-                                this.resetTextSelection();
+                                self.$root.$emit('appellationUpdated', response.body);
+                                self.resetTextSelection();
                                 
+                                // Show success message
                                 EventBus.$emit('showMessage', {
                                     text: 'Successfully updated annotation',
                                     type: 'success'
@@ -303,35 +305,37 @@ TextDisplay = {
                             }).catch(error => {
                                 console.error('Failed to update appellation:', error);
                                 EventBus.$emit('showMessage', {
-                                    text: 'Failed to update annotation',
-                                    type: 'error' 
+                                    text: 'Failed to update annotation. Please try again.',
+                                    type: 'error'
                                 });
                             });
+                            
+                            // Clear selection after update attempt
+                            clearMouseTextSelection();
+                            return; // Important: don't proceed to normal selection handling
                         }
-                    } else {
-                        // Normal text selection handling
+                    }
+
+                    // Normal text selection handling (only if not in edit mode)
+                    if (!self.isEditing) {
                         self.$emit('selecttext', self.selected);
+                        
+                        // Store backup
+                        self._lastValidSelection = {
+                            startOffset: startOffset,
+                            endOffset: endOffset,
+                            representation: raw
+                        };
                     }
                     
-                    // Store a backup of the selection in case it gets lost
-                    self._lastValidSelection = {
-                        startOffset: startOffset,
-                        endOffset: endOffset,
-                        representation: raw
-                    };
-                    
-                    // Now that we have registered the selection, we can clear the
-                    // original browser highlighting, so that only our overlay is
-                    // displayed.
                     clearMouseTextSelection();
                 } catch(err) {
                     console.error("Error handling text selection:", err);
-                    // If there was an error, try to recover using the last valid selection
-                    if (self._lastValidSelection) {
+                    if (self._lastValidSelection && !self.isEditing) {
                         self.$emit('selecttext', self._lastValidSelection);
                     }
                 }
-            }, 50); // Increased delay for more reliable selection capture
+            }, 50);
         },
         handleEscKey: function(e) {
             if (e.key === 'Escape' && this.isEditing) {
