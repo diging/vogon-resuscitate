@@ -78,7 +78,13 @@
     {% endif %}
 
     <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
-    <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}</a>
+    <form method="POST" style="display: inline;">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next_page }}">
+        <button type="submit" class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}">
+            {% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}
+        </button>
+    </form>
     {% if concept.concept_state != concept.FLAGGED %}
     <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#flagModal">
         Flag concept

@@ -144,14 +144,14 @@ def add_concept(request, concept_id):
 
     # Process only if the concept is still in a resolvable state (e.g., PENDING or FLAGGED)
     if concept.concept_state in [Concept.PENDING, Concept.FLAGGED]:
-        if request.GET.get('confirmed', False):
+        if request.method == 'POST':
             try:
                 manager.add()
             except ConceptUpstreamException as E:
                 messages.error(
-                        request,
-                        'ERROR: There was an error while communicating with Conceptpower.'
-                    )
+                    request,
+                    'ERROR: There was an error while communicating with Conceptpower.'
+                )
                 return HttpResponseRedirect(reverse('concepts'))
             return HttpResponseRedirect(next_page)
 
