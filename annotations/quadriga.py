@@ -276,9 +276,15 @@ def build_concept_node(appellation, user, creation_time, source_uri):
         "format": ""
     })
     
-    # concept's label for the interpretation.
+    # concept's label
     interpretation_label = appellation.interpretation.label
-    # concept source URL from the master attribute if available.
+    
+    # Check if the 'interpretation' object has a 'master' attribute with a 'uri'.
+    # The 'master' attribute is a property that retrieves the highest-level merge target for a concept defined in the Concept model (concepts/models.py).
+    # This is used to ensure that we are referencing the top concept.
+    # If the 'master' attribute and its 'uri' are available, use this 'uri' as the concept source URL.
+    # If the 'master' attribute is not available, fall back to using the provided 'source_uri'.
+    # This ensures that there is always a valid URL to reference the concept, even if the 'master' is not defined.
     if hasattr(appellation.interpretation, 'master') and hasattr(appellation.interpretation.master, 'uri'):
         concept_source_url = appellation.interpretation.master.uri
     else:

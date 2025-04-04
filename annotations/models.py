@@ -942,8 +942,6 @@ class RelationSet(models.Model):
         """
         Check if the RelationSet is ready and update the status accordingly.
         """
-        changed = False
-        
         if self.ready():  # Check readiness based on the concepts
             if self.status != self.STATUS_SUBMITTED:  # Avoid overriding submitted status
                self.status = self.STATUS_READY_TO_SUBMIT

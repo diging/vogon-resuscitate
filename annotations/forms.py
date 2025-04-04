@@ -265,7 +265,7 @@ class RelationTemplateForm(forms.ModelForm):
         }))
     concept_behavior = forms.CharField(required=False, widget=forms.TextInput(attrs={
             'class': 'form-control input-sm relation-node-input',
-            'placeholder': 'How does the concept behave? (e.g. teaches, influences)'
+            'placeholder': 'Please enter the predicate (e.g. teaches, influences)'
         }))
     predicate_concept = forms.CharField(required=False, widget=forms.TextInput(attrs={
             'class': 'form-control input-sm relation-node-input',
@@ -285,7 +285,7 @@ class RelationTemplateForm(forms.ModelForm):
         
         # Check if using alternative input method
         if any([node1, node2, behavior, predicate_uri]):
-            # Validate all fields are present for alternative method
+            # Validate all fields are present for the alternative method, which involves using specific fields (relation_node_1, relation_node_2, concept_behavior, predicate_concept) to define the relationship instead of directly inputting an expression. This method requires all these fields to be filled to construct the expression and terminal_nodes automatically.
             if not all([node1, node2, behavior, predicate_uri]):
                 raise forms.ValidationError("All fields are required when using relation nodes input")
             
