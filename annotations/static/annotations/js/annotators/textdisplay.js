@@ -276,8 +276,19 @@ TextDisplay = {
                         const editingAppellation = localStorage.getItem('editingAppellation');
                         if (editingAppellation) {
                             const appellation = JSON.parse(editingAppellation);
-                            
-                            // Update the appellation with new position
+                            /* 
+                             * Update Appellation Position Flow:
+                             * 1. Send update to server with:
+                             *    - position_value: A comma-separated string of start and end offsets (e.g. "324,435")
+                             *      This is the primary source of truth for text position in the database
+                             *    - stringRep: The actual selected text content
+                             *
+                             * 2. When server responds:
+                             *    - Parse the position_value string back into numeric offsets
+                             *    - Set these on the appellation.position object for frontend use
+                             *    - These offsets are used by getTextPosition() from util.js to calculate actual screen coordinates
+                             *
+                             */
                             Appellation.update({ id: appellation.id }, {
                                 position: {
                                     occursIn: appellation.position.occursIn,
@@ -290,14 +301,32 @@ TextDisplay = {
                                 interpretation: appellation.interpretation.uri,
                                 project: appellation.project
                             }).then(response => {
-                                // Update the position values in the response
+                                // Update the position values
                                 const updatedAppellation = response.body;
-                                console.log(updatedAppellation);
                                 const offsets = updatedAppellation.position.position_value.split(',');
-                                console.log(offsets);
+                                
+                                /*
+                                 * We need to maintain two sets of position values for different purposes:
+                                 * 
+                                 * 1. position.startOffset and position.endOffset:
+                                 *    - Used by frontend components for visual rendering, this set is responsible for the highlight on screen
+                                 *    - Part of the position object used by getTextPosition() in util.js
+                                 *    - These determine where the highlight appears on screen
+                                 */
                                 updatedAppellation.position.startOffset = parseInt(offsets[0]);
                                 updatedAppellation.position.endOffset = parseInt(offsets[1]);
                                 console.log(updatedAppellation);
+                                
+                                /*
+                                 * 2. startPos and endPos:
+                                 *    - These are old fields from the database model
+                                 *    - Still used by some parts of the frontend code
+                                 *    - Need to be kept in sync for backwards compatibility (such as submitting quadruples etc)
+                                 *    - Direct properties on the appellation object, not in position
+                                 */
+                                updatedAppellation.startPos = parseInt(offsets[0]);
+                                updatedAppellation.endPos = parseInt(offsets[1]);
+                                
                                 // Clear editing state
                                 localStorage.removeItem('editingAppellation');
                                 self.isEditing = false;
