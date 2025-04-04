@@ -205,7 +205,11 @@ ConceptCreator = {
             pos: "",
             concept_types: [],
             error: false,
-            submitted: false
+            submitted: false,
+            user: {
+                id: USER_ID,
+                username: USER_NAME
+            },
         }
     },
     mounted: function () {
@@ -251,7 +255,8 @@ ConceptCreator = {
                     label: this.name,
                     description: this.description,
                     pos: this.pos,
-                    typed: this.concept_type
+                    typed: this.concept_type,
+                    createdBy: this.user.id
                 }).then(function (response) {
                     self.clear();
                     self.$emit("createdconcept", response.body);

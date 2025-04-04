@@ -214,6 +214,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
+        user_id = data.get('createdBy')
         position = data.get('position')
         pos = data.get('pos')
         label = data.get('label')
@@ -249,6 +250,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                         description=concept_data.get('description'),
                         typed=type_instance,
                         authority=concept_data.get('authority', {}),
+                        createdBy=VogonUser.objects.get(id=user_id)
                     ).instance
 
                 data['interpretation'] = concept.id
@@ -261,6 +263,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                     description=concept_data.get('description'),
                     typed=type_instance,
                     authority=concept_data.get('authority', {}),
+                    createdBy=VogonUser.objects.get(id=user_id)
                 ).instance
 
                 # Set the interpretation to the concept ID
