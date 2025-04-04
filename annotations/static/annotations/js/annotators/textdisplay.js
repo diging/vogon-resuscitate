@@ -276,9 +276,6 @@ TextDisplay = {
                         const editingAppellation = localStorage.getItem('editingAppellation');
                         if (editingAppellation) {
                             const appellation = JSON.parse(editingAppellation);
-                            console.log(appellation);
-                            console.log(startOffset, endOffset);
-                            
                             
                             // Update the appellation with new position
                             Appellation.update({ id: appellation.id }, {
@@ -293,13 +290,19 @@ TextDisplay = {
                                 interpretation: appellation.interpretation.uri,
                                 project: appellation.project
                             }).then(response => {
+                                // Update the position values in the response
+                                const updatedAppellation = response.body;
+                                const offsets = updatedAppellation.position.position_value.split(',');
+                                updatedAppellation.position.startOffset = parseInt(offsets[0]);
+                                updatedAppellation.position.endOffset = parseInt(offsets[1]);
+                                
                                 // Clear editing state
                                 localStorage.removeItem('editingAppellation');
                                 self.isEditing = false;
                                 EventBus.$emit('cancelEdit');
 
                                 // Update text selection
-                                self.$root.$emit('appellationUpdated', response.body);
+                                self.$root.$emit('appellationUpdated', updatedAppellation);
                                 
                                 self.resetTextSelection();
                                 
