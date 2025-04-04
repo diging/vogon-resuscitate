@@ -58,23 +58,6 @@ var AppellationListItem = {
         EventBus.$on('cancelEdit', () => {
             this.isEditMode = false;
         });
-        
-        // Listen for appellation updates
-        this.$root.$on('appellationUpdated', (updatedAppellation) => {
-            if (updatedAppellation.id === this.appellation.id) {
-                // Update the appellation data
-                Object.assign(this.appellation, updatedAppellation);
-                
-                // Reset edit mode
-                this.isEditMode = false;
-                
-                // Ensure visibility is on
-                this.appellation.visible = true;
-                
-                // Force a re-render of the component
-                this.$forceUpdate();
-            }
-        });
     },
     beforeDestroy() {
         EventBus.$off('startEdit');

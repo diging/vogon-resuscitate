@@ -344,7 +344,7 @@ TextDisplay = {
                         self.$emit('selecttext', self._lastValidSelection);
                     }
                 }
-            }, 50);
+            }, 50);  // Increased delay for more reliable selection capture
         },
         handleEscKey: function(e) {
             if (e.key === 'Escape' && this.isEditing) {

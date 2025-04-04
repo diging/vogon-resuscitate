@@ -83,10 +83,10 @@ AppellationDisplayItem = {
                 // Update the appellation data
                 Object.assign(this.appellation, updatedAppellation);
                 
-                // Ensure visibility is set
+                // Ensure the appellation is visible
                 this.appellation.visible = true;
                 
-                // Force a refresh of positions
+                // Force a refresh of positions for updated appellation
                 this.$nextTick(() => {
                     this.updatePosition();
                     EventBus.$emit('updatepositions');
