@@ -58,10 +58,18 @@ var AppellationListItem = {
         EventBus.$on('cancelEdit', () => {
             this.isEditMode = false;
         });
+
+        // Reset edit mode when a relation is created to prevent the edit button from being stuck in disabled state
+        // This is necessary because creating a relation can leave appellations in an inconsistent edit state
+        EventBus.$on('resetEditState', () => {
+            this.isEditMode = false;
+            localStorage.removeItem('editingAppellation');
+        });
     },
     beforeDestroy() {
         EventBus.$off('startEdit');
         EventBus.$off('cancelEdit');
+        EventBus.$off('resetEditState');
         this.$root.$off('appellationUpdated', this.updateAppellation);
     },
     watch: {
@@ -175,6 +183,7 @@ var AppellationListItem = {
             this.appellation.selected = false;
             
             // Enter edit mode
+            this.isEditMode = true;
             EventBus.$emit('startEdit');
             
             // Show message to user

@@ -170,17 +170,34 @@ TextDisplay = {
         EventBus.$on('startEdit', () => {
             this.isEditing = true;
             document.addEventListener('keydown', this.handleEscKey);
+            // Clear any existing selection
+            this.resetTextSelection();
         });
         
         EventBus.$on('cancelEdit', () => {
             this.isEditing = false;
             localStorage.removeItem('editingAppellation');
             document.removeEventListener('keydown', this.handleEscKey);
+            // Clear any existing selection
+            this.resetTextSelection();
+        });
+
+        // Reset edit mode and clear selections when a relation is created
+        // This ensures the text display component stays in sync with appellation edit states
+        // and prevents any lingering selections or edit states after relation creation
+        EventBus.$on('resetEditState', () => {
+            this.isEditing = false;
+            localStorage.removeItem('editingAppellation');
+            document.removeEventListener('keydown', this.handleEscKey);
+            this.resetTextSelection();
         });
     },
     beforeDestroy: function() {
-        // Clean up event listener
-        window.removeEventListener('keyup', this.handleKeyup); 
+        // Clean up event listeners
+        window.removeEventListener('keyup', this.handleKeyup);
+        EventBus.$off('startEdit');
+        EventBus.$off('cancelEdit');
+        EventBus.$off('resetEditState');
     },
     methods: {
         resetTextSelection: function() {
