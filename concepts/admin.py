@@ -4,7 +4,7 @@ from .models import *
 class ConceptAdmin(admin.ModelAdmin):
     model = Concept
     search_fields = ('label',)
-    list_display = ('label', 'description', 'concept_state', 'typed',)
+    list_display = ('label', 'description', 'concept_state', 'typed', 'createdBy',)
     list_filter = ('concept_state', 'typed',)
 
     # def get_queryset(self, request):
