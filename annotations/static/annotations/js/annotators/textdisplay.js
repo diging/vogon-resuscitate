@@ -42,7 +42,7 @@ TextSelectionDisplay = {
         // Some activities will shift the text display in ways that invalidate
         //  the calculated position of the overlay.
         self = this;
-        EventBus.$on('updatepositions', function() {
+        EventBus.$on('updateposition', function() {
             sleep(200).then(self.updatePosition)
         });
     },
@@ -292,10 +292,12 @@ TextDisplay = {
                             }).then(response => {
                                 // Update the position values in the response
                                 const updatedAppellation = response.body;
+                                console.log(updatedAppellation);
                                 const offsets = updatedAppellation.position.position_value.split(',');
+                                console.log(offsets);
                                 updatedAppellation.position.startOffset = parseInt(offsets[0]);
                                 updatedAppellation.position.endOffset = parseInt(offsets[1]);
-                                
+                                console.log(updatedAppellation);
                                 // Clear editing state
                                 localStorage.removeItem('editingAppellation');
                                 self.isEditing = false;

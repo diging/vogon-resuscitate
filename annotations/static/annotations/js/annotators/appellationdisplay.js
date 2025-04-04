@@ -89,7 +89,7 @@ AppellationDisplayItem = {
                 // Force a refresh of positions for updated appellation
                 this.$nextTick(() => {
                     this.updatePosition();
-                    EventBus.$emit('updatepositions');
+                    EventBus.$emit('updateposition');
                 });
             }
         });
