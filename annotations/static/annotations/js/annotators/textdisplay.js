@@ -245,7 +245,15 @@ TextDisplay = {
                     
                     var startOffset = Math.min(selection.anchorOffset, selection.focusOffset);
                     var endOffset = Math.max(selection.anchorOffset, selection.focusOffset);
+                    console.log('Selection offsets:', startOffset, endOffset);
 
+                    /* 
+                     * Validate that actual text is selected:
+                     * - If startOffset equals endOffset, no text is selected
+                     * - This happens when user just clicks without dragging
+                     * - Or when selection collapses to a single point
+                     * - Return early to prevent processing empty selections
+                     */
                     if (endOffset == startOffset) return;
 
                     // Get the actual text content node
@@ -260,7 +268,11 @@ TextDisplay = {
                         return;
                     }
                     
-                    // Create selection object
+                    /* 
+                     * Create selection object - this is crucial for position updates
+                     * The TextSelectionDisplay component watches this object
+                     * and uses it to calculate and update positions
+                     */
                     self.selected = {
                         startOffset: startOffset,
                         endOffset: endOffset,
@@ -315,7 +327,6 @@ TextDisplay = {
                                  */
                                 updatedAppellation.position.startOffset = parseInt(offsets[0]);
                                 updatedAppellation.position.endOffset = parseInt(offsets[1]);
-                                console.log(updatedAppellation);
                                 
                                 /*
                                  * 2. startPos and endPos:

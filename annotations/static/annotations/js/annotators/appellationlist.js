@@ -375,6 +375,16 @@ AppellationList = {
             // Emit to parent to remove from text display
             this.$emit('removeappellation', appellation);
         },
+        /*
+         * Updates an appellation in the current_appellations array
+         * @param updatedAppellation - The new appellation data to update with
+         * 
+         * This function:
+         * 1. Finds the appellation to update by matching IDs
+         * 2. Creates a new array to maintain reactivity
+         * 3. Replaces the old appellation with the updated one
+         * 4. Assigns the new array back to current_appellations
+         */
         updateAppellation: function(updatedAppellation) {
             const index = this.current_appellations.findIndex(a => a.id === updatedAppellation.id);
             if (index !== -1) {
