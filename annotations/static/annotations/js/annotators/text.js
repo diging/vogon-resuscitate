@@ -1742,6 +1742,9 @@ Appellator = new Vue({
             this.dateappellations.forEach(function (appellation) {
                 appellation.selected = (dateappellation_ids.indexOf(appellation.id) > -1);
             });
+            
+            // Reset edit state when selecting a relation to prevent edit buttons from being stuck
+            EventBus.$emit('resetEditState');
         },
         updateRelations: function (callback) {
             self = this;
