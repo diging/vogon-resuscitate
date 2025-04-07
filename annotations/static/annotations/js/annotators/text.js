@@ -133,6 +133,7 @@ var ConceptSearch = {
 
 
 ConceptCreator = {
+    props: ["defaultName"],
     template: `<div class="form">
                     <div class="form-group">
                         <div class="checkbox">
@@ -199,7 +200,7 @@ ConceptCreator = {
     data: function () {
         return {
             oath: false,
-            name: "",
+            name: this.defaultName || "",
             description: "",
             concept_type: "",
             pos: "",
@@ -214,8 +215,21 @@ ConceptCreator = {
     },
     mounted: function () {
         this.updateTypes();
+        // Set initial name from defaultName prop
+        if (this.defaultName) {
+            this.name = this.defaultName;
+        }
     },
     watch: {
+        defaultName: {
+            // Make immediate to ensure the name is set when the prop changes
+            immediate: true,
+            handler: function(newName) {
+                if (newName) {
+                    this.name = newName;
+                }
+            }
+        },
         name: function () {
             this.tryAgain();
         },
@@ -602,6 +616,7 @@ AppellationCreator = {
                    </concept-search>
                    <concept-creator
                        v-if="create && concept == null"
+                       v-bind:defaultName="position.representation"
                        v-on:createdconcept="createdConcept">
                    </concept-creator>
                    <concept-picker
