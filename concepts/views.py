@@ -51,9 +51,9 @@ def type(request, type_id):
 @login_required
 def merge_concepts(request, source_concept_id):
     source = get_object_or_404(Concept, pk=source_concept_id)
-    manager = ConceptLifecycle(source)
+    concept = ConceptLifecycle(source)
     target_uri = request.GET.get('target')
-    manager.merge_with(target_uri)
+    concept.merge_with(target_uri)
 
     next_page = request.GET.get('next', reverse('concepts'))
 
@@ -135,21 +135,21 @@ def concept(request, concept_id):
 @login_required
 def add_concept(request, concept_id):
 
-    concept = get_object_or_404(Concept, pk=concept_id)
-    manager = ConceptLifecycle(concept)
+    source = get_object_or_404(Concept, pk=concept_id)
+    concept = ConceptLifecycle(source)
     next_page = request.GET.get('next', reverse('concepts'))
     back_to_page = request.GET.get('next')
     context = {
-        'concept': concept,
+        'concept': source,
         'next_page': urllib.parse.quote_plus(next_page),
         'back_to_page': back_to_page
     }
 
     # Process only if the concept is still in a resolvable state (e.g., PENDING or FLAGGED)
-    if concept.concept_state in [Concept.PENDING, Concept.FLAGGED]:
+    if source.concept_state in [Concept.PENDING, Concept.FLAGGED]:
         if request.method == 'POST':
             try:
-                manager.add()
+                concept.add()
             except ConceptUpstreamException as E:
                 messages.error(
                     request,
@@ -159,8 +159,8 @@ def add_concept(request, concept_id):
             return HttpResponseRedirect(next_page)
 
 
-        candidates = manager.get_similar()
-        matches = manager.get_matching()
+        candidates = concept.get_similar()
+        matches = concept.get_matching()
 
         context.update({
             'candidates': candidates,
