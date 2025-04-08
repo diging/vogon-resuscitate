@@ -304,7 +304,6 @@ TextDisplay = {
                         const editingAppellation = localStorage.getItem('editingAppellation');
                         if (editingAppellation) {
                             const appellation = JSON.parse(editingAppellation);
-                            console.log(appellation);
                             appellation.selected = true;
                             
                             /* 
