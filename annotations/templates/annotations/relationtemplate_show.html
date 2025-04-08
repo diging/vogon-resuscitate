@@ -5,8 +5,10 @@
 
 <div class="container" id="main">
     <div class="row col-sm-12">
-        <div class="h2">{{ data.name }}</div>
-        <p>{{ data.description }}</p>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="h2">{{ data.name }}</div>
+            <p>{{ data.description }}</p>
+        </div>
         <table class="table table-condensed table-responsive">
             <thead>
                 <tr>
@@ -29,6 +31,12 @@
             {% endfor %}
             </tbody>
         </table>
+        <div class="d-flex justify-content-between">
+            <a href="{% url 'list_relationtemplate' %}" class="btn btn-primary">
+                <i class="fa fa-arrow-left"></i>
+                Back
+            </a>
+        </div>
     </div>
 </div>
 
