@@ -111,3 +111,18 @@ class Concept(HeritableObject):
 
 class Type(Concept):
     pass
+
+
+class ConceptComment(models.Model):
+    concept = models.ForeignKey(Concept, related_name='comments', on_delete=models.CASCADE)
+    parent = models.ForeignKey('self', related_name='replies', null=True, blank=True, on_delete=models.CASCADE)
+    text = models.TextField()
+    created_by = models.ForeignKey('annotations.VogonUser', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'Comment by {self.created_by.username} on {self.concept.label}'
