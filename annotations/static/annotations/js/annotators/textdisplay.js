@@ -262,7 +262,6 @@ TextDisplay = {
                     
                     var startOffset = Math.min(selection.anchorOffset, selection.focusOffset);
                     var endOffset = Math.max(selection.anchorOffset, selection.focusOffset);
-                    console.log('Selection offsets:', startOffset, endOffset);
 
                     /* 
                      * Validate that actual text is selected:
