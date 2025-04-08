@@ -371,6 +371,7 @@ TextDisplay = {
                                 });
                             }).catch(error => {
                                 console.error('Failed to update appellation:', error);
+                                EventBus.$emit('cancelEdit');
                                 EventBus.$emit('showMessage', {
                                     text: 'Failed to update annotation. Please try again.',
                                     type: 'error'
