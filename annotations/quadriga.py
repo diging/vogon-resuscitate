@@ -278,23 +278,15 @@ def build_concept_node(appellation, user, creation_time, source_uri):
     
     # concept's label
     interpretation_label = appellation.interpretation.label
-    
-    # Check if the 'interpretation' object has a 'master' attribute with a 'uri'.
-    # The 'master' attribute is a property that retrieves the highest-level merge target for a concept defined in the Concept model (concepts/models.py).
-    # This is used to ensure that we are referencing the top concept.
-    # If the 'master' attribute and its 'uri' are available, use this 'uri' as the concept source URL.
-    # If the 'master' attribute is not available, fall back to using the provided 'source_uri'.
-    # This ensures that there is always a valid URL to reference the concept, even if the 'master' is not defined.
-    if hasattr(appellation.interpretation, 'master') and hasattr(appellation.interpretation.master, 'uri'):
-        concept_source_url = appellation.interpretation.master.uri
-    else:
-        concept_source_url = source_uri
+
+    # concept's source URI
+    concept_source_uri = appellation.interpretation.uri
 
     return {
         "label": interpretation_label,
         "metadata": {
             "type": "appellation_event",
-            "interpretation": concept_source_url,
+            "interpretation": concept_source_uri,
             "termParts": term_parts
         },
         "context": {
@@ -470,8 +462,11 @@ def generate_graph_data(relationset, user):
             obj_key = f"rel-{object_node.id}-{object_node.created.isoformat()}"
         else:
             obj_key = f"app-{object_node.id}-{object_node.created.isoformat()}"
+
+    # DEBUG
+    print(template_part.__dict__)
     
-    # Check if using alternative expression format (node1 behavior:uri node2)
+    # Check if using alternative expression format (node1 predicate:uri node2)
     expression = relationset.template.expression
     is_alternative_format = expression and ':' in expression and any(c.isalpha() for c in expression.split(':')[0])
     
