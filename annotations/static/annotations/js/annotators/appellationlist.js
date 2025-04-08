@@ -400,6 +400,7 @@ AppellationList = {
                 // Create a new array with the updated appellation
                 const newAppellations = [...this.current_appellations];
                 newAppellations[index] = updatedAppellation;
+                this.current_appellations = newAppellations;
             }
         }
     },
