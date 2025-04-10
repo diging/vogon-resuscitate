@@ -231,7 +231,161 @@ $('.autocomplete').each(function() {
 
 var searchPromise = null;
 
-// var conceptSearch =
+// Toggle between expression and relation nodes mode
+$('#use_relation_nodes').on('change', function() {
+    toggleMode($(this).is(':checked'));
+});
+
+function toggleMode(useRelationNodes) {
+    if (useRelationNodes) {
+        $('#expression_container').hide();
+        $('#relation_nodes_container').show();
+        // Disable the original expression field and enable the hidden one
+        $('#expression_field_container textarea').prop('disabled', true);
+        $('#expression_hidden').prop('disabled', false);
+    } else {
+        $('#expression_container').show();
+        $('#relation_nodes_container').hide();
+        // Enable the original expression field and disable the hidden one
+        $('#expression_field_container textarea').prop('disabled', false);
+        $('#expression_hidden').prop('disabled', true);
+    }
+}
+
+// Initialize the toggle state when the page loads
+$(document).ready(function() {
+    toggleMode($('#use_relation_nodes').is(':checked'));
+    
+    // Add form submission handler to build expression from node values
+    $('form').on('submit', function(e) {
+        if ($('#use_relation_nodes').is(':checked')) {
+            // Get the values directly from inputs
+            var firstType = $('#first_node_type').val();
+            var firstValue = $('#first_node_value').val();
+            
+            var secondType = $('#second_node_type').val();
+            var secondValue = $('#second_node_value').val();
+            
+            var thirdType = $('#third_node_type').val();
+            var thirdValue = $('#third_node_value').val();
+            
+            // Create expression by wrapping Node values in curly braces
+            var parts = [];
+            
+            // Add each part based on its type
+            if (firstType === 'Node') {
+                parts.push('{' + firstValue + '}');
+            } else {
+                parts.push(firstValue);
+            }
+            
+            if (secondType === 'Node') {
+                parts.push('{' + secondValue + '}');
+            } else {
+                parts.push(secondValue);
+            }
+            
+            if (thirdType === 'Node') {
+                parts.push('{' + thirdValue + '}');
+            } else {
+                parts.push(thirdValue);
+            }
+            
+            // Join with spaces
+            var formattedExpression = parts.join(' ');
+            
+            // Set the expression
+            $('#expression_hidden').val(formattedExpression);
+            
+            // Also get terminal nodes from the dedicated field if it exists
+            var terminalNodesField = $('#id_terminal_nodes');
+            if (terminalNodesField.length) {
+                var terminalNodes = [];
+                
+                if (firstType === 'Node') {
+                    terminalNodes.push(firstValue);
+                }
+                
+                if (thirdType === 'Node') {
+                    terminalNodes.push(thirdValue);
+                }
+                
+                terminalNodesField.val(terminalNodes.join(','));
+            }
+        }
+    });
+    
+    // Add dynamic validation for node types
+    function validateNodeTypes() {
+        var nodeCount = 0;
+        var uriCount = 0;
+        
+        $('.node-type-dropdown').each(function() {
+            if ($(this).val() === 'Node') {
+                nodeCount++;
+            } else if ($(this).val() === 'URI') {
+                uriCount++;
+            }
+        });
+        
+        if (nodeCount === 2 && uriCount === 1) {
+            $('.node-type-dropdown').removeClass('is-invalid');
+            return true;
+        } else {
+            $('.node-type-dropdown').addClass('is-invalid');
+            return false;
+        }
+    }
+    
+    // Validate on change
+    $('.node-type-dropdown').on('change', validateNodeTypes);
+    
+    // Synchronize node values with terminal nodes
+    function updateTerminalNodes() {
+        if ($('#use_relation_nodes').is(':checked')) {
+            var nodeValues = [];
+            
+            // Collect all node values (only for Node type, not URI)
+            if ($('#first_node_type').val() === 'Node') {
+                var value = $('#first_node_value').val();
+                if (value) nodeValues.push(value);
+            }
+            
+            if ($('#second_node_type').val() === 'Node') {
+                var value = $('#second_node_value').val();
+                if (value) nodeValues.push(value);
+            }
+            
+            if ($('#third_node_type').val() === 'Node') {
+                var value = $('#third_node_value').val();
+                if (value) nodeValues.push(value);
+            }
+            
+            // If we have node values, update the terminal_nodes field
+            if (nodeValues.length > 0) {
+                $('#id_terminal_nodes').val(nodeValues.join(','));
+            }
+            
+            // Also update the hidden expression field on each change
+            var allNodeValues = [
+                $('#first_node_value').val(),
+                $('#second_node_value').val(),
+                $('#third_node_value').val()
+            ];
+            $('#expression_hidden').val(allNodeValues.join(' '));
+        }
+    }
+    
+    // Update terminal nodes when node values change
+    $('#first_node_value, #second_node_value, #third_node_value').on('change keyup', function() {
+        updateTerminalNodes();
+    });
+    
+    // Update node fields when their type changes
+    $('#first_node_type, #second_node_type, #third_node_type').on('change', function() {
+        updateTerminalNodes();
+    });
+});
 
 
 // source: function( request, response ) {

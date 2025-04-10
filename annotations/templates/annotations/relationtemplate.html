@@ -16,6 +16,15 @@
     border: 1px solid gray;
 }
 
+.is-invalid {
+    border-color: #dc3545 !important;
+    padding-right: calc(1.5em + .75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23dc3545' viewBox='0 0 12 12'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(.375em + .1875rem) center;
+    background-size: calc(.75em + .375rem) calc(.75em + .375rem);
+}
+
 .autocomplete-holder {
     max-width: 200px;
 }
@@ -74,13 +83,70 @@
                         {{ templateform.description }}
                     </p>
                     <p>
-                        {% if templateform.expression.errors %}
-                            {% for error in templateform.expression.errors %}
-                            <div class="alert alert-warning">{{ error }}</div>
-                            {% endfor %}
-                        {% endif %}
-                        {{ templateform.expression }}
+                        <div class="form-check">
+                            {{ templateform.use_relation_nodes }} 
+                            <label class="form-check-label" for="use_relation_nodes">
+                                Use Relation Nodes instead of Expression
+                            </label>
+                        </div>
                     </p>
+                    <div id="expression_container">
+                        <p>
+                            {% if templateform.expression.errors %}
+                                {% for error in templateform.expression.errors %}
+                                <div class="alert alert-warning">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                            <div id="expression_field_container">
+                                {{ templateform.expression }}
+                            </div>
+                            <!-- This hidden field will be populated by JavaScript when in relation nodes mode -->
+                            <input type="hidden" id="expression_hidden" name="expression" style="display:none;">
+                        </p>
+                    </div>
+                    <div id="relation_nodes_container" style="display:none;">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="first_node_type">First Element</label>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            {{ templateform.first_node_type }}
+                                        </div>
+                                        <div class="col-md-8">
+                                            {{ templateform.first_node_value }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="second_node_type">Second Element</label>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            {{ templateform.second_node_type }}
+                                        </div>
+                                        <div class="col-md-8">
+                                            {{ templateform.second_node_value }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="third_node_type">Third Element</label>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            {{ templateform.third_node_type }}
+                                        </div>
+                                        <div class="col-md-8">
+                                            {{ templateform.third_node_value }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <p>
                         {% if templateform.terminal_nodes.errors %}
                             {% for error in templateform.terminal_nodes.errors %}
@@ -384,6 +450,29 @@
                     ID of the target relation.
                 </dd>
             </dl>
+        </p>
+        
+        <p>
+            <div class="h4">Relation Nodes Mode</div>
+            <p>
+                The relation nodes mode provides an alternative way to create relations using a structured format:
+            </p>
+            <dl>
+                <dt>Node</dt>
+                <dd>
+                    A node represents a concept in the relation template. Node values must also be included in the terminal nodes field.
+                </dd>
+            </dl>
+            <dl>
+                <dt>URI</dt>
+                <dd>
+                    A URI (Uniform Resource Identifier) represents a web resource. This typically points to an external concept or definition.
+                </dd>
+            </dl>
+            <p>
+                You must have exactly 2 Nodes and 1 URI in your relation template when using relation nodes mode.
+                The arrangement of these elements is flexible - you can have them in any order that makes sense for your relation.
+            </p>
         </p>
 
     </div>

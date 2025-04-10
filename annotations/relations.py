@@ -222,20 +222,23 @@ def parse_template_part_data(part_data, **kwargs):
 
 def create_template(template_data, part_data):
     """
-    Create a new :class:`.RelationTemplate` and constituent
-    :class:`.RelationTemplatePart`\s from form/formset data.
+    Create a new :class:`annotations.models.RelationTemplate` and its
+    constituent :class:`annotations.models.RelationTemplatePart`\s.
+
+    This happens inside of an atomic transaction: either everything is created
+    successfully, or nothing is created.
 
     Parameters
     ----------
     template_data : dict
-        Cleaned data from a :class:`annotations.forms.RelationTemplateForm`\.
-    part_data : list
-        Each element should be a ``dict`` with data from a
-        :class:`annotations.forms.RelationTemplatePartForm`\.
+        Data for :class:`annotations.models.RelationTemplate`
+    part_data : list of dict
+        Each item corresponds to a :class:`annotations.models.RelationTemplatePart`
 
     Returns
     -------
     :class:`annotations.models.RelationTemplate`
+        The newly-created :class:`annotations.models.RelationTemplate` instance.
     """
     validate_template_data(template_data, part_data)
 
@@ -243,6 +246,15 @@ def create_template(template_data, part_data):
     #  might be another RelationTemplatePart.
     dependencies = dict(build_dependency_graph(template_data, part_data).edges())
     part_ids = {}    # Internal IDs to PK ids for RelationTemplatePart.
+    
+    # Filter out UI-only fields that don't exist in the model
+    ui_fields = [
+        'use_relation_nodes', 
+        'first_node_type', 'first_node_value',
+        'second_node_type', 'second_node_value',
+        'third_node_type', 'third_node_value'
+    ]
+    template_data = {k: v for k, v in template_data.items() if k not in ui_fields}
 
     creation_data = list(map(parse_template_part_data, part_data))
 
@@ -503,6 +515,15 @@ def create_relationset(template, raw_data, creator, text, project_id=None):
 
 def update_template(template, template_data, part_data_list):
     with transaction.atomic():
+        # Filter out UI-only fields that don't exist in the model
+        ui_fields = [
+            'use_relation_nodes', 
+            'first_node_type', 'first_node_value',
+            'second_node_type', 'second_node_value',
+            'third_node_type', 'third_node_value'
+        ]
+        template_data = {k: v for k, v in template_data.items() if k not in ui_fields}
+        
         # Update the template fields
         for field, value in template_data.items():
             setattr(template, field, value)

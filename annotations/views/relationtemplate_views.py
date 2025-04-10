@@ -60,6 +60,17 @@ def add_relationtemplate(request):
         if formset_is_valid and form_is_valid:
             relationtemplate_data = dict(relationtemplate_form.cleaned_data)
             relationtemplate_data['createdBy'] = request.user
+            
+            # Remove UI-only fields that shouldn't be saved to the model
+            ui_fields = [
+                'use_relation_nodes',
+                'first_node_type', 'first_node_value',
+                'second_node_type', 'second_node_value',
+                'third_node_type', 'third_node_value'
+            ]
+            relationtemplate_data = {k: v for k, v in relationtemplate_data.items() 
+                                     if k not in ui_fields}
+            
             part_data = [
                 dict(form.cleaned_data)
                 for form in relationtemplatepart_formset
@@ -334,6 +345,17 @@ def edit_relationtemplate(request, template_id):
 
         if formset_is_valid and form_is_valid:
             relationtemplate_data = relationtemplate_form.cleaned_data
+            
+            
+            ui_fields = [
+                'use_relation_nodes',
+                'first_node_type', 'first_node_value',
+                'second_node_type', 'second_node_value',
+                'third_node_type', 'third_node_value'
+            ]
+            relationtemplate_data = {k: v for k, v in relationtemplate_data.items() 
+                                     if k not in ui_fields}
+            
             part_data = [form.cleaned_data for form in relationtemplatepart_formset]
 
             try:

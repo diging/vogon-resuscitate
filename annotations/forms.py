@@ -234,6 +234,10 @@ class RelationTemplateForm(forms.ModelForm):
             'rows': 2,
             'placeholder': 'Please describe this relation.',
         }))
+    use_relation_nodes = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input',
+            'id': 'use_relation_nodes'
+        }))
     expression = forms.CharField(widget=forms.Textarea(attrs={
             'class': 'form-control input-sm',
             'rows': 3,
@@ -253,15 +257,86 @@ class RelationTemplateForm(forms.ModelForm):
                            " ``0s,1o``."
         }))
     
+    # Add fields for relation node mode
+    first_node_type = forms.ChoiceField(required=False, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
+            'class': 'form-control input-sm node-type-dropdown',
+            'id': 'first_node_type'
+        }))
+    first_node_value = forms.CharField(required=False, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm',
+            'id': 'first_node_value',
+            'placeholder': 'Enter value'
+        }))
+    second_node_type = forms.ChoiceField(required=False, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
+            'class': 'form-control input-sm node-type-dropdown',
+            'id': 'second_node_type'
+        }))
+    second_node_value = forms.CharField(required=False, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm',
+            'id': 'second_node_value',
+            'placeholder': 'Enter value'
+        }))
+    third_node_type = forms.ChoiceField(required=False, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
+            'class': 'form-control input-sm node-type-dropdown',
+            'id': 'third_node_type'
+        }))
+    third_node_value = forms.CharField(required=False, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm',
+            'id': 'third_node_value',
+            'placeholder': 'Enter value'
+        }))
+    
     def clean_expression(self):
         from string import Formatter
         value = self.cleaned_data.get('expression')
+        # If using relation nodes, we don't need to validate the expression
+        # as it will be built by JavaScript
+        if self.cleaned_data.get('use_relation_nodes'):
+            return value
         try:
             [k[1] for k in Formatter().parse(value)]
         except Exception as E:
             raise ValidationError('Invalid expression')
         return value
 
+    def clean(self):
+        cleaned_data = super(RelationTemplateForm, self).clean()
+        
+        if cleaned_data.get('use_relation_nodes'):
+            # Check that we have 2 nodes and 1 URI in any permutation
+            node_types = [
+                cleaned_data.get('first_node_type'),
+                cleaned_data.get('second_node_type'),
+                cleaned_data.get('third_node_type')
+            ]
+            
+            node_count = node_types.count('Node')
+            uri_count = node_types.count('URI')
+            
+            if node_count != 2 or uri_count != 1:
+                self.add_error(None, ValidationError('You must have exactly 2 Nodes and 1 URI'))
+                
+            # Ensure node values are provided
+            for i, prefix in enumerate(['first', 'second', 'third']):
+                if not cleaned_data.get(f'{prefix}_node_value'):
+                    self.add_error(f'{prefix}_node_value', ValidationError('This field is required'))
+            
+            # Note: We don't build the expression here anymore
+            # It's now handled by JavaScript on form submission
+            
+            # Make sure terminal nodes match with node values
+            if cleaned_data.get('terminal_nodes'):
+                terminal_nodes = cleaned_data.get('terminal_nodes').split(',')
+                # Check each value that is specified as a Node type
+                for i, prefix in enumerate(['first', 'second', 'third']):
+                    if cleaned_data.get(f'{prefix}_node_type') == 'Node':
+                        node_value = cleaned_data.get(f'{prefix}_node_value')
+                        if node_value not in terminal_nodes:
+                            self.add_error(f'{prefix}_node_value', 
+                                         ValidationError(f'Node value must be included in terminal nodes'))
+                
+        return cleaned_data
+    
     def clean_terminal_nodes(self):
         value = self.cleaned_data.get('terminal_nodes')
         try:
@@ -280,6 +355,27 @@ class RelationTemplateForm(forms.ModelForm):
         # Set the initial value of 'terminal_nodes' field from the instance's current value for editing form
         if self.instance and hasattr(self.instance, 'terminal_nodes'):
             self.fields['terminal_nodes'].initial = self.instance.terminal_nodes
+
+    def save(self, commit=True):
+        # Remove UI-only fields that shouldn't be saved to the model
+        ui_fields = [
+            'use_relation_nodes',
+            'first_node_type', 'first_node_value',
+            'second_node_type', 'second_node_value',
+            'third_node_type', 'third_node_value'
+        ]
+        
+        # Get the current data
+        cleaned_data = {k: v for k, v in self.cleaned_data.items() if k not in ui_fields}
+        
+        # Update the instance with cleaned data
+        for key, value in cleaned_data.items():
+            setattr(self.instance, key, value)
+            
+        if commit:
+            self.instance.save()
+            
+        return self.instance
 
 
 class UberCheckboxInput(forms.CheckboxInput):
