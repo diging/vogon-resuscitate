@@ -210,3 +210,23 @@ def sandbox(request, text_id):
     from annotations.models import RelationTemplate
 
     return render(request, "annotations/relationtemplate_creator.html", {})
+
+@login_required
+def add_comment_reply(request, comment_id):
+    """
+    Add a reply to an existing comment
+    """
+    parent_comment = get_object_or_404(Comment, pk=comment_id)
+    if request.method == "POST":
+        reply_text = request.POST.get("reply_text", "").strip()
+        if reply_text:
+            Comment.objects.create(
+                concept=parent_comment.concept,
+                parent=parent_comment,
+                text=reply_text,
+                created_by=request.user
+            )
+        next_page = request.GET.get('next', reverse('concept', args=(parent_comment.concept.id,)))
+        return HttpResponseRedirect(next_page)
+    
+    return HttpResponseRedirect(reverse('concepts'))
