@@ -296,6 +296,7 @@ $(document).ready(function() {
             
             // Set the expression
             $('#expression_hidden').val(formattedExpression);
+            console.log('Set expression to:', formattedExpression);
             
             // Also get terminal nodes from the dedicated field if it exists
             var terminalNodesField = $('#id_terminal_nodes');
@@ -311,7 +312,46 @@ $(document).ready(function() {
                 }
                 
                 terminalNodesField.val(terminalNodes.join(','));
+                console.log('Set terminal_nodes to:', terminalNodes.join(','));
+            } else {
+                console.log('Warning: terminal_nodes field not found');
             }
+            
+            // Create default_mapping JSON
+            var defaultMapping = {
+                source: (firstType === 'Node' ? 'REF' : 'URI'),
+                predicate: (secondType === 'Node' ? 'REF' : 'URI'),
+                object: (thirdType === 'Node' ? 'REF' : 'URI')
+            };
+            
+            // Look for default_mapping field - try different possible IDs
+            var defaultMappingField = $('#id_default_mapping');
+            if (!defaultMappingField.length) {
+                defaultMappingField = $('input[name="default_mapping"]');
+            }
+            
+            if (defaultMappingField.length) {
+                var mappingString = JSON.stringify(defaultMapping);
+                defaultMappingField.val(mappingString);
+                console.log('Set default_mapping to:', mappingString);
+            } else {
+                console.log('default_mapping field not found. Creating one...');
+                // Create the field if it doesn't exist
+                var inputField = $('<input>')
+                    .attr('type', 'hidden')
+                    .attr('name', 'default_mapping')
+                    .attr('id', 'id_default_mapping')
+                    .val(JSON.stringify(defaultMapping));
+                $(this).append(inputField);
+                console.log('Created default_mapping field with value:', JSON.stringify(defaultMapping));
+            }
+            
+            // Debug form data
+            console.log('Form data before submit:');
+            var formData = $(this).serializeArray();
+            $.each(formData, function(i, field){
+                console.log(field.name + ':', field.value);
+            });
         }
     });
     

@@ -61,6 +61,10 @@ def add_relationtemplate(request):
             relationtemplate_data = dict(relationtemplate_form.cleaned_data)
             relationtemplate_data['createdBy'] = request.user
             
+            # Debug output to check if default_mapping is in the form data
+            logger.error(f"Form data: {relationtemplate_form.cleaned_data}")
+            logger.error(f"Default mapping in form data: {relationtemplate_form.cleaned_data.get('default_mapping')}")
+            
             # Remove UI-only fields that shouldn't be saved to the model
             ui_fields = [
                 'use_relation_nodes',
@@ -70,6 +74,9 @@ def add_relationtemplate(request):
             ]
             relationtemplate_data = {k: v for k, v in relationtemplate_data.items() 
                                      if k not in ui_fields}
+            
+            # Check if default_mapping is in the cleaned data after filtering
+            logger.error(f"Template data after filtering: {relationtemplate_data}")
             
             part_data = [
                 dict(form.cleaned_data)

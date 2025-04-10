@@ -1036,6 +1036,17 @@ class RelationTemplate(models.Model):
     expression = models.TextField(null=True)
     """Pattern for representing the relation in normal language."""
 
+    default_mapping = models.TextField(blank=True, null=True)
+    """
+    Default mapping for the relation.
+    Format (in JSON):
+    {
+        "source": "source_node_type",
+        "predicate": "predicate_node_type",
+        "object": "object_node_type"
+    }
+    """
+
     _terminal_nodes = models.TextField(blank=True, null=True)
     use_in_mass_assignment = models.BooleanField(default=False)
 

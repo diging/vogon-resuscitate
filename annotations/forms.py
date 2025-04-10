@@ -257,6 +257,11 @@ class RelationTemplateForm(forms.ModelForm):
                            " ``0s,1o``."
         }))
     
+    # Add default_mapping field
+    default_mapping = forms.CharField(required=False, widget=forms.HiddenInput(attrs={
+            'id': 'id_default_mapping'
+        }))
+    
     # Add fields for relation node mode
     first_node_type = forms.ChoiceField(required=False, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
             'class': 'form-control input-sm node-type-dropdown',
@@ -285,6 +290,10 @@ class RelationTemplateForm(forms.ModelForm):
             'id': 'third_node_value',
             'placeholder': 'Enter value'
         }))
+    
+    class Meta:
+        model = RelationTemplate
+        fields = ['name', 'description', 'expression', 'terminal_nodes', 'default_mapping']
     
     def clean_expression(self):
         from string import Formatter
@@ -346,10 +355,6 @@ class RelationTemplateForm(forms.ModelForm):
             raise ValidationError('Invalid terminal nodes')
         return value
     
-    class Meta:
-        model = RelationTemplate
-        exclude = ['createdBy']
-
     def __init__(self, *args, **kwargs):
         super(RelationTemplateForm, self).__init__(*args, **kwargs)
         # Set the initial value of 'terminal_nodes' field from the instance's current value for editing form
