@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 import datetime
 import requests
 import re
+import json
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -464,21 +465,83 @@ def generate_graph_data(relationset, user):
         else:
             obj_key = f"app-{object_node.id}-{object_node.created.isoformat()}"
     
-    # Construct the default mapping based on template
-    default_mapping = {
-        "subject": {
-            "type": "REF",
-            "reference": node_mapping.get(subj_key, "0"),
-        },
-        "predicate": {
-            "type": "URI",
-            "uri": predicate_node.interpretation.master.uri,
-        },
-        "object": {
-            "type": "REF",
-            "reference": node_mapping.get(obj_key, "0"),
+    # Check if template has a default_mapping and use it
+    if relationset.template and relationset.template.default_mapping:
+        try:
+            # Parse the default_mapping from the template
+            custom_mapping = json.loads(relationset.template.default_mapping)
+            
+            # Build the defaultMapping structure based on template's mapping
+            default_mapping = {}
+            
+            # Map source to subject
+            if custom_mapping.get('source') == 'REF':
+                default_mapping['subject'] = {
+                    'type': 'REF',
+                    'reference': node_mapping.get(subj_key, "0")
+                }
+            else:  # URI
+                default_mapping['subject'] = {
+                    'type': 'URI',
+                    'uri': subject_node.interpretation.master.uri if hasattr(subject_node, 'interpretation') else ""
+                }
+            
+            # Map predicate
+            if custom_mapping.get('predicate') == 'REF':
+                default_mapping['predicate'] = {
+                    'type': 'REF',
+                    'reference': node_mapping.get(f"app-{predicate_node.id}-{predicate_node.created.isoformat()}", "0")
+                }
+            else:  # URI
+                default_mapping['predicate'] = {
+                    'type': 'URI',
+                    'uri': predicate_node.interpretation.master.uri
+                }
+            
+            # Map object to object
+            if custom_mapping.get('object') == 'REF':
+                default_mapping['object'] = {
+                    'type': 'REF',
+                    'reference': node_mapping.get(obj_key, "0")
+                }
+            else:  # URI
+                default_mapping['object'] = {
+                    'type': 'URI',
+                    'uri': object_node.interpretation.master.uri if hasattr(object_node, 'interpretation') else ""
+                }
+        except (json.JSONDecodeError, AttributeError, KeyError) as e:
+            # Fallback to default behavior if parsing fails
+            print(f"Error parsing default_mapping: {str(e)}")
+            default_mapping = {
+                "subject": {
+                    "type": "REF",
+                    "reference": node_mapping.get(subj_key, "0"),
+                },
+                "predicate": {
+                    "type": "URI",
+                    "uri": predicate_node.interpretation.master.uri,
+                },
+                "object": {
+                    "type": "REF",
+                    "reference": node_mapping.get(obj_key, "0"),
+                }
+            }
+    else:
+        # Construct the default mapping based on template
+        default_mapping = {
+            "subject": {
+                "type": "REF",
+                "reference": node_mapping.get(subj_key, "0"),
+            },
+            "predicate": {
+                "type": "URI",
+                "uri": predicate_node.interpretation.master.uri,
+            },
+            "object": {
+                "type": "REF",
+                "reference": node_mapping.get(obj_key, "0"),
+            }
         }
-    }
     
     # Finally, return the complete graph data structure
     return {
