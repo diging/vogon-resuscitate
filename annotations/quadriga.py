@@ -2,7 +2,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 from django.utils import timezone
 
-from annotations.models import Relation, Appellation, DateAppellation, DocumentPosition, RelationTemplate
+from annotations.models import Relation, Appellation, DateAppellation, DocumentPosition, RelationTemplate, RelationTemplatePart
 from external_accounts.models import CitesphereAccount
 
 import xml.etree.ElementTree as ET
@@ -278,17 +278,15 @@ def build_concept_node(appellation, user, creation_time, source_uri):
     
     # concept's label for the interpretation.
     interpretation_label = appellation.interpretation.label
-    # concept source URL from the master attribute if available.
-    if hasattr(appellation.interpretation, 'master') and hasattr(appellation.interpretation.master, 'uri'):
-        concept_source_url = appellation.interpretation.master.uri
-    else:
-        concept_source_url = source_uri
+    
+    # concept's source URI
+    concept_source_uri = appellation.interpretation.uri
 
     return {
         "label": interpretation_label,
         "metadata": {
             "type": "appellation_event",
-            "interpretation": concept_source_url,
+            "interpretation": concept_source_uri,
             "termParts": term_parts
         },
         "context": {
@@ -426,13 +424,13 @@ def generate_graph_data(relationset, user):
     
     # Get the subject node from the relation
     subject_node = None
-    if template_part.source_node_type == 'CO':  # Specific concept
+    if template_part.source_node_type == RelationTemplatePart.CONCEPT:  # Specific concept
         subject_node = top_relation.source_content_object
-    elif template_part.source_node_type == 'TP':  # Open concept
+    elif template_part.source_node_type == RelationTemplatePart.TYPE:  # Open concept
         subject_node = top_relation.source_content_object
-    elif template_part.source_node_type == 'DT':  # Date
+    elif template_part.source_node_type == RelationTemplatePart.DATE:  # Date
         subject_node = top_relation.source_content_object
-    elif template_part.source_node_type == 'RE':  # Relation
+    elif template_part.source_node_type == RelationTemplatePart.RELATION:  # Relation
         subject_node = top_relation.source_content_object
     
     # Get the predicate node
@@ -440,14 +438,15 @@ def generate_graph_data(relationset, user):
     
     # Get the object node from the relation
     object_node = None
-    if template_part.object_node_type == 'CO':  # Specific concept
+    if template_part.object_node_type == RelationTemplatePart.CONCEPT:  # Specific concept
         object_node = top_relation.object_content_object
-    elif template_part.object_node_type == 'TP':  # Open concept
+    elif template_part.object_node_type == RelationTemplatePart.TYPE:  # Open concept
         object_node = top_relation.object_content_object
-    elif template_part.object_node_type == 'DT':  # Date
+    elif template_part.object_node_type == RelationTemplatePart.DATE:  # Date
         object_node = top_relation.object_content_object
-    elif template_part.object_node_type == 'RE':  # Relation
+    elif template_part.object_node_type == RelationTemplatePart.RELATION:  # Relation
         object_node = top_relation.object_content_object
+    
     
     # Create keys for looking up node IDs
     subj_key = None
