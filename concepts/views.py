@@ -2,7 +2,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.template import loader
 from django.urls import reverse
-from concepts.models import Concept, Type
+from concepts.models import Concept, Type, Comment
 from concepts.filters import *
 from concepts.lifecycle import *
 from annotations.models import RelationSet, Appellation, TextCollection, VogonUserDefaultProject
@@ -63,9 +63,17 @@ def merge_concepts(request, source_concept_id):
 def flag_concept(request, source_concept_id):
     concept = get_object_or_404(Concept, pk=source_concept_id)
     if request.method == "POST":
-        comment = request.POST.get("flag_comment", "").strip()
-        concept.concept_state = Concept.FLAGGED    
-        concept.comment = comment
+        comment_text = request.POST.get("flag_comment", "").strip()
+        concept.concept_state = Concept.FLAGGED
+        
+        if comment_text:
+            
+            Comment.objects.create(
+                concept=concept,
+                text=comment_text,
+                created_by=request.user
+            )
+            
         concept.save()
         next_page = request.GET.get('next', reverse('concepts'))
         return HttpResponseRedirect(next_page)
@@ -83,6 +91,9 @@ def concepts(request):
         qs = Concept.objects.filter(appellation__isnull=False).distinct('id').order_by('-id')
     else:
         qs = Concept.objects.filter(appellation__isnull=False, createdBy=request.user).distinct('id').order_by('-id')
+    
+    qs = qs.prefetch_related('comments')
+    
     filtered = ConceptFilter(request.GET, queryset=qs)
     qs = filtered.qs
 
