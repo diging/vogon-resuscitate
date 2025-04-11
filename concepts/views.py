@@ -6,7 +6,7 @@ from concepts.models import Concept, Type, Comment
 from concepts.filters import *
 from concepts.lifecycle import *
 from annotations.models import RelationSet, Appellation, TextCollection, VogonUserDefaultProject
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from concepts.authorities import ConceptpowerAuthority, update_instance
 from django.contrib.auth.decorators import login_required
 import re, urllib.request, urllib.parse, urllib.error, string
@@ -230,3 +230,21 @@ def add_comment_reply(request, comment_id):
         return HttpResponseRedirect(next_page)
     
     return HttpResponseRedirect(reverse('concepts'))
+
+@login_required
+def add_concept_comment(request, concept_id):
+    if request.method == 'POST':
+        concept = get_object_or_404(Concept, pk=concept_id)
+        comment_text = request.POST.get('comment_text')
+        
+        if comment_text:
+            comment = Comment.objects.create(
+                concept=concept,
+                created_by=request.user,
+                text=comment_text
+            )
+            messages.success(request, 'Comment added successfully.')
+        else:
+            messages.error(request, 'Comment text cannot be empty.')
+            
+    return redirect('concept', concept_id=concept_id)

@@ -2,6 +2,10 @@
 {% load staticfiles %}
 {% load app_filters %}
 
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'annotations/css/comments.css' %}">
+{% endblock %}
+
 {% block breadcrumbs %}
 <a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "concepts" %}" class="btn btn-xs">Concepts</a>&raquo;<a href="{% url "concept" concept.id %}" class="btn btn-xs">{{ concept.label }}</a>
 {% endblock %}
@@ -16,18 +20,31 @@
         {{ concept.description }}
     </p>
 
-    {% if concept.concept_state == 'Flagged' %}
     <div class="h3">Comments</div>
     <div class="comments-section">
-        {% for comment in concept.comments.all %}
-            {% if not comment.parent %}
-            <div class="comment-thread">
-                {% include "annotations/comment_thread.html" with comment=comment %}
-            </div>
-            {% endif %}
-        {% endfor %}
+        {% if concept.comments.all %}
+            {% for comment in concept.comments.all %}
+                {% if not comment.parent %}
+                <div class="comment-thread">
+                    {% include "annotations/comment_thread.html" with comment=comment %}
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <p class="text-muted">No comments yet.</p>
+        {% endif %}
+
+        <div class="new-comment-form">
+            <h4>Add a Comment</h4>
+            <form method="POST" action="{% url 'add_concept_comment' concept.id %}">
+                {% csrf_token %}
+                <div class="form-group">
+                    <textarea name="comment_text" class="form-control" rows="3" placeholder="Write your comment here..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit Comment</button>
+            </form>
+        </div>
     </div>
-    {% endif %}
 
     {% if relations %}
     <div class="h3">Recent Annotations
@@ -36,40 +53,6 @@
     {% include "annotations/relations_list_fragment.html" %}
     {% endif %}
 </div>
-
-<style>
-.comments-section {
-    margin: 20px 0;
-}
-.comment-thread {
-    margin-bottom: 20px;
-    padding: 15px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-.comment {
-    margin-bottom: 15px;
-}
-.comment-header {
-    margin-bottom: 8px;
-}
-.comment-body {
-    margin-bottom: 10px;
-}
-.comment-replies {
-    margin-left: 30px;
-}
-.comment-reply {
-    padding: 10px;
-    background-color: #f9f9f9;
-    border-radius: 4px;
-    margin-bottom: 10px;
-}
-.reply-form {
-    margin-top: 10px;
-    margin-bottom: 15px;
-}
-</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
