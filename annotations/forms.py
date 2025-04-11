@@ -293,7 +293,7 @@ class RelationTemplateForm(forms.ModelForm):
     
     class Meta:
         model = RelationTemplate
-        fields = ['name', 'description', 'expression', 'terminal_nodes', 'default_mapping']
+        fields = ['name', 'description', 'expression', 'terminal_nodes', 'default_mapping', 'structured_mapping']
     
     def clean_expression(self):
         from string import Formatter
@@ -362,24 +362,76 @@ class RelationTemplateForm(forms.ModelForm):
             self.fields['terminal_nodes'].initial = self.instance.terminal_nodes
 
     def save(self, commit=True):
-        # Remove UI-only fields that shouldn't be saved to the model
+        """
+        Custom save method that filters out UI-only form fields before saving to database.
+        
+        This method overrides the standard ModelForm.save() to handle the discrepancy
+        between form fields and model fields. Many fields exist only in the form for UI
+        purposes and don't have corresponding database columns.
+        
+        Parameters:
+        -----------
+        commit : bool, default=True
+            Whether to commit the changes to the database immediately
+            
+        Returns:
+        --------
+        RelationTemplate
+            The updated model instance
+        """
+        # Define fields that only exist for UI functionality and don't map to model fields
         ui_fields = [
-            'use_relation_nodes',
-            'first_node_type', 'first_node_value',
-            'second_node_type', 'second_node_value',
-            'third_node_type', 'third_node_value'
+            'use_relation_nodes',  # Controls which UI mode is active
+            'first_node_type', 'first_node_value',   # First relation node fields
+            'second_node_type', 'second_node_value', # Second relation node fields
+            'third_node_type', 'third_node_value'    # Third relation node fields
         ]
         
-        # Get the current data
+        # Create filtered dictionary with only the fields that exist in the model
+        # This prevents AttributeError when setting attributes on the model instance
         cleaned_data = {k: v for k, v in self.cleaned_data.items() if k not in ui_fields}
         
-        # Update the instance with cleaned data
+        # If using relation nodes, create or update the structured mapping
+        if self.cleaned_data.get('use_relation_nodes'):
+            from annotations.models import DefaultMapping
+            
+            # Create a mapping of position prefixes to DefaultMapping field prefixes
+            position_to_field = {
+                'first': 'subject',
+                'second': 'predicate',
+                'third': 'object'
+            }
+            
+            # Get or create the DefaultMapping instance
+            if self.instance.structured_mapping:
+                mapping = self.instance.structured_mapping
+            else:
+                mapping = DefaultMapping()
+            
+            # Set the mapping values from the form
+            for position_prefix, field_prefix in position_to_field.items():
+                type_value = self.cleaned_data.get(f'{position_prefix}_node_type')
+                node_value = self.cleaned_data.get(f'{position_prefix}_node_value')
+                
+                if type_value and node_value:
+                    setattr(mapping, f'{field_prefix}_type', type_value)
+                    setattr(mapping, f'{field_prefix}_value', node_value)
+            
+            # Save the mapping
+            mapping.save()
+            
+            # Attach the mapping to the instance
+            self.instance.structured_mapping = mapping
+        
+        # Manually update each attribute on the model instance
+        # This is more explicit than the default ModelForm behavior
         for key, value in cleaned_data.items():
             setattr(self.instance, key, value)
             
+        # Only save to database if commit=True (standard Django pattern)
         if commit:
             self.instance.save()
-            
+
         return self.instance
 
 

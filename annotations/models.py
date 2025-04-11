@@ -1017,6 +1017,33 @@ class Relation(Annotation):
     """
 
 
+class DefaultMapping(models.Model):
+    """
+    Represents a structured default mapping configuration for a RelationTemplate.
+    
+    Each DefaultMapping defines the types and values for subject, predicate, and object
+    in a relation. This provides a more structured approach than storing as JSON.
+    """
+    NODE = 'Node'
+    URI = 'URI'
+    TYPE_CHOICES = [
+        (NODE, 'Node'),
+        (URI, 'URI')
+    ]
+    
+    subject_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    subject_value = models.CharField(max_length=255)
+    
+    predicate_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    predicate_value = models.CharField(max_length=255)
+    
+    object_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    object_value = models.CharField(max_length=255)
+    
+    def __str__(self):
+        return f"Mapping: {self.subject_type}/{self.predicate_type}/{self.object_type}"
+
+
 class RelationTemplate(models.Model):
     """
     Provides a template for complex relations, allowing the user to simply
@@ -1047,6 +1074,10 @@ class RelationTemplate(models.Model):
         "object": "object_node_type"
     }
     """
+    
+    # structured_mapping = models.ForeignKey(DefaultMapping, blank=True, null=True, 
+    #                                       on_delete=models.SET_NULL, related_name='templates')
+    # """Structured representation of default mapping relationship configuration."""
 
     _terminal_nodes = models.TextField(blank=True, null=True)
     use_in_mass_assignment = models.BooleanField(default=False)
@@ -1198,3 +1229,5 @@ class DocumentPosition(models.Model):
     If :attr:`.position_type` is :attr:`.WHOLE_DOCUMENT`\, then this can be
     blank.
     """
+
+
