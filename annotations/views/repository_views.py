@@ -28,7 +28,7 @@ from urllib.parse import urlencode
 from external_accounts.utils import parse_iso_datetimes
 
 from external_accounts.decorators import citesphere_authenticated
-from annotations.utils import get_pagination_metadata, natural_keys
+from annotations.utils import get_pagination_metadata
 from repository.exceptions import GilesTextExtractionError, GilesUploadError
 
 import logging
@@ -88,11 +88,12 @@ def repository_collections(request, repository_id):
 
     try:
         collections = manager.groups()  # Fetch collections
-        # Sort collections using natural_keys() helper from utils.py
-        # natural_keys() handles both alphabetical and numeric sorting
+        # Sort collections alphabetically
+        # This performs a case-insensitive lexicographical sort on collection names
+        # Note: "Collection 10" will come before "Collection 2" because string comparison sorts character by character
         collections = sorted(
             collections, 
-            key=lambda x: natural_keys(x['name'].lower())
+            key=lambda x: x['name'].lower()
         )
     except CitesphereAPIError as e:
         print(traceback.format_exc())
@@ -124,12 +125,10 @@ def repository_collection(request, repository_id, group_id):
     try:
         response_data = manager.collections(group_id=group_id)
         group_info = response_data.get('group')
-        # Sort collections using natural_keys() helper from utils.py
-        # natural_keys() handles both alphabetical and numeric sorting
-        # e.g. "Collection 2" comes before "Collection 10"
+        # Sort collections alphabetically
         collections = sorted(
             response_data.get('collections', []),
-            key=lambda x: natural_keys(x['name'].lower())
+            key=lambda x: x['name'].lower()
         )
         group_texts = manager.group_items(group_id=group_id, page=page)
     except CitesphereAPIError as e:
