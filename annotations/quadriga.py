@@ -510,7 +510,7 @@ def generate_graph_data(relationset, user):
                     'uri': object_node.interpretation.master.uri if hasattr(object_node, 'interpretation') else ""
                 }
         except (json.JSONDecodeError, AttributeError, KeyError) as e:
-            # Fallback to default behavior if parsing fails
+            # Fallback to orignial mapping if node relations were not used in the template
             print(f"Error parsing default_mapping: {str(e)}")
             default_mapping = {
                 "subject": {
@@ -601,7 +601,6 @@ def submit_to_quadriga(relationset, user, project):
     endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add"
 
     graph_data = generate_graph_data(relationset, user)
-    print(graph_data) # DEBUG
     response = requests.post(endpoint, json=graph_data, headers=headers)
     response.raise_for_status()
 
