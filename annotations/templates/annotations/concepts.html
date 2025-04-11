@@ -120,7 +120,7 @@
         <div class="list-group-item">
             <div class="pull-right">
                 <div class="btn-group">
-                    <a class="btn btn-xs btn-default glyphicon {% if concept_state  == concept.PENDING %}glyphicon-hourglass{% elif concept_state  == concept.REJECTED %}glyphicon-thumbs-down{% elif concept_state  == concept.MERGED %}glyphicon-arrow-right{% elif concept_state  == concept.RESOLVED %}glyphicon-thumbs-up{% else %}glyphicon-ok-circle{% endif %}"
+                    <a class="btn btn-xs btn-default glyphicon {% if concept_state  == concept.PENDING %}glyphicon-hourglass{% elif concept_state  == concept.REJECTED %}glyphicon-thumbs-down{% elif concept_state  == concept.MERGED %}glyphicon-arrow-right{% elif concept_state  == concept.RESOLVED %}glyphicon-thumbs-up{% elif concept_state == concept.FLAGGED %}glyphicon-flag{% else %}glyphicon-ok-circle{% endif %}"
                         data-toggle="tooltip"
                         data-placement="left"
                         data-container="body"
@@ -130,7 +130,13 @@
                         ></a>
                 </div>
                 <div class="btn-group">
-                    {% if concept_state  == concept.PENDING and concept|is_conceptpower_namespaced is not True %}<a style="top: 1;" href="{% url "add_concept" concept.id %}?next={{ path }}" class="btn btn-xs btn-success">Resolve</a>{% endif %}
+                    {% if concept_state == concept.PENDING or concept_state == concept.FLAGGED %}
+                        {% if not concept|is_conceptpower_namespaced %}
+                            <a style="top: 1;" href="{% url "add_concept" concept.id %}?next={{ path }}" class="btn btn-xs btn-success">
+                                Resolve
+                            </a>
+                        {% endif %}
+                    {% endif %}
                     {% if concept_state  == concept.APPROVED %}{% if concept.typed %}<a style="top: 1;" href="{% url "add_concept" concept.id %}?next={{ path }}" class="btn btn-xs btn-success">Add</a>{% else %}<a href="{% url "edit_concept" concept.id %}?next={{ path }}" class="btn btn-xs btn-primary">Set Type</a>{% endif %}{% endif %}
                 </div>
             </div>
@@ -154,6 +160,18 @@
 
                 <span class="text-success">{% if concept.typed.label %}{{ concept.typed.label }}{% else %}{{ concept.typed.uri }}{% endif %}</span>
 
+            </div>
+            {% endif %}
+            {% if concept_state == concept.FLAGGED %}
+            <div style="color: #d9534f;">
+                <i class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></i>
+                {% if concept.comments.exists %}
+                    {% for comment in concept.comments.all %}
+                        <span>{{ comment.text }}</span>
+                    {% endfor %}
+                {% else %}
+                    <span>No comments</span>
+                {% endif %}
             </div>
             {% endif %}
         </div>

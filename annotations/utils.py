@@ -196,3 +196,19 @@ def _annotate_project_counts(queryset):
                           distinct=True),
         num_collaborators=Count('collaborators', distinct=True)
     )
+
+
+"""
+Helper function to sort collections alphabetically by name and integer parts (case-insensitive)
+"""
+def natural_keys(text):
+    """
+    Converts a string into a list of strings and integers, so that it sorts numerically on the numeric parts.
+    Example: Turn 'test10' into ['test', 10] so it sorts numerically on the numeric parts.
+    """
+    # This inner function tries to convert digit-only substrings to integers.
+    def convert(text_chunk):
+        return int(text_chunk) if text_chunk.isdigit() else text_chunk
+    
+    # Split at each sequence of digits, e.g. 'test10' -> ['test', '10', '']
+    return [convert(chunk) for chunk in re.split(r'(\d+)', text)]
