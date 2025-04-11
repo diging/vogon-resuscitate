@@ -97,8 +97,8 @@ class Concept(HeritableObject):
 
     @property
     def authority_name(self):
-        """Returns just the name from the authority dict."""
-        return self.authority_dict['name']
+        """Returns just the name from the authority dict, or empty string if name doesn't exist."""
+        return self.authority_dict.get('name', '')
 
     def get_absolute_url(self):
         return reverse('concept', args=(self.id,))
