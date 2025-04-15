@@ -165,33 +165,40 @@ def citesphere_disconnect(request, repository_id):
 
 @login_required
 def conceptpower_login(request):
-    username = request.POST.get('username')
-    password = request.POST.get('password')
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        next_url = request.POST.get('next', reverse('dashboard'))
 
-    if not username or not password:
-        messages.error(request, "Username and password are required.")
-        return render(request, 'login/login.html')
+        if not username or not password:
+            messages.error(request, "Both username and password are required.")
+            return render(request, 'login/login.html')
 
-    account, created = ConceptpowerAccount.objects.get_or_create(user=request.user)
-    account.username = username
-    account.password = password
-    account.save()
-    next_url = request.POST.get('next', reverse('dashboard'))
-    return redirect(next_url)
+        account, created = ConceptpowerAccount.objects.get_or_create(user=request.user)
+        account.username = username
+        account.password = password
+        account.save()
+        messages.success(request, "Successfully connected to ConceptPower!")
+        return redirect(next_url)
+    return render(request, 'login/login.html')
     
 @login_required
 def conceptpower_update_password(request):
-    new_password = request.POST.get("new_password")
+    if request.method == 'POST':
+        new_password = request.POST.get("new_password")
 
-    try:
-        account = ConceptpowerAccount.objects.get(user=request.user)
-        account.password = new_password
-        account.save()
-        response = {"status": "success", "message": "Password updated successfully!"}
-    except ConceptpowerAccount.DoesNotExist:
-        response = {"status": "error", "message": "No ConceptPower account found."}
+        try:
+            account = ConceptpowerAccount.objects.get(user=request.user)
+            account.password = new_password
+            account.save()
+            messages.success(request, "Password updated successfully!")
+        except ConceptpowerAccount.DoesNotExist:
+            messages.error(request, "No ConceptPower account found.")
+        except Exception as e:
+            messages.error(request, "Something went wrong! Please try again.")
+            print(f"Error updating ConceptPower password: {e}")
 
-    return JsonResponse(response)
+    return redirect(reverse('dashboard'))
 
 @login_required
 def conceptpower_disconnect(request):

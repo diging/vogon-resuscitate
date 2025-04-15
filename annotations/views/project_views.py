@@ -270,9 +270,17 @@ def add_collaborator(request, project_id):
         collaborator_username = request.POST.get('username')
         try:
             collaborator = get_object_or_404(VogonUser, username=collaborator_username)
-            project.collaborators.add(collaborator)
-            project.save()
-            messages.success(request, f'Successfully added {collaborator_username} as a collaborator.', extra_tags='success')
+            
+            # Check if the collaborator being added is the owner
+            if collaborator.id == project.ownedBy.id:
+                messages.error(request, f'The Project Owner cannot be added as a collaborator in the same project.', extra_tags='danger')
+            # Check if user is already a collaborator
+            elif project.collaborators.filter(id=collaborator.id).exists():
+                messages.error(request, f'{collaborator_username} is already a collaborator on this project.', extra_tags='warning')
+            else:
+                project.collaborators.add(collaborator)
+                project.save()
+                messages.success(request, f'Successfully added {collaborator_username} as a collaborator.', extra_tags='success')
         except Http404:
             messages.error(request, f'User {collaborator_username} not found.', extra_tags='danger')
         return HttpResponseRedirect(reverse('view_project', args=[project_id]))

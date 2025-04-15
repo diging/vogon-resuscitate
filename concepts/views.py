@@ -2,7 +2,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.template import loader
 from django.urls import reverse
-from concepts.models import Concept, Type
+from concepts.models import Concept, Type, Comment
 from concepts.filters import *
 from concepts.lifecycle import *
 from concepts.conceptpower import ConceptPowerCredentialsMissingException
@@ -15,6 +15,7 @@ from unidecode import unidecode
 from urllib.parse import urlencode
 from annotations.decorators import vogon_admin_or_staff_required
 from django.contrib import messages
+from external_accounts.models import ConceptpowerAccount
 
 
 
@@ -52,21 +53,49 @@ def type(request, type_id):
 @login_required
 def merge_concepts(request, source_concept_id):
     source = get_object_or_404(Concept, pk=source_concept_id)
-    manager = ConceptLifecycle(source)
+    concept = ConceptLifecycle(source)
     target_uri = request.GET.get('target')
-    manager.merge_with(target_uri)
+    concept.merge_with(target_uri)
 
     next_page = request.GET.get('next', reverse('concepts'))
 
     return HttpResponseRedirect(next_page)
 
 @login_required
+def flag_concept(request, source_concept_id):
+    concept = get_object_or_404(Concept, pk=source_concept_id)
+    if request.method == "POST":
+        comment_text = request.POST.get("flag_comment", "").strip()
+        concept.concept_state = Concept.FLAGGED
+        
+        if comment_text:
+            
+            Comment.objects.create(
+                concept=concept,
+                text=comment_text,
+                created_by=request.user
+            )
+            
+        concept.save()
+        next_page = request.GET.get('next', reverse('concepts'))
+        return HttpResponseRedirect(next_page)
+    
+    return HttpResponseRedirect(reverse('concepts'))
+
+
+@login_required
 def concepts(request):
     """
     List all concepts.
     """
-    qs = Concept.objects.filter(appellation__isnull=False).distinct('id').order_by('-id')
-
+    qs = None
+    if request.user.is_admin:
+        qs = Concept.objects.filter(appellation__isnull=False).distinct('id').order_by('-id')
+    else:
+        qs = Concept.objects.filter(appellation__isnull=False, createdBy=request.user).distinct('id').order_by('-id')
+    
+    qs = qs.prefetch_related('comments')
+    
     filtered = ConceptFilter(request.GET, queryset=qs)
     qs = filtered.qs
 
@@ -118,43 +147,49 @@ def concept(request, concept_id):
 
 @login_required
 def add_concept(request, concept_id):
-
-    concept = get_object_or_404(Concept, pk=concept_id)
-    manager = ConceptLifecycle(concept, request.user)
+    source = get_object_or_404(Concept, pk=concept_id)
+    concept = ConceptLifecycle(source, request.user)
     next_page = request.GET.get('next', reverse('concepts'))
     back_to_page = request.GET.get('next')
     context = {
-        'concept': concept,
+        'concept': source,
         'next_page': urllib.parse.quote_plus(next_page),
         'back_to_page': back_to_page
     }
-    if concept.concept_state != Concept.PENDING:
-        return HttpResponseRedirect(next_page)
 
-    if request.GET.get('confirmed', False):
-        try:
-            manager.add()
-        except ConceptPowerCredentialsMissingException:
-            # Redirect user to add ConceptPower credentials
-            return redirect(f"{reverse('conceptpower_login')}?next={request.path}")
-        except ConceptUpstreamException as E:
-            messages.error(
+    try:
+        ConceptpowerAccount.objects.get(user=request.user)
+    except ConceptpowerAccount.DoesNotExist:
+        messages.warning(request, "You need to connect your ConceptPower account before adding concepts.")
+        return redirect(f"{reverse('conceptpower_login')}?next={request.path}")
+
+    # Process only if the concept is still in a resolvable state (e.g., PENDING or FLAGGED)
+    if source.concept_state in [Concept.PENDING, Concept.FLAGGED]:
+        if request.method == 'POST':
+            try:
+                concept.add()
+            except ConceptPowerCredentialsMissingException:
+                messages.error(request, "Your ConceptPower credentials are invalid. Please update them.")
+                return redirect(f"{reverse('conceptpower_login')}?next={request.path}")
+            except ConceptUpstreamException as E:
+                print(E)
+                messages.error(
                     request,
                     'ERROR: There was an error while communicating with Conceptpower.'
                 )
-            return HttpResponseRedirect(reverse('concepts'))
-        return HttpResponseRedirect(next_page)
+                return HttpResponseRedirect(reverse('concepts'))
+            return HttpResponseRedirect(next_page)
 
+        candidates = concept.get_similar()
+        matches = concept.get_matching()
 
-    candidates = manager.get_similar()
-    matches = manager.get_matching()
+        context.update({
+            'candidates': candidates,
+            'matches': matches,
+        })
 
-    context.update({
-        'candidates': candidates,
-        'matches': matches,
-    })
-
-    return render(request, "annotations/concept_add.html", context)
+        return render(request, "annotations/concept_add.html", context)
+    return HttpResponseRedirect(next_page)
 
 
 @login_required

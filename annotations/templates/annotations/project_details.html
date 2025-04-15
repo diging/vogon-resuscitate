@@ -17,6 +17,23 @@ $(document).ready(function() {
         placement: 'bottom',
         trigger: 'hover'
     });
+    
+    // Handle remove collaborator modal
+    $('.remove-collaborator-btn').click(function(e) {
+        e.preventDefault();
+        var username = $(this).data('username');
+        var form = $(this).closest('form');
+        
+        $('#removeCollaboratorModal .collaborator-name').text(username);
+        $('#removeCollaboratorModal').data('form', form);
+        $('#removeCollaboratorModal').modal('show');
+    });
+    
+    $('#confirmRemoveBtn').click(function() {
+        var form = $('#removeCollaboratorModal').data('form');
+        form.submit();
+        $('#removeCollaboratorModal').modal('hide');
+    });
 });
 </script>
 
@@ -213,7 +230,7 @@ $(document).ready(function() {
                                     <form method="POST" action="{% url 'remove_collaborator' project.id %}" style="display: inline;">
                                         {% csrf_token %}
                                         <input type="hidden" name="username" value="{{ collaborator.user.username }}">
-                                        <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('Remove {{ collaborator.user.username }} from project?');">
+                                        <button type="button" class="btn btn-warning btn-sm remove-collaborator-btn" data-username="{{ collaborator.user.username }}">
                                             <span class="glyphicon glyphicon-remove"></span>
                                         </button>
                                     </form>
@@ -224,6 +241,25 @@ $(document).ready(function() {
                         {% endfor %}
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Remove Collaborator Confirmation Modal -->
+<div class="modal fade" id="removeCollaboratorModal" tabindex="-1" role="dialog" aria-labelledby="removeCollaboratorModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="removeCollaboratorModalLabel">Remove Collaborator</h4>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to remove <strong class="collaborator-name"></strong> from this project?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmRemoveBtn">Remove</button>
             </div>
         </div>
     </div>

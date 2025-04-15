@@ -34,6 +34,7 @@ import datetime
 from isoweek import Week
 
 from external_accounts.models import CitesphereAccount, ConceptpowerAccount
+from concepts.models import Concept
 
 class VogonUserAuthenticationForm(AuthenticationForm):
     class Meta:
@@ -277,7 +278,8 @@ def dashboard(request):
         'has_citesphere_account': has_citesphere_account,
         'connected_repositories': connected_repositories,
         'has_conceptpower_account': has_conceptpower_account,
-        'conceptpower_user': conceptpower_user
+        'conceptpower_user': conceptpower_user,
+        'flagged_concepts': Concept.objects.filter(concept_state=Concept.FLAGGED),
     }
     return render(request, template, context)
 
