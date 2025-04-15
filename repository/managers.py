@@ -198,12 +198,20 @@ class RepositoryManager:
                             'filename': extracted_text.get('filename'),
                             'url': extracted_text.get('url')
                         })
+                    elif giles_upload.get('uploadedFile', {}).get('content-type') == 'application/xml':
+                        uploaded_file = giles_upload.get('uploadedFile', {})
+                        files.append({
+                            'id': uploaded_file.get('id'),
+                            'filename': uploaded_file.get('filename'),
+                            'url': uploaded_file.get('url')
+                        })
                     else:
                         upload_id = giles_upload.get("progressId")
                         if upload_id:
                             # Check if file processing is complete using GilesAPI
                             giles_api = GilesAPI(self.user, self.repository)
-                            is_file_processing = giles_api.get_files_progress_status(upload_id)
+                            is_file_processing = giles_api.giles_is_file_processing(upload_id)
+
 
             return {
                 "files": files,
