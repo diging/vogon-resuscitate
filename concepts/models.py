@@ -36,6 +36,19 @@ class HeritableObject(models.Model):
         abstract = True
 
 
+class Comment(models.Model):
+    """
+    A comment on a concept. This allows for multiple comments per concept.
+    """
+    concept = models.ForeignKey('Concept', related_name='comments', on_delete=models.CASCADE)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey('annotations.VogonUser', on_delete=models.CASCADE, null=True, blank=True)
+    
+    def __str__(self):
+        return f"Comment on {self.concept} by {self.created_by}"
+
+
 class Concept(HeritableObject):
     uri = models.CharField(max_length=255, unique=True)
     resolved = models.BooleanField(default=False)

@@ -88,6 +88,13 @@ def repository_collections(request, repository_id):
 
     try:
         collections = manager.groups()  # Fetch collections
+        # Sort collections alphabetically
+        # This performs a case-insensitive lexicographical sort on collection names
+        # Note: "Collection 10" will come before "Collection 2" because string comparison sorts character by character
+        collections = sorted(
+            collections, 
+            key=lambda x: x['name'].lower()
+        )
     except CitesphereAPIError as e:
         print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
@@ -118,7 +125,11 @@ def repository_collection(request, repository_id, group_id):
     try:
         response_data = manager.collections(group_id=group_id)
         group_info = response_data.get('group')
-        collections = response_data.get('collections', [])
+        # Sort collections alphabetically
+        collections = sorted(
+            response_data.get('collections', []),
+            key=lambda x: x['name'].lower()
+        )
         group_texts = manager.group_items(group_id=group_id, page=page)
     except CitesphereAPIError as e:
         print(traceback.format_exc())
