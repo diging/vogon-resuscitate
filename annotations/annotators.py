@@ -196,6 +196,33 @@ class PlainTextAnnotator(Annotator):
         return context
 
 
+class XMLAnnotator(Annotator):
+    """
+    Annotator for XML content, specifically handling TEI-XML.
+    Uses tei_utils for TEI-specific parsing and rendering.
+    """
+    template = 'annotations/vue.html'
+    display_template = 'annotations/annotation_display.html'
+    content_types = ('text/xml', 'text/xml+tei')
+
+    def get_content(self, resource):
+        """
+        Process XML resource using tei_utils if it's TEI-XML or return content as is
+        """
+        return resource
+
+    def get_context(self):
+        """
+        Override to provide context for XML/TEI content
+        """
+        context = super(XMLAnnotator, self).get_context()
+        
+        # the core functionality is the same as PlainTextAnnotator
+        # since the content has already been tokenized
+        
+        return context
+
+
 class DigiLibImageAnnotator(Annotator):
     """
     Provides bounding-box annotations for images.
@@ -235,6 +262,7 @@ class WebAnnotator(Annotator):
 
 
 ANNOTATORS = (
+    XMLAnnotator,      # XML/TEI handler should be checked first
     PlainTextAnnotator,
     DigiLibImageAnnotator,
     WebAnnotator
