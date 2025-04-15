@@ -201,7 +201,9 @@ class RepositoryManager:
                     else:
                         upload_id = giles_upload.get("progressId")
                         if upload_id:
-                            is_file_processing = True
+                            # Check if file processing is complete using GilesAPI
+                            giles_api = GilesAPI(self.user, self.repository)
+                            is_file_processing = giles_api.get_files_progress_status(upload_id)
 
             return {
                 "files": files,

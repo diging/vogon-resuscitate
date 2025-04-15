@@ -26,6 +26,20 @@ class GilesAPI:
         except CitesphereAccount.DoesNotExist:
             return None
         
+    def giles_is_file_processing(self, progress_id):
+        """
+        Returns True if the file is still processing, False otherwise.
+        """
+        headers = {'Authorization': f'Bearer {self.access_token}'}
+
+        url = f"{self.base_url}/api/v2/files/upload/check/{progress_id}/"
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        
+        # check if the document has status of not COMPLETE to return True
+        return data[0].get('documentStatus') != 'COMPLETE'
+    
     def get_file_content(self, file_id):
         """
         Get the content of a file from the Giles API.
@@ -53,5 +67,6 @@ class GilesAPI:
             logger.error("Null character found in file content")
             raise GilesTextExtractionError("File content contains null characters")
         return content
+
 
 
