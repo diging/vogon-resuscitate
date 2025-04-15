@@ -117,7 +117,51 @@
 
                             <div class="clearfix">
                                 <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
-                                <a class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}" href="?confirmed=true&next={{ next_page }}">{% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}</a>
+                                <form method="post" style="display: inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ next_page }}">
+                                    <button type="submit" class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}">
+                                        {% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}
+                                    </button>
+                                </form>
+                                {% if concept.concept_state != concept.FLAGGED %}
+                                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#flagModal">
+                                    Flag concept
+                                </button>
+                                <div class="modal fade" id="flagModal" tabindex="-1" role="dialog" aria-labelledby="flagModalLabel" aria-hidden="true">
+                                    <div class="modal-dialog" role="document">
+                                        <div class="modal-content">
+                                            <form action="{% url 'flag_concept' concept.id %}" method="post">
+                                            {% csrf_token %}
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="flagModalLabel">Flag Concept
+                                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                        &times;
+                                                    </button>
+                                                </h5>
+                                            </div>
+                                    
+                                            <div class="modal-body">
+                                                <div class="form-group">
+                                                    <label for="flag_comment">Comment:</label>
+                                                    <textarea 
+                                                        class="form-control" 
+                                                        name="flag_comment" 
+                                                        id="flag_comment" 
+                                                        placeholder="Please enter comment here..." 
+                                                    ></textarea>
+                                                </div>
+                                            </div>
+                                    
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                                                <button type="submit" class="btn btn-primary">Flag Concept</button>
+                                            </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -125,60 +169,7 @@
             </div>
         </div>
     </div>
-
-    {% if concept.concept_state != concept.FLAGGED %}
-    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#flagModal">
-        Flag concept
-    </button>
-    {% endif %}
-
-    <div class="modal fade" id="flagModal" tabindex="-1" role="dialog" aria-labelledby="flagModalLabel" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <form action="{% url 'flag_concept' concept.id %}" method="post">
-                {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title" id="flagModalLabel">Flag Concept
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            &times;
-                        </button>
-                    </h5>
-                </div>
-        
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="flag_comment">Comment:</label>
-                        <textarea 
-                            class="form-control" 
-                            name="flag_comment" 
-                            id="flag_comment" 
-                            placeholder="Please enter comment here..." 
-                        ></textarea>
-                    </div>
-                </div>
-        
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Flag Concept</button>
-                </div>
-                </form>
-            </div>
-        </div>
-    </div>
 </div>
-
-<style>
-#search-panel.collapsed {
-    width: 0;
-    padding: 0;
-    margin: 0;
-    overflow: hidden;
-}
-
-#details-panel.expanded {
-    width: 100%;
-}
-</style>
 
 <script>
 $(document).ready(function() {
