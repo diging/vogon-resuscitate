@@ -6,7 +6,7 @@ from concepts.models import Concept, Type, Comment
 from concepts.filters import *
 from concepts.lifecycle import *
 from annotations.models import RelationSet, Appellation, TextCollection, VogonUserDefaultProject
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from concepts.authorities import ConceptpowerAuthority, update_instance
 from django.contrib.auth.decorators import login_required
 import re, urllib.request, urllib.parse, urllib.error, string
@@ -213,3 +213,41 @@ def sandbox(request, text_id):
     from annotations.models import RelationTemplate
 
     return render(request, "annotations/relationtemplate_creator.html", {})
+
+@login_required
+def add_comment_reply(request, comment_id):
+    """
+    Add a reply to an existing comment
+    """
+    parent_comment = get_object_or_404(Comment, pk=comment_id)
+    if request.method == "POST":
+        reply_text = request.POST.get("reply_text", "").strip()
+        if reply_text:
+            Comment.objects.create(
+                concept=parent_comment.concept,
+                parent=parent_comment,
+                text=reply_text,
+                created_by=request.user
+            )
+        next_page = request.GET.get('next', reverse('concept', args=(parent_comment.concept.id,)))
+        return HttpResponseRedirect(next_page)
+    
+    return HttpResponseRedirect(reverse('concepts'))
+
+@login_required
+def add_concept_comment(request, concept_id):
+    if request.method == 'POST':
+        concept = get_object_or_404(Concept, pk=concept_id)
+        comment_text = request.POST.get('comment_text')
+        
+        if comment_text:
+            comment = Comment.objects.create(
+                concept=concept,
+                created_by=request.user,
+                text=comment_text
+            )
+            messages.success(request, 'Comment added successfully.')
+        else:
+            messages.error(request, 'Comment text cannot be empty.')
+            
+    return redirect('concept', concept_id=concept_id)

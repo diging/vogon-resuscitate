@@ -1,0 +1,30 @@
+<div class="comment">
+    <div class="comment-header">
+        <strong>{{ comment.created_by.username }}</strong>
+        <small class="text-muted">{{ comment.created_at|date:"F j, Y, g:i a" }}</small>
+    </div>
+    <div class="comment-body">
+        {{ comment.text }}
+    </div>
+    <div class="comment-actions">
+        <button class="btn btn-sm btn-link reply-button" data-comment-id="{{ comment.id }}">Reply</button>
+    </div>
+    <div class="reply-form" id="reply-form-{{ comment.id }}" style="display: none;">
+        <form method="post" action="{% url 'add_comment_reply' comment.id %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <textarea name="reply_text" class="form-control" rows="2" placeholder="Write a reply..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">Submit Reply</button>
+        </form>
+    </div>
+    {% if comment.replies.all %}
+    <div class="comment-replies">
+        {% for reply in comment.replies.all %}
+        <div class="comment-reply">
+            {% include "annotations/comment_thread.html" with comment=reply %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div> 
