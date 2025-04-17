@@ -248,3 +248,28 @@ def add_concept_comment(request, concept_id):
             messages.error(request, 'Comment text cannot be empty.')
             
     return redirect('concept', concept_id=concept_id)
+
+@login_required
+def edit_comment(request, comment_id):
+    comment = get_object_or_404(Comment, pk=comment_id)
+
+    if request.method == 'POST':
+        comment_text = request.POST.get('comment_text')
+        if comment_text:
+            comment.text = comment_text
+            comment.save()
+            messages.success(request, 'Comment edited successfully.')
+        else:
+            messages.error(request, 'Comment text cannot be empty.')
+
+    return redirect('concept', concept_id=comment.concept.id)
+
+@login_required
+def delete_comment(request, comment_id):
+    comment = get_object_or_404(Comment, pk=comment_id)
+
+    if request.method == 'POST':
+        comment.delete()
+        messages.success(request, 'Comment deleted successfully.')
+
+    return redirect('concept', concept_id=comment.concept.id)

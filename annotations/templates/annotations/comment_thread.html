@@ -8,6 +8,12 @@
     </div>
     <div class="comment-actions">
         <button class="btn btn-sm btn-link reply-button" data-comment-id="{{ comment.id }}">Reply</button>
+        <a href="{% url 'edit_comment' comment.id %}" class="btn btn-sm btn-link edit-button">
+            <span class="glyphicon glyphicon-pencil"></span>
+        </a>
+        <a href="{% url 'delete_comment' comment.id %}" class="btn btn-sm btn-link delete-button">
+            <span class="glyphicon glyphicon-trash"></span>
+        </a>
     </div>
     <div class="reply-form" id="reply-form-{{ comment.id }}" style="display: none;">
         <form method="post" action="{% url 'add_comment_reply' comment.id %}">
