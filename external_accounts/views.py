@@ -16,8 +16,6 @@ import requests
 import secrets
 
 from django.contrib import messages
-from django.http import JsonResponse
-
 
 @login_required
 def citesphere_login(request):

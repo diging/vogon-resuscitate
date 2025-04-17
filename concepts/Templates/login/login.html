@@ -24,7 +24,6 @@
                         <div class="form-group mb-3 position-relative">
                             <label for="password">Password</label>
                             <input type="password" name="password" class="form-control" id="password" required placeholder="Enter password...">
-                            <i class="fa-solid fa-eye toggle-password" id="togglePassword"></i>
                         </div>
                         
 
@@ -42,22 +41,5 @@
             </div>
         </div>
     </div>
-</div>
-<script>
-    document.getElementById('togglePassword').addEventListener('click', function () {
-        const passwordInput = document.getElementById('password');
-        const icon = this;
-    
-        // Toggle password visibility
-        if (passwordInput.type === 'password') {
-            passwordInput.type = 'text';
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        } else {
-            passwordInput.type = 'password';
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
-        }
-    });
-</script>    
+</div> 
 {% endblock %}

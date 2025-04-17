@@ -147,6 +147,7 @@ def concept(request, concept_id):
 
 @login_required
 def add_concept(request, concept_id):
+    
     source = get_object_or_404(Concept, pk=concept_id)
     concept = ConceptLifecycle(source, request.user)
     next_page = request.GET.get('next', reverse('concepts'))
@@ -179,6 +180,7 @@ def add_concept(request, concept_id):
                 )
                 return HttpResponseRedirect(reverse('concepts'))
             return HttpResponseRedirect(next_page)
+
 
         candidates = concept.get_similar()
         matches = concept.get_matching()
