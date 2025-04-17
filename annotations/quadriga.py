@@ -329,7 +329,7 @@ def generate_graph_data(relationset, user):
     # Recursive function to process relations
     def process_relation(relation):
         from django.contrib.contenttypes.models import ContentType
-        from annotations.models import Relation, Appellation, DateAppellation
+        from annotations.models import Relation, Appellation
         
         appellation_type = ContentType.objects.get_for_model(Appellation)
         relation_type = ContentType.objects.get_for_model(Relation)
@@ -465,13 +465,12 @@ def generate_graph_data(relationset, user):
         else:
             obj_key = f"app-{object_node.id}-{object_node.created.isoformat()}"
     
-    # Check if template has a structured_mapping and use it
     if relationset.template and relationset.template.structured_mapping:
         try:
             # Get the structured mapping from the DefaultMapping model
             structured_mapping = relationset.template.structured_mapping
             
-            # Build the defaultMapping structure based on structured_mapping
+            # Build the defaultMapping structure
             default_mapping = {}
             
             # Map source to subject based on structured_mapping.subject_type
@@ -511,7 +510,6 @@ def generate_graph_data(relationset, user):
                 }
         except (AttributeError, KeyError) as e:
             # Fallback to standard mapping if structured mapping can't be processed
-            print(f"Error processing structured_mapping: {str(e)}")
             default_mapping = {
                 "subject": {
                     "type": "REF",
@@ -527,7 +525,7 @@ def generate_graph_data(relationset, user):
                 }
             }
     else:
-        # No structured mapping available, use standard approach
+        # If no structured mapping available, we use the standard approach
         default_mapping = {
             "subject": {
                 "type": "REF",
@@ -543,7 +541,7 @@ def generate_graph_data(relationset, user):
             }
         }
     
-    # Finally, return the complete graph data structure
+    # Finally return the complete graph data structure
     return {
         "graph": {
             "metadata": {

@@ -1,24 +1,16 @@
-from django.contrib.auth.forms import UserChangeForm
-from annotations.models import (VogonUser, TextCollection, Text, Appellation, 
-    RelationSet, Relation, RelationTemplate, RelationTemplatePart, DefaultMapping,
+from annotations.models import (VogonUser, TextCollection, RelationTemplate, RelationTemplatePart, DefaultMapping,
     VogonGroup)
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 from django import forms
 from django.forms import widgets, BaseFormSet
-from django.db.models import Count
-from django.db.utils import ProgrammingError
+
 from django.conf import settings
 
-from django.contrib.auth.admin import UserAdmin
-from django.contrib.auth.forms import ReadOnlyPasswordHashField
-
-import autocomplete_light
 from django.utils.html import format_html
 from django.forms.utils import flatatt
 from django.utils.encoding import force_str
 import networkx as nx
-import requests, json
 from concepts.conceptpower import Conceptpower
 from concepts.models import Concept, Type
 
@@ -324,8 +316,7 @@ class RelationTemplateForm(forms.ModelForm):
                 cleaned_data.get('third_node_type')
             ]
             
-            # Remove the Node count restriction
-            # Just ensure all fields have values
+            # Check if user inputted values for all fields
             for i, prefix in enumerate(['first', 'second', 'third']):
                 if not cleaned_data.get(f'{prefix}_node_type'):
                     self.add_error(f'{prefix}_node_type', ValidationError('Please select a node type'))
