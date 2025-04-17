@@ -11,8 +11,6 @@ TEI-XML Integration utilities for Vogon.
 5. Optionally tokenizes the resulting HTML for word-level annotation
 """
 
-import re
-import json
 from lxml import etree
 from django.utils.safestring import mark_safe
 
@@ -35,7 +33,11 @@ def detect_content_type(text_content):
         # Check for TEI namespace or common TEI markers
         if any(marker in text_content for marker in [
             '<TEI', '<tei', '<teiHeader', '<teiheader',
-            'xmlns="http://www.tei-c.org"', 'xmlns:tei'
+            # catch all namespace variations:
+            'xmlns="http://www.tei-c.org"', 
+            'xmlns="http://www.tei-c.org/ns/1.0"',
+            'xmlns:tei', 
+            'http://www.tei-c.org/ns/1.0'
         ]):
             is_tei = True
 
@@ -200,7 +202,6 @@ def extract_facsimile_data(root):
     return facsimile_data
 
 # ===== TEI to Display Conversion =====
-
 def create_display_content(root):
     """
     Convert the TEI tree into a "clean" HTML string + element map.
@@ -221,268 +222,197 @@ def create_display_content(root):
         'element_map': result['element_map'],
     }
 
+
 def process_element(element, html_parts, element_map, path=''):
-    """
-    Recursively convert TEI to minimal HTML, storing data-xpath.\
-      - Hides raw TEI markup
-      - For <choice>, defaults to <reg> text (with tooltip for <orig>)
-      - For editorial tags (<add>, <del>, etc.), shows text in brackets or toggles
-      - Adds <br> for <lb>, <hr> + label for <pb>, <p> for <p> tags, etc.
-    """
-    current_tag = element.tag
-    # Build unique path with position predicates
-    current_path = add_position_predicates(element, path)
+    tg   = element.tag
+    xpth = add_position_predicates(element, path)
 
-    # Decide how to handle each TEI tag
-    if current_tag in ('body', 'text'):
-        # Just process children, no new HTML wrapper
-        for child in element:
-            process_element(child, html_parts, element_map, current_path)
-        return {
-            'html_parts': html_parts,
-            'element_map': element_map
-        }
 
-    if current_tag in ('p', 'paragraph'):
-        # Start paragraph
-        html_parts.append(f'<p class="tei-p" data-xpath="{current_path}">')
-        element_map.append({
-            'xpath': current_path,
-            'element_type': 'paragraph',
-            'start_pos': len(''.join(html_parts))
-        })
+    if tg in ('body', 'text'):
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-        # Text before children
-        if element.text:
-            html_parts.append(_escape_html(element.text))
-
-        # Recurse children
-        for child in element:
-            process_element(child, html_parts, element_map, current_path)
-            if child.tail:
-                html_parts.append(_escape_html(child.tail))
-
+    # -------- Paragraphs ------------------------------------------------
+    if tg in ('p', 'paragraph'):
+        html_parts.append(f'<p class="tei-p" data-xpath="{xpth}">')
+        element_map.append({'xpath': xpth, 'element_type': 'paragraph',
+                            'start_pos': len("".join(html_parts))})
+        if element.text: html_parts.append(_escape_html(element.text))
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+            if ch.tail: html_parts.append(_escape_html(ch.tail))
         html_parts.append('</p>')
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    elif current_tag == 'head':
-        html_parts.append(f'<h3 class="tei-head" data-xpath="{current_path}">')
-        element_map.append({
-            'xpath': current_path,
-            'element_type': 'heading',
-            'start_pos': len(''.join(html_parts))
-        })
-
-        if element.text:
-            html_parts.append(_escape_html(element.text))
-        for child in element:
-            process_element(child, html_parts, element_map, current_path)
-            if child.tail:
-                html_parts.append(_escape_html(child.tail))
+    # -------- Headings --------------------------------------------------
+    if tg == 'head':
+        html_parts.append(f'<h3 class="tei-head" data-xpath="{xpth}">')
+        element_map.append({'xpath': xpth, 'element_type': 'heading',
+                            'start_pos': len("".join(html_parts))})
+        if element.text: html_parts.append(_escape_html(element.text))
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+            if ch.tail: html_parts.append(_escape_html(ch.tail))
         html_parts.append('</h3>')
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    elif current_tag == 'pb':
-        page_n = element.get('n', '')
-        facs = element.get('facs', '')
+    # -------- Page / Line breaks ---------------------------------------
+    if tg == 'pb':
+        n, facs = element.get('n', ''), element.get('facs', '')
         html_parts.append(
-            f'<div class="tei-pb" data-xpath="{current_path}" data-n="{page_n}" data-facs="{facs}">'
-            f'<hr/><span class="tei-pb-label">Page {page_n}</span></div>'
+            f'<div class="tei-pb" data-xpath="{xpth}" '
+            f'data-n="{n}" data-facs="{facs}"><hr/><span class="tei-pb-label">'
+            f'Page {n}</span></div>'
         )
-        element_map.append({
-            'xpath': current_path,
-            'element_type': 'pagebreak',
-            'page': page_n,
-            'facs': facs,
-            'start_pos': len(''.join(html_parts))
-        })
+        element_map.append({'xpath': xpth, 'element_type': 'pagebreak',
+                            'page': n, 'facs': facs,
+                            'start_pos': len("".join(html_parts))})
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    elif current_tag == 'lb':
-        line_n = element.get('n', '')
-        html_str = f'<br class="tei-lb" data-xpath="{current_path}" data-n="{line_n}" />'
-        if line_n:
-            # optionally display line number
-            html_str = f'<span class="tei-line-num">{line_n}</span>{html_str}'
-        html_parts.append(html_str)
-        element_map.append({
-            'xpath': current_path,
-            'element_type': 'linebreak',
-            'start_pos': len(''.join(html_parts))
-        })
+    if tg == 'lb':
+        n = element.get('n', '')
+        br = f'<br class="tei-lb" data-xpath="{xpth}" data-n="{n}" />'
+        if n: br = f'<span class="tei-line-num">{n}</span>{br}'
+        html_parts.append(br)
+        element_map.append({'xpath': xpth, 'element_type': 'linebreak',
+                            'start_pos': len("".join(html_parts))})
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    elif current_tag == 'gap':
-        reason = element.get('reason', '')
-        extent = element.get('extent', '')
-        unit = element.get('unit', '')
-        gap_html = f'<span class="tei-gap" data-xpath="{current_path}" data-reason="{reason}" data-extent="{extent}" data-unit="{unit}" title="Gap: {extent} {unit} - {reason}">[...]</span>'
+    # -------- Gaps ------------------------------------------------------
+    if tg == 'gap':
+        gap_html = (f'<span class="tei-gap" data-xpath="{xpth}" '
+                    f'data-reason="{element.get("reason", "")}" '
+                    f'data-extent="{element.get("extent", "")}" '
+                    f'data-unit="{element.get("unit", "")}" '
+                    f'title="Gap: {element.get("extent", "")} '
+                    f'{element.get("unit", "")} - {element.get("reason", "")}">'
+                    '[...]</span>')
         html_parts.append(gap_html)
-        element_map.append({
-            'xpath': current_path,
-            'element_type': 'gap',
-            'start_pos': len(''.join(html_parts))
-        })
+        element_map.append({'xpath': xpth, 'element_type': 'gap',
+                            'start_pos': len("".join(html_parts))})
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    elif current_tag == 'choice':
-        orig_elem = element.find('orig')
-        reg_elem = element.find('reg')
-        abbr_elem = element.find('abbr')
-        expan_elem = element.find('expan')
-
-        if orig_elem is not None and reg_elem is not None:
-            # Use reg text, store orig in a tooltip
-            original_txt = _extract_full_text(orig_elem).strip()
-            regular_txt = _extract_full_text(reg_elem).strip()
+    # -------- Choice / Abbreviation / Regularisation -------------------
+    if tg == 'choice':
+        orig, reg  = element.find('orig'),  element.find('reg')
+        abbr, expn = element.find('abbr'), element.find('expan')
+        if orig is not None and reg is not None:
             html_parts.append(
-                f'<span class="tei-choice" data-xpath="{current_path}" '
-                f'title="Original: {original_txt}">{regular_txt}</span>'
-            )
-            element_map.append({
-                'xpath': current_path,
-                'element_type': 'choice',
-                'start_pos': len(''.join(html_parts))
-            })
-        elif abbr_elem is not None and expan_elem is not None:
-            # Show expansion, tooltip for abbreviation
-            abbr_txt = _extract_full_text(abbr_elem).strip()
-            expan_txt = _extract_full_text(expan_elem).strip()
+                f'<span class="tei-choice" data-xpath="{xpth}" '
+                f'title="Original: {_extract_full_text(orig)}">'
+                f'{_extract_full_text(reg)}</span>')
+        elif abbr is not None and expn is not None:
             html_parts.append(
-                f'<span class="tei-choice" data-xpath="{current_path}" '
-                f'title="Abbreviation: {abbr_txt}">{expan_txt}</span>'
-            )
-            element_map.append({
-                'xpath': current_path,
-                'element_type': 'choice',
-                'start_pos': len(''.join(html_parts))
-            })
+                f'<span class="tei-choice" data-xpath="{xpth}" '
+                f'title="Abbreviation: {_extract_full_text(abbr)}">'
+                f'{_extract_full_text(expn)}</span>')
         else:
-            # Fallback - just process children as plain text
-            for child in element:
-                process_element(child, html_parts, element_map, current_path)
-            element_map.append({
-                'xpath': current_path,
-                'element_type': 'choice',
-                'start_pos': len(''.join(html_parts))
-            })
+            for ch in element:
+                process_element(ch, html_parts, element_map, xpth)
+        element_map.append({'xpath': xpth, 'element_type': 'choice',
+                            'start_pos': len("".join(html_parts))})
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    elif current_tag == 'add':
-        # Show additions in brackets (or inline)
-        reason = element.get('place') or element.get('reason', '')
-        html_parts.append(f'<span class="tei-add" data-xpath="{current_path}" title="Add: {reason}">[')
-        element_map.append({
-            'xpath': current_path,
-            'element_type': 'addition',
-            'start_pos': len(''.join(html_parts))
-        })
+    # -------- Editorial markup (add / del / supplied / subst) ----------
+    def _editorial_span(cls, inner_open='[', inner_close=']'):
+        html_parts.append(f'<span class="tei-{cls}" data-xpath="{xpth}">')
+        element_map.append({'xpath': xpth, 'element_type': cls,
+                            'start_pos': len("".join(html_parts))})
+        if cls == 'add' or cls == 'supplied':
+            html_parts.append(inner_open)
 
-        if element.text:
-            html_parts.append(_escape_html(element.text))
-        for child in element:
-            process_element(child, html_parts, element_map, current_path)
-            if child.tail:
-                html_parts.append(_escape_html(child.tail))
+    if tg == 'add':
+        _editorial_span('add')
+        if element.text: html_parts.append(_escape_html(element.text))
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+            if ch.tail: html_parts.append(_escape_html(ch.tail))
         html_parts.append(']</span>')
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    elif current_tag == 'del':
-        # Show deletions with strikethrough or inline
-        html_parts.append(f'<span class="tei-del" data-xpath="{current_path}" style="text-decoration: line-through;">')
-        element_map.append({
-            'xpath': current_path,
-            'element_type': 'deletion',
-            'start_pos': len(''.join(html_parts))
-        })
-        if element.text:
-            html_parts.append(_escape_html(element.text))
-        for child in element:
-            process_element(child, html_parts, element_map, current_path)
-            if child.tail:
-                html_parts.append(_escape_html(child.tail))
+    if tg == 'del':
+        html_parts.append(f'<span class="tei-del" data-xpath="{xpth}" '
+                          f'style="text-decoration:line-through;">')
+        element_map.append({'xpath': xpth, 'element_type': 'deletion',
+                            'start_pos': len("".join(html_parts))})
+        if element.text: html_parts.append(_escape_html(element.text))
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+            if ch.tail: html_parts.append(_escape_html(ch.tail))
         html_parts.append('</span>')
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    elif current_tag == 'supplied':
-        reason = element.get('reason', '')
-        html_parts.append(f'<span class="tei-supplied" data-xpath="{current_path}" title="Supplied: {reason}">[')
-        element_map.append({
-            'xpath': current_path,
-            'element_type': 'supplied',
-            'start_pos': len(''.join(html_parts))
-        })
-        if element.text:
-            html_parts.append(_escape_html(element.text))
-        for child in element:
-            process_element(child, html_parts, element_map, current_path)
-            if child.tail:
-                html_parts.append(_escape_html(child.tail))
+    if tg == 'supplied':
+        _editorial_span('supplied')
+        if element.text: html_parts.append(_escape_html(element.text))
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+            if ch.tail: html_parts.append(_escape_html(ch.tail))
         html_parts.append(']</span>')
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    elif current_tag == 'subst':
-        # Typically <subst> includes <del> and <add> inside
-        # We'll just process them in order or show them in sequence
-        html_parts.append(f'<span class="tei-subst" data-xpath="{current_path}">')
-        element_map.append({
-            'xpath': current_path,
-            'element_type': 'substitution',
-            'start_pos': len(''.join(html_parts))
-        })
-        for child in element:
-            process_element(child, html_parts, element_map, current_path)
-            if child.tail:
-                html_parts.append(_escape_html(child.tail))
+    if tg == 'subst':
+        html_parts.append(f'<span class="tei-subst" data-xpath="{xpth}">')
+        element_map.append({'xpath': xpth, 'element_type': 'substitution',
+                            'start_pos': len("".join(html_parts))})
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+            if ch.tail: html_parts.append(_escape_html(ch.tail))
         html_parts.append('</span>')
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    elif current_tag == 'div':
-        # A higher-level division
-        div_type = element.get('type', '')
-        div_n = element.get('n', '')
-        html_parts.append(f'<div class="tei-div" data-xpath="{current_path}" data-type="{div_type}" data-n="{div_n}">')
-        element_map.append({
-            'xpath': current_path,
-            'element_type': 'division',
-            'start_pos': len(''.join(html_parts))
-        })
-
-        if element.text:
-            html_parts.append(_escape_html(element.text))
-        for child in element:
-            process_element(child, html_parts, element_map, current_path)
-            if child.tail:
-                html_parts.append(_escape_html(child.tail))
+    # -------- Divisions -------------------------------------------------
+    if tg == 'div':
+        html_parts.append(
+            f'<div class="tei-div" data-xpath="{xpth}" '
+            f'data-type="{element.get("type", "")}" data-n="{element.get("n", "")}">'
+        )
+        element_map.append({'xpath': xpth, 'element_type': 'division',
+                            'start_pos': len("".join(html_parts))})
+        if element.text: html_parts.append(_escape_html(element.text))
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+            if ch.tail: html_parts.append(_escape_html(ch.tail))
         html_parts.append('</div>')
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    elif current_tag in ('hi', 'emph'):
-        # For bold, italic, or some styling indicated by rend?
-        rend = element.get('rend', '')
-        html_parts.append(f'<span class="tei-hi" data-xpath="{current_path}" data-rend="{rend}">')
-        element_map.append({
-            'xpath': current_path,
-            'element_type': 'highlight',
-            'start_pos': len(''.join(html_parts))
-        })
-        if element.text:
-            html_parts.append(_escape_html(element.text))
-        for child in element:
-            process_element(child, html_parts, element_map, current_path)
-            if child.tail:
-                html_parts.append(_escape_html(child.tail))
+    # -------- Highlight (<hi>, <emph>, etc.) ---------------------------
+    if tg in ('hi', 'emph'):
+        html_parts.append(
+            f'<span class="tei-hi" data-xpath="{xpth}" data-rend="{element.get("rend", "")}">'
+        )
+        element_map.append({'xpath': xpth, 'element_type': 'highlight',
+                            'start_pos': len("".join(html_parts))})
+        if element.text: html_parts.append(_escape_html(element.text))
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+            if ch.tail: html_parts.append(_escape_html(ch.tail))
         html_parts.append('</span>')
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    else:
-        # Generic fallback for unhandled elements
-        html_parts.append(f'<span class="tei-{current_tag}" data-xpath="{current_path}">')
-        element_map.append({
-            'xpath': current_path,
-            'element_type': current_tag,
-            'start_pos': len(''.join(html_parts))
-        })
-        if element.text:
-            html_parts.append(_escape_html(element.text))
-        for child in element:
-            process_element(child, html_parts, element_map, current_path)
-            if child.tail:
-                html_parts.append(_escape_html(child.tail))
+    # -------- QUICK INLINE TAGS that used to disappear -----------------
+    if tg in ('num', 'ex', 'sup'):
+        html_parts.append(f'<span class="tei-{tg}" data-xpath="{xpth}">')
+        element_map.append({'xpath': xpth, 'element_type': tg,
+                            'start_pos': len("".join(html_parts))})
+        if element.text: html_parts.append(_escape_html(element.text))
         html_parts.append('</span>')
+        if element.tail: html_parts.append(_escape_html(element.tail))
+        return {'html_parts': html_parts, 'element_map': element_map}
 
-    return {
-        'html_parts': html_parts,
-        'element_map': element_map
-    }
+    # -------- Generic fallback (now keeps element.tail) ----------------
+    html_parts.append(f'<span class="tei-{tg}" data-xpath="{xpth}">')
+    element_map.append({'xpath': xpth, 'element_type': tg,
+                        'start_pos': len("".join(html_parts))})
+    if element.text: html_parts.append(_escape_html(element.text))
+    for ch in element:
+        process_element(ch, html_parts, element_map, xpth)
+        if ch.tail: html_parts.append(_escape_html(ch.tail))
+    html_parts.append('</span>')
+    if element.tail: html_parts.append(_escape_html(element.tail))
+
+    return {'html_parts': html_parts, 'element_map': element_map}
 
 def add_position_predicates(element, path):
     """
@@ -526,54 +456,38 @@ def _escape_html(txt):
                .replace('>', '&gt;'))
 
 # ===== Tokenization for TEI =====
-
 def tokenize_tei_content(display_html):
     """
-    Tokenize the text content within the display HTML for word-level annotation.
-
-    This preserves the HTML structure but wraps each word in <word> tags with unique IDs.
+    Wrap every whitespace‑separated token in <word id="…">…</word>.
+    *Real* sub‑elements are inserted so lxml does NOT escape them.
     """
     parser = etree.HTMLParser()
-    try:
-        tree = etree.fromstring(f"<root>{display_html}</root>", parser)
-    except Exception as e:
-        raise ValueError(f"Failed to parse HTML for tokenization: {str(e)}")
+    root   = etree.fromstring(f'<root>{display_html}</root>', parser)
 
-    word_id_counter = 0
-
-    # Find elements that have text
-    text_nodes = tree.xpath('//*[text()]')
-    for element in text_nodes:
-        # Skip certain tags
-        if element.tag in ('script', 'style', 'word'):
+    next_id = 0
+    # all nodes that directly own text (skip <script>, <style>, <word>)
+    for node in root.xpath('//*[text()]'):
+        if node.tag in ('script', 'style', 'word'):
+            continue
+        if node.xpath('ancestor::word'):
             continue
 
-        # Check if it's already inside a <word>
-        ancestor_word = element.xpath('ancestor::word')
-        if ancestor_word:
-            # Already tokenized
+        text = node.text or ''
+        words = [w for w in text.split() if w]
+        if not words:
             continue
 
-        text_val = element.text
-        if text_val and text_val.strip():
-            tokens = text_val.split()
-            tokenized_parts = []
-            for t in tokens:
-                if t.strip():
-                    # Create a <word> element
-                    word_el = etree.Element('word')
-                    word_el.set('id', f'tei_{word_id_counter}')
-                    word_el.text = t
-                    word_id_counter += 1
-                    tokenized_parts.append(etree.tostring(word_el, encoding='unicode'))
-            # Replace the text node with tokenized content
-            
-            if tokenized_parts:
-                element.text = ' '.join(tokenized_parts)
+        node.text = None
+        for i, token in enumerate(words):
+            w = etree.Element('word')
+            w.set('id', f'tei_{next_id}')
+            next_id += 1
+            w.text = token
+            node.insert(i, w)
+            # preserve spaces between tokens
+            if i < len(words) - 1:
+                w.tail = ' '
 
-    # Convert back to string
-    result_html = etree.tostring(tree, encoding='unicode', method='html')
-    # Remove <root> wrapper
-    # <root> might appear as a top-level element
-    result_html = result_html.replace('<root>', '').replace('</root>', '')
-    return result_html
+    html = etree.tostring(root, encoding='unicode', method='html')
+    # strip the artificial <root> wrapper
+    return html.replace('<root>', '').replace('</root>', '')
