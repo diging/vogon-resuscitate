@@ -24,13 +24,13 @@ def resolve_concept(instance_id):
     asynchronously.
     """
     try:
-        manager = ConceptLifecycle(Concept.objects.get(pk=instance_id))
+        concept = ConceptLifecycle(Concept.objects.get(pk=instance_id))
     except Concept.DoesNotExist:
         return
 
     try:
-        manager.resolve()
+        concept.resolve()
     except ConceptLifecycleException as E:
         logger.debug("Resolve concept failed: %s" % str(E))
         return 
-    logger.debug("Resolved concept %s" % manager.instance.uri)
+    logger.debug("Resolved concept %s" % concept.instance.uri)
