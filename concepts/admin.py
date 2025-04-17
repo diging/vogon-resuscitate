@@ -22,5 +22,15 @@ class TypeAdmin(admin.ModelAdmin):
     model = Type
     list_display = ('label', 'resolved',)
 
+
+class CommentAdmin(admin.ModelAdmin):
+    model = Comment
+    list_display = ('concept', 'text', 'created_by', 'created_at')
+    list_filter = ('created_at', 'created_by')
+    search_fields = ('text', 'concept__label')
+    readonly_fields = ('created_at',)
+
+
 admin.site.register(Concept, ConceptAdmin)
 admin.site.register(Type, TypeAdmin)
+admin.site.register(Comment, CommentAdmin)

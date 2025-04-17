@@ -53,7 +53,13 @@ var ConceptSearch = {
                             <span class="input-group-btn">
                                 <a v-if="ready()" class="btn btn-sm glyphicon glyphicon-search" v-on:click="search" style="color: green;"></a>
                                 <span v-if="searching" class="btn btn-sm glyphicon glyphicon-hourglass" style="color: orange;"></span>
-                                <span v-if="error" class="btn btn-sm glyphicon glyphicon-exclamation-sign" style="color: red;"></span>
+                                <span v-if="error || (hasSearched && concepts.length === 0)" 
+                                      class="btn btn-sm glyphicon glyphicon-exclamation-sign" 
+                                      style="color: red; cursor: default;"
+                                      :title="getErrorMessage()"
+                                      data-toggle="tooltip"
+                                      data-placement="bottom">
+                                </span>
                             </span>
                         </div>
                       </div>
@@ -93,7 +99,23 @@ var ConceptSearch = {
         ready: function () {
             return !(this.searching || this.error);
         },
-        search: function () { // TODO: should be able to recover from errors.
+        getErrorMessage: function() {
+            if (this.error) {
+                // Check if the error message contains specific ConceptPower service errors
+                if (this.errorMessage.includes('ConceptPower service is currently unavailable')) {
+                    return 'The concept search service is temporarily unavailable. Please try again later.';
+                } else if (this.errorMessage.includes('500')) {
+                    return 'An internal server error occurred. Please try again later.';
+                }
+                return this.errorMessage || 'An error occurred during the search. Please try again.';
+            }
+            if (this.hasSearched && this.concepts.length === 0) {
+                let posType = this.pos ? ` (${this.pos})` : '';
+                return `No concepts found matching "${this.query}"${posType}. Try a different search term or part of speech.`;
+            }
+            return '';
+        },
+        search: function () {
             this.searching = true;
             this.hasSearched = true;
             this.error = false;
@@ -101,7 +123,7 @@ var ConceptSearch = {
 
             this.$emit('search', this.searching); // emit search to remove concept picker
 
-            // Asynchronous quries are beautiful.
+            // Asynchronous queries are beautiful.
             var self = this; // Need a closure since Concept is global.
             var payload = {
                 search: this.query
@@ -120,7 +142,11 @@ var ConceptSearch = {
                 
                 // Handle error message from backend
                 if (error.body && error.body.error) {
-                    self.errorMessage = 'Concept Search has failed. Please try again later.';
+                    self.errorMessage = error.body.error;
+                } else if (error.status === 500) {
+                    self.errorMessage = 'An internal server error occurred. Please try again later.';
+                } else {
+                    self.errorMessage = 'An error occurred while searching for concepts. Please try again.';
                 }
             });
         }
@@ -363,7 +389,7 @@ ConceptCreator = {
                     return truncateURI(ctype.uri);
                 }
             }
-        }
+        },
     }
 }
 
