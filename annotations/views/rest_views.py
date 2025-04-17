@@ -44,15 +44,10 @@ class ProjectOwnerOrCollaboratorAccessOrReadOnly(IsAuthenticatedOrReadOnly):
     def has_permission(self, request, view):
         if not super().has_permission(request, view):
             return False
-            
-        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+        
+        # let has_object_permission handle the authorization for DELETE/PUT/PATCH
+        if request.method in ['GET', 'HEAD', 'OPTIONS', 'DELETE', 'PUT', 'PATCH']:
             return True
-
-        if request.method == 'DELETE':
-            return True  # Let has_object_permission handle it
-
-        if request.method in ['PUT', 'PATCH']:
-            return True  # Let has_object_permission handle it
 
         # check if user is owner or collaborator For POST
         text_id = None

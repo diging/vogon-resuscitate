@@ -385,8 +385,22 @@ TextDisplay = {
                             return; // Important: don't proceed to normal selection handling
                         }
                     }
-
-                    // Normal text selection handling (only if not in edit mode)
+                    
+                    /*
+                     * This is a critical check that prevents unwanted behavior when different modes overlap:
+                     * 
+                     * 1. When NOT in edit mode (isEditing = false):
+                     *    - The condition passes and we emit the 'selecttext' event
+                     *    - This starts the process of creating a new appellation with the selected text
+                     * 
+                     * 2. When IN edit mode (isEditing = true):
+                     *    - The condition fails, blocking the 'selecttext' event
+                     *    - This prevents accidentally creating a new appellation while trying to update an existing one
+                     * 
+                     * This serves as a secondary check - even if the early return statement in the edit mode handling 
+                     * block above is not triggered (e.g., if no editing appellation was found in localStorage), 
+                     * this check still ensures no selection events fire during edit mode.
+                     */
                     if (!self.isEditing) {
                         self.$emit('selecttext', self.selected);
                         
