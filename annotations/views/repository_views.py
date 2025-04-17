@@ -322,6 +322,11 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     subcollections = []
     try:
         subcollections = manager.api.get_group_subcollections(group_id, group_collection_id).get('collections', [])
+        # Sort subcollections alphabetically
+        subcollections = sorted(
+            subcollections, 
+            key=lambda x: x['name'].lower()
+        )
     except CitesphereAPIError as e:
         print(traceback.format_exc())
         return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)

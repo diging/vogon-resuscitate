@@ -22,8 +22,8 @@
                     <div class="list-group-item">
                         <div class="row">
                             <div class="col-xs-9">
-                                <h6 class="mb-1">{{ collection.name }}</h6>
-                                <small class="text-muted">Items: {{ collection.numberOfItems }}</small>
+                                <h5 class="mb-1">{{ collection.name }}</h5>
+                                <h6 class="text-primary" style="font-size: 1em; font-weight: bold;">Items: {{ collection.numberOfItems }}</h6>
                             </div>
                             <div class="col-xs-3">
                                 <a href="{% url "repository_collections_text_list" repository.id group_id collection.key %}?parent_collection_key={{ collection.parentCollectionKey }}{% if project_id %}&project_id={{ project_id }}{% endif %}"
