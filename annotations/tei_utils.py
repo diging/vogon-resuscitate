@@ -464,6 +464,24 @@ def tokenize_tei_content(display_html):
     parser = etree.HTMLParser()
     root   = etree.fromstring(f'<root>{display_html}</root>', parser)
 
+    # Escape any HTML tags found in text nodes to prevent XSS and invalid HTML
+    # This handles both direct text content of elements (parent.text) and 
+    # tail text after child elements (child.tail)
+    for text_node in root.xpath('//text()'):
+        if '<' in text_node and '>' in text_node:
+            parent = text_node.getparent()
+            if parent.tag not in ('script', 'style'):
+                new_text = _escape_html(text_node)
+                if parent is not None:
+                    if text_node == parent.text:
+                        parent.text = new_text
+                    else:
+                        # Must be tail text of some child
+                        for child in parent:
+                            if text_node == child.tail:
+                                child.tail = new_text
+                                break
+
     next_id = 0
     # all nodes that directly own text (skip <script>, <style>, <word>)
     for node in root.xpath('//*[text()]'):
