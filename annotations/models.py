@@ -1064,19 +1064,6 @@ class RelationTemplate(models.Model):
     expression = models.TextField(null=True)
     """Pattern for representing the relation in normal language."""
 
-
-    # TODO: Remove this field and replace all default_mapping references with structured_mapping in quadriga.py
-    default_mapping = models.TextField(blank=True, null=True)
-    """
-    Default mapping for the relation.
-    Format (in JSON):
-    {
-        "source": "source_node_type",
-        "predicate": "predicate_node_type",
-        "object": "object_node_type"
-    }
-    Deprecated in favor of structured_mapping.
-    """
     
     structured_mapping = models.ForeignKey(DefaultMapping, blank=True, null=True, 
                                           on_delete=models.SET_NULL, related_name='templates')

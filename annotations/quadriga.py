@@ -465,17 +465,17 @@ def generate_graph_data(relationset, user):
         else:
             obj_key = f"app-{object_node.id}-{object_node.created.isoformat()}"
     
-    # Check if template has a default_mapping and use it
-    if relationset.template and relationset.template.default_mapping:
+    # Check if template has a structured_mapping and use it
+    if relationset.template and relationset.template.structured_mapping:
         try:
-            # Parse the default_mapping from the template
-            custom_mapping = json.loads(relationset.template.default_mapping)
+            # Get the structured mapping from the DefaultMapping model
+            structured_mapping = relationset.template.structured_mapping
             
-            # Build the defaultMapping structure based on template's mapping
+            # Build the defaultMapping structure based on structured_mapping
             default_mapping = {}
             
-            # Map source to subject
-            if custom_mapping.get('source') == 'REF':
+            # Map source to subject based on structured_mapping.subject_type
+            if structured_mapping.subject_type == 'Node':
                 default_mapping['subject'] = {
                     'type': 'REF',
                     'reference': node_mapping.get(subj_key, "0")
@@ -483,11 +483,11 @@ def generate_graph_data(relationset, user):
             else:  # URI
                 default_mapping['subject'] = {
                     'type': 'URI',
-                    'uri': subject_node.interpretation.master.uri if hasattr(subject_node, 'interpretation') else ""
+                    'uri': structured_mapping.subject_value
                 }
             
-            # Map predicate
-            if custom_mapping.get('predicate') == 'REF':
+            # Map predicate based on structured_mapping.predicate_type
+            if structured_mapping.predicate_type == 'Node':
                 default_mapping['predicate'] = {
                     'type': 'REF',
                     'reference': node_mapping.get(f"app-{predicate_node.id}-{predicate_node.created.isoformat()}", "0")
@@ -495,11 +495,11 @@ def generate_graph_data(relationset, user):
             else:  # URI
                 default_mapping['predicate'] = {
                     'type': 'URI',
-                    'uri': predicate_node.interpretation.master.uri
+                    'uri': structured_mapping.predicate_value
                 }
             
-            # Map object to object
-            if custom_mapping.get('object') == 'REF':
+            # Map object based on structured_mapping.object_type
+            if structured_mapping.object_type == 'Node':
                 default_mapping['object'] = {
                     'type': 'REF',
                     'reference': node_mapping.get(obj_key, "0")
@@ -507,11 +507,11 @@ def generate_graph_data(relationset, user):
             else:  # URI
                 default_mapping['object'] = {
                     'type': 'URI',
-                    'uri': object_node.interpretation.master.uri if hasattr(object_node, 'interpretation') else ""
+                    'uri': structured_mapping.object_value
                 }
-        except (json.JSONDecodeError, AttributeError, KeyError) as e:
-            # Fallback to orignial mapping if node relations were not used in the template
-            print(f"Error parsing default_mapping: {str(e)}")
+        except (AttributeError, KeyError) as e:
+            # Fallback to standard mapping if structured mapping can't be processed
+            print(f"Error processing structured_mapping: {str(e)}")
             default_mapping = {
                 "subject": {
                     "type": "REF",
@@ -527,7 +527,7 @@ def generate_graph_data(relationset, user):
                 }
             }
     else:
-        # Construct the default mapping based on template
+        # No structured mapping available, use standard approach
         default_mapping = {
             "subject": {
                 "type": "REF",
