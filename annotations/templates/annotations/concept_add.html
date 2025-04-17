@@ -24,8 +24,31 @@
             <dd>{{ concept.typed }}</dd>
             <dt>Description</dt>
             <dd>{{ concept.description }}</dd>
+            {% if concept.concept_state == concept.FLAGGED %}
+            <dt class="text-warning">Status</dt>
+            <dd>
+                <span class="label label-warning">
+                    <span class="glyphicon glyphicon-flag"></span> 
+                    Flagged
+                </span>
+            </dd>
+            {% endif %}
         </dl>
     </p>
+
+    {% if concept.concept_state == concept.FLAGGED and concept.comments.all %}
+    <div style="margin-bottom: 20px;">
+        <div class="text-warning">
+            <span class="glyphicon glyphicon-flag"></span> <strong>Flag comments:</strong>
+        </div>
+        {% for comment in concept.comments.all %}
+        <div style="margin: 5px 0 5px 15px; padding: 5px; border-left: 2px solid #f0ad4e;">
+            <span class="text-muted">{{ comment.created_by.username }}:</span> {{ comment.text }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
     {% if matches %}
     <div class="alert alert-danger">
         <div class="h4">This concept matches an existing entry!</div>
@@ -77,19 +100,25 @@
     </ul>
     {% endif %}
 
-    <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
-    <form method="POST" style="display: inline;">
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{{ next_page }}">
-        <button type="submit" class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}">
-            {% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}
+    <div style="margin-top: 25px;">
+        <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
+        <form method="POST" style="display: inline;">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next_page }}">
+            <button type="submit" class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}">
+                {% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}
+            </button>
+        </form>
+        {% if concept.concept_state != concept.FLAGGED %}
+        <button type="button" class="btn btn-md btn-warning" data-toggle="modal" data-target="#flagModal">
+            <span class="glyphicon glyphicon-flag"></span> Flag concept
         </button>
-    </form>
-    {% if concept.concept_state != concept.FLAGGED %}
-    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#flagModal">
-        Flag concept
-    </button>
-    {% endif %}
+        {% else %}
+        <button type="button" class="btn btn-md btn-default" disabled>
+            <span class="glyphicon glyphicon-flag"></span> Already flagged
+        </button>
+        {% endif %}
+    </div>
 
     <div class="modal fade" id="flagModal" tabindex="-1" role="dialog" aria-labelledby="flagModalLabel" aria-hidden="true">
         <div class="modal-dialog" role="document">
