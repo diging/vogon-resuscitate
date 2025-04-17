@@ -293,7 +293,7 @@ class RelationTemplateForm(forms.ModelForm):
     
     class Meta:
         model = RelationTemplate
-        fields = ['name', 'description', 'expression', 'terminal_nodes', 'default_mapping', 'structured_mapping']
+        fields = ['name', 'description', 'expression', 'terminal_nodes', 'default_mapping',] # 'structured_mapping'
     
     def clean_expression(self):
         from string import Formatter
