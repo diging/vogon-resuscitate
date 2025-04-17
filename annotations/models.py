@@ -1073,10 +1073,11 @@ class RelationTemplate(models.Model):
         "predicate": "predicate_node_type",
         "object": "object_node_type"
     }
+    Deprecated in favor of structured_mapping.
     """
     
-    # structured_mapping = models.ForeignKey(DefaultMapping, blank=True, null=True, 
-    #                                       on_delete=models.SET_NULL, related_name='templates')
+    structured_mapping = models.ForeignKey(DefaultMapping, blank=True, null=True, 
+                                          on_delete=models.SET_NULL, related_name='templates')
     # """Structured representation of default mapping relationship configuration."""
 
     _terminal_nodes = models.TextField(blank=True, null=True)
