@@ -147,7 +147,7 @@ def concept(request, concept_id):
 
 @login_required
 def add_concept(request, concept_id):
-    
+
     source = get_object_or_404(Concept, pk=concept_id)
     concept = ConceptLifecycle(source, request.user)
     next_page = request.GET.get('next', reverse('concepts'))
@@ -173,7 +173,6 @@ def add_concept(request, concept_id):
                 messages.error(request, "Your ConceptPower credentials are invalid. Please update them.")
                 return redirect(f"{reverse('conceptpower_login')}?next={request.path}")
             except ConceptUpstreamException as E:
-                print(E)
                 messages.error(
                     request,
                     'ERROR: There was an error while communicating with Conceptpower.'
