@@ -57,42 +57,87 @@ def add_relationtemplate(request):
         formset_is_valid = relationtemplatepart_formset.is_valid()
         form_is_valid = relationtemplate_form.is_valid()
 
+        # Debug the form validation
+        if not form_is_valid:
+            logger.error(f"Form validation errors: {relationtemplate_form.errors}")
+        
+        if not formset_is_valid:
+            logger.error(f"Formset validation errors: {relationtemplatepart_formset.errors}")
+
         if formset_is_valid and form_is_valid:
             relationtemplate_data = dict(relationtemplate_form.cleaned_data)
             relationtemplate_data['createdBy'] = request.user
             
-            # Debug output to check if default_mapping is in the form data
+            # Debug output to check form data
             logger.error(f"Form data: {relationtemplate_form.cleaned_data}")
-            logger.error(f"Default mapping in form data: {relationtemplate_form.cleaned_data.get('default_mapping')}")
             
-            # Remove UI-only fields that shouldn't be saved to the model
-            ui_fields = [
-                'use_relation_nodes',
-                'first_node_type', 'first_node_value',
-                'second_node_type', 'second_node_value',
-                'third_node_type', 'third_node_value'
-            ]
-            relationtemplate_data = {k: v for k, v in relationtemplate_data.items() 
-                                     if k not in ui_fields}
+            # Get the structured template for saving
+            template = relationtemplate_form.save(commit=False)
+            template.createdBy = request.user
+            template.save()
             
-            # Check if default_mapping is in the cleaned data after filtering
-            logger.error(f"Template data after filtering: {relationtemplate_data}")
-            
+            # Process parts data
             part_data = [
                 dict(form.cleaned_data)
                 for form in relationtemplatepart_formset
             ]
 
             try:
-                # relations.create_template() calls validation methods.
-                template = relations.create_template(relationtemplate_data,
-                                                     part_data)
+                # First save all parts to get their IDs
+                part_instances = []
+                for i, part in enumerate(part_data):
+                    part_instance = RelationTemplatePart(
+                        part_of=template,
+                        internal_id=part.get('internal_id', i),
+                        source_node_type=part.get('source_node_type'),
+                        source_label=part.get('source_label'),
+                        source_type=part.get('source_type'),
+                        source_concept=part.get('source_concept'),
+                        source_prompt_text=part.get('source_prompt_text', True),
+                        source_description=part.get('source_description'),
+                        predicate_node_type=part.get('predicate_node_type'),
+                        predicate_label=part.get('predicate_label'),
+                        predicate_type=part.get('predicate_type'),
+                        predicate_concept=part.get('predicate_concept'),
+                        predicate_prompt_text=part.get('predicate_prompt_text', True),
+                        predicate_description=part.get('predicate_description'),
+                        object_node_type=part.get('object_node_type'),
+                        object_label=part.get('object_label'),
+                        object_type=part.get('object_type'),
+                        object_concept=part.get('object_concept'),
+                        object_prompt_text=part.get('object_prompt_text', True),
+                        object_description=part.get('object_description'),
+                        source_relationtemplate_internal_id=part.get('source_relationtemplate_internal_id', -1),
+                        object_relationtemplate_internal_id=part.get('object_relationtemplate_internal_id', -1),
+                    )
+                    part_instance.save()
+                    part_instances.append(part_instance)
+                
+                # Now set up the inter-references between parts
+                for part_instance in part_instances:
+                    if part_instance.source_node_type == 'RE' and part_instance.source_relationtemplate_internal_id != -1:
+                        # Find the referenced part by internal_id
+                        for ref_part in part_instances:
+                            if ref_part.internal_id == part_instance.source_relationtemplate_internal_id:
+                                part_instance.source_relationtemplate = ref_part
+                                break
+                    
+                    if part_instance.object_node_type == 'RE' and part_instance.object_relationtemplate_internal_id != -1:
+                        # Find the referenced part by internal_id
+                        for ref_part in part_instances:
+                            if ref_part.internal_id == part_instance.object_relationtemplate_internal_id:
+                                part_instance.object_relationtemplate = ref_part
+                                break
+                    
+                    # Save the part again with the references
+                    part_instance.save()
+                
+                # Redirect to the template view page
                 return HttpResponseRedirect(
                     reverse('get_relationtemplate', args=(template.id, )))
-            except relations.InvalidTemplate as E:
+            except Exception as E:
+                logger.error(f"Error creating template: {str(E)}")
                 relationtemplate_form.add_error(None, str(E))
-                logger.debug(
-                    'creating relationtemplate failed: %s' % str(E))
         context['formset'] = relationtemplatepart_formset
         context['templateform'] = relationtemplate_form
 

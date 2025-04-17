@@ -240,15 +240,17 @@ function toggleMode(useRelationNodes) {
     if (useRelationNodes) {
         $('#expression_container').hide();
         $('#relation_nodes_container').show();
-        // Disable the original expression field and enable the hidden one
+        // Enable the node fields
+        $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').prop('disabled', false);
+        // Disable the original expression field but keep its value for submission
         $('#expression_field_container textarea').prop('disabled', true);
-        $('#expression_hidden').prop('disabled', false);
     } else {
         $('#expression_container').show();
         $('#relation_nodes_container').hide();
-        // Enable the original expression field and disable the hidden one
+        // Disable the node fields
+        $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').prop('disabled', true);
+        // Enable the original expression field
         $('#expression_field_container textarea').prop('disabled', false);
-        $('#expression_hidden').prop('disabled', true);
     }
 }
 
@@ -258,100 +260,98 @@ $(document).ready(function() {
     
     // Add form submission handler to build expression from node values
     $('form').on('submit', function(e) {
-        if ($('#use_relation_nodes').is(':checked')) {
-            // Get the values directly from inputs
-            var firstType = $('#first_node_type').val();
-            var firstValue = $('#first_node_value').val();
-            
-            var secondType = $('#second_node_type').val();
-            var secondValue = $('#second_node_value').val();
-            
-            var thirdType = $('#third_node_type').val();
-            var thirdValue = $('#third_node_value').val();
-            
-            // Create expression by wrapping Node values in curly braces
-            var parts = [];
-            
-            // Add each part based on its type
-            if (firstType === 'Node') {
-                parts.push('{' + firstValue + '}');
-            } else {
-                parts.push(firstValue);
-            }
-            
-            if (secondType === 'Node') {
-                parts.push('{' + secondValue + '}');
-            } else {
-                parts.push(secondValue);
-            }
-            
-            if (thirdType === 'Node') {
-                parts.push('{' + thirdValue + '}');
-            } else {
-                parts.push(thirdValue);
-            }
-            
-            // Join with spaces
-            var formattedExpression = parts.join(' ');
-            
-            // Set the expression
-            $('#expression_hidden').val(formattedExpression);
-            console.log('Set expression to:', formattedExpression);
-            
-            // Also get terminal nodes from the dedicated field if it exists
-            var terminalNodesField = $('#id_terminal_nodes');
-            if (terminalNodesField.length) {
+        try {
+            if ($('#use_relation_nodes').is(':checked')) {
+                // Validate that required fields are filled
+                var allFieldsFilled = true;
+                var nodeFields = [
+                    '#first_node_type', '#first_node_value',
+                    '#second_node_type', '#second_node_value', 
+                    '#third_node_type', '#third_node_value'
+                ];
+                
+                nodeFields.forEach(function(field) {
+                    if (!$(field).val()) {
+                        allFieldsFilled = false;
+                        $(field).addClass('is-invalid');
+                    } else {
+                        $(field).removeClass('is-invalid');
+                    }
+                });
+                
+                if (!allFieldsFilled) {
+                    alert('Please fill in all node fields');
+                    e.preventDefault();
+                    return false;
+                }
+                
+                // Disable the original expression field
+                $('#expression_field_container textarea').prop('disabled', false);
+                
+                // Get the values directly from inputs
+                var firstType = $('#first_node_type').val();
+                var firstValue = $('#first_node_value').val();
+                
+                var secondType = $('#second_node_type').val();
+                var secondValue = $('#second_node_value').val();
+                
+                var thirdType = $('#third_node_type').val();
+                var thirdValue = $('#third_node_value').val();
+                
+                // Create expression by wrapping Node values in curly braces
+                var parts = [];
+                
+                // Add each part based on its type
+                if (firstType === 'Node') {
+                    parts.push('{' + firstValue + '}');
+                } else {
+                    parts.push(firstValue);
+                }
+                
+                if (secondType === 'Node') {
+                    parts.push('{' + secondValue + '}');
+                } else {
+                    parts.push(secondValue);
+                }
+                
+                if (thirdType === 'Node') {
+                    parts.push('{' + thirdValue + '}');
+                } else {
+                    parts.push(thirdValue);
+                }
+                
+                // Join with spaces
+                var formattedExpression = parts.join(' ');
+                
+                // Set the expression in the original field
+                $('#expression_field_container textarea').val(formattedExpression);
+                
+                // Update terminal nodes from node values
                 var terminalNodes = [];
                 
                 if (firstType === 'Node') {
                     terminalNodes.push(firstValue);
                 }
                 
+                if (secondType === 'Node') {
+                    terminalNodes.push(secondValue);
+                }
+                
                 if (thirdType === 'Node') {
                     terminalNodes.push(thirdValue);
                 }
                 
-                terminalNodesField.val(terminalNodes.join(','));
-                console.log('Set terminal_nodes to:', terminalNodes.join(','));
-            } else {
-                console.log('Warning: terminal_nodes field not found');
+                // Set terminal nodes field
+                $('#id_terminal_nodes').val(terminalNodes.join(','));
+                
+                console.log('Expression value set to:', formattedExpression);
+                console.log('Terminal nodes set to:', terminalNodes.join(','));
             }
             
-            // Create default_mapping JSON
-            var defaultMapping = {
-                source: (firstType === 'Node' ? 'REF' : 'URI'),
-                predicate: (secondType === 'Node' ? 'REF' : 'URI'),
-                object: (thirdType === 'Node' ? 'REF' : 'URI')
-            };
-            
-            // Look for default_mapping field - try different possible IDs
-            var defaultMappingField = $('#id_default_mapping');
-            if (!defaultMappingField.length) {
-                defaultMappingField = $('input[name="default_mapping"]');
-            }
-            
-            if (defaultMappingField.length) {
-                var mappingString = JSON.stringify(defaultMapping);
-                defaultMappingField.val(mappingString);
-                console.log('Set default_mapping to:', mappingString);
-            } else {
-                console.log('default_mapping field not found. Creating one...');
-                // Create the field if it doesn't exist
-                var inputField = $('<input>')
-                    .attr('type', 'hidden')
-                    .attr('name', 'default_mapping')
-                    .attr('id', 'id_default_mapping')
-                    .val(JSON.stringify(defaultMapping));
-                $(this).append(inputField);
-                console.log('Created default_mapping field with value:', JSON.stringify(defaultMapping));
-            }
-            
-            // Debug form data
-            console.log('Form data before submit:');
-            var formData = $(this).serializeArray();
-            $.each(formData, function(i, field){
-                console.log(field.name + ':', field.value);
-            });
+            return true; // Allow form submission to continue
+        } catch (error) {
+            console.error('Error in form submission handler:', error);
+            return true; 
         }
     });
     

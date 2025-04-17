@@ -100,8 +100,6 @@
                             <div id="expression_field_container">
                                 {{ templateform.expression }}
                             </div>
-                            <!-- This hidden field will be populated by JavaScript when in relation nodes mode -->
-                            <input type="hidden" id="expression_hidden" name="expression" style="display:none;">
                         </p>
                     </div>
                     <div id="relation_nodes_container" style="display:none;">
@@ -156,8 +154,8 @@
                         {{ templateform.terminal_nodes }}
                     </p>
                     
-                    <!-- Add the hidden default_mapping field -->
-                    {{ templateform.default_mapping }}
+                    <!-- Replace default_mapping with structured_mapping -->
+                    {{ templateform.structured_mapping }}
                     
                     <table id="form_table" class="table table-condensed table-striped table-bordered table-responsive">
                         <thead>

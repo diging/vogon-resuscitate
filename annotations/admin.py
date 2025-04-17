@@ -69,6 +69,18 @@ class AppellationAdmin(admin.ModelAdmin):
     list_display = ('id', 'createdBy', 'occursIn', 'created', 'interpretation',
                     'asPredicate')
 
+class DefaultMappingAdmin(admin.ModelAdmin):
+    list_display = ('id', 'subject_type', 'predicate_type', 'object_type')
+    
+    def subject_type(self, obj):
+        return obj.subject_type
+    
+    def predicate_type(self, obj):
+        return obj.predicate_type
+        
+    def object_type(self, obj):
+        return obj.object_type
+
 
 admin.site.register(VogonUser, VogonUserAdmin)
 admin.site.register(Appellation, AppellationAdmin)
@@ -76,6 +88,7 @@ admin.site.register(Text, TextAdmin)
 admin.site.register(TextCollection)
 admin.site.register(Relation, RelationAdmin)
 admin.site.register(RelationSet, RelationSetAdmin)
+admin.site.register(DefaultMapping, DefaultMappingAdmin)
 admin.site.register(RelationTemplate)
 admin.site.register(RelationTemplatePart)
 admin.site.register(DateAppellation)

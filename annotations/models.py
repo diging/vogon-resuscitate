@@ -1064,6 +1064,8 @@ class RelationTemplate(models.Model):
     expression = models.TextField(null=True)
     """Pattern for representing the relation in normal language."""
 
+
+    # TODO: Remove this field and replace all default_mapping references with structured_mapping in quadriga.py
     default_mapping = models.TextField(blank=True, null=True)
     """
     Default mapping for the relation.
@@ -1078,7 +1080,7 @@ class RelationTemplate(models.Model):
     
     structured_mapping = models.ForeignKey(DefaultMapping, blank=True, null=True, 
                                           on_delete=models.SET_NULL, related_name='templates')
-    # """Structured representation of default mapping relationship configuration."""
+    """Structured representation of default mapping relationship configuration."""
 
     _terminal_nodes = models.TextField(blank=True, null=True)
     use_in_mass_assignment = models.BooleanField(default=False)
