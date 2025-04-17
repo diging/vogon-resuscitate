@@ -37,6 +37,8 @@ logger = logging.getLogger(__name__)
 import traceback
 import json
 
+from annotations import tei_utils
+
 def _get_params(request):
     # The request may include parameters that should be passed along to the
     #  repository -- at this point, this is just for pagination.
@@ -393,8 +395,6 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id, 
     if not giles_text:
         return render(request, 'annotations/repository_ioerror.html', {'error': 'There was an error retrieving the content from Giles.'}, status=400)
 
-    # Use tei_utils to detect the content type
-    from annotations import tei_utils
     content_info = tei_utils.detect_content_type(giles_text)
     
     content_type = content_info['content_type']
