@@ -280,7 +280,8 @@ $(document).ready(function() {
                 });
                 
                 if (!allFieldsFilled) {
-                    alert('Please fill in all node fields');
+                    // Just highlight the invalid fields and prevent form submission
+                    // without showing an alert
                     e.preventDefault();
                     return false;
                 }
@@ -355,7 +356,7 @@ $(document).ready(function() {
         }
     });
     
-    // Add dynamic validation for node types
+    // Add dynamic validation for node types - allow any combination of Nodes and URIs
     function validateNodeTypes() {
         var nodeCount = 0;
         var uriCount = 0;
@@ -368,11 +369,26 @@ $(document).ready(function() {
             }
         });
         
-        if (nodeCount === 2 && uriCount === 1) {
+        // Just make sure something is selected for each dropdown
+        var allSelected = true;
+        $('.node-type-dropdown').each(function() {
+            if (!$(this).val()) {
+                allSelected = false;
+            }
+        });
+        
+        if (allSelected) {
             $('.node-type-dropdown').removeClass('is-invalid');
             return true;
         } else {
-            $('.node-type-dropdown').addClass('is-invalid');
+            // Only mark empty dropdowns as invalid
+            $('.node-type-dropdown').each(function() {
+                if (!$(this).val()) {
+                    $(this).addClass('is-invalid');
+                } else {
+                    $(this).removeClass('is-invalid');
+                }
+            });
             return false;
         }
     }
@@ -404,15 +420,11 @@ $(document).ready(function() {
             // If we have node values, update the terminal_nodes field
             if (nodeValues.length > 0) {
                 $('#id_terminal_nodes').val(nodeValues.join(','));
+            } else {
+                // Handle case where there are no Node types (all URIs)
+                // Set terminal_nodes to a valid empty format
+                $('#id_terminal_nodes').val('');
             }
-            
-            // Also update the hidden expression field on each change
-            var allNodeValues = [
-                $('#first_node_value').val(),
-                $('#second_node_value').val(),
-                $('#third_node_value').val()
-            ];
-            $('#expression_hidden').val(allNodeValues.join(' '));
         }
     }
     

@@ -317,26 +317,20 @@ class RelationTemplateForm(forms.ModelForm):
         cleaned_data = super(RelationTemplateForm, self).clean()
         
         if cleaned_data.get('use_relation_nodes'):
-            # Check that we have 2 nodes and 1 URI in any permutation
+            # Check that node type fields are selected
             node_types = [
                 cleaned_data.get('first_node_type'),
                 cleaned_data.get('second_node_type'),
                 cleaned_data.get('third_node_type')
             ]
             
-            node_count = node_types.count('Node')
-            uri_count = node_types.count('URI')
-            
-            if node_count != 2 or uri_count != 1:
-                self.add_error(None, ValidationError('You must have exactly 2 Nodes and 1 URI'))
-                
-            # Ensure node values are provided
+            # Remove the Node count restriction
+            # Just ensure all fields have values
             for i, prefix in enumerate(['first', 'second', 'third']):
+                if not cleaned_data.get(f'{prefix}_node_type'):
+                    self.add_error(f'{prefix}_node_type', ValidationError('Please select a node type'))
                 if not cleaned_data.get(f'{prefix}_node_value'):
                     self.add_error(f'{prefix}_node_value', ValidationError('This field is required'))
-            
-            # Note: We don't build the expression here anymore
-            # It's now handled by JavaScript on form submission
             
             # Make sure terminal nodes match with node values
             if cleaned_data.get('terminal_nodes'):
@@ -353,7 +347,23 @@ class RelationTemplateForm(forms.ModelForm):
     
     def clean_terminal_nodes(self):
         value = self.cleaned_data.get('terminal_nodes')
+        # Handle empty value for the case where there are no Nodes (all URIs)
+        if not value and self.cleaned_data.get('use_relation_nodes'):
+            # Check if all types are URI
+            all_uri = True
+            for prefix in ['first', 'second', 'third']:
+                if self.cleaned_data.get(f'{prefix}_node_type') == 'Node':
+                    all_uri = False
+                    break
+            if all_uri:
+                return ""
+        
         try:
+            # Skip validation if empty
+            if not value:
+                return value
+                
+            # Otherwise validate normally
             for u, v in map(tuple, value.split(',')):
                 pass
         except Exception as E:
