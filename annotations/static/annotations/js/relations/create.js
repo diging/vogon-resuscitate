@@ -237,10 +237,11 @@ $('#use_relation_nodes').on('change', function() {
 });
 
 function toggleMode(useRelationNodes) {
+    
     if (useRelationNodes) {
         $('#expression_container').hide();
         $('#relation_nodes_container').show();
-        // Enable the node fields
+        // Make sure the fields are visible and enabled
         $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').prop('disabled', false);
         // Disable the original expression field but keep its value for submission
         $('#expression_field_container textarea').prop('disabled', true);
@@ -252,11 +253,29 @@ function toggleMode(useRelationNodes) {
         // Enable the original expression field
         $('#expression_field_container textarea').prop('disabled', false);
     }
+    
+
 }
 
 // Initialize the toggle state when the page loads
 $(document).ready(function() {
-    toggleMode($('#use_relation_nodes').is(':checked'));
+    // Get initial checkbox state
+    var isChecked = $('#use_relation_nodes').is(':checked');
+
+    // First attempt at toggleMode
+    toggleMode(isChecked);
+    
+    // Set a small timeout to ensure DOM is fully loaded
+    setTimeout(function() {
+        var isCheckedAfterDelay = $('#use_relation_nodes').is(':checked');
+        toggleMode(isCheckedAfterDelay);
+        
+        // Make sure relation_nodes_container is visible if checkbox is checked
+        if (isCheckedAfterDelay && $('#relation_nodes_container').css('display') === 'none') {
+            $('#relation_nodes_container').show();
+            $('#expression_container').hide();
+        }
+    }, 200);
     
     // Add form submission handler to build expression from node values
     $('form').on('submit', function(e) {
@@ -344,9 +363,7 @@ $(document).ready(function() {
                 
                 // Set terminal nodes field
                 $('#id_terminal_nodes').val(terminalNodes.join(','));
-                
-                console.log('Expression value set to:', formattedExpression);
-                console.log('Terminal nodes set to:', terminalNodes.join(','));
+
             }
             
             return true; // Allow form submission to continue
@@ -356,20 +373,9 @@ $(document).ready(function() {
         }
     });
     
-    // Add dynamic validation for node types - allow any combination of Nodes and URIs
+    // dynamic validation for node types
     function validateNodeTypes() {
-        var nodeCount = 0;
-        var uriCount = 0;
-        
-        $('.node-type-dropdown').each(function() {
-            if ($(this).val() === 'Node') {
-                nodeCount++;
-            } else if ($(this).val() === 'URI') {
-                uriCount++;
-            }
-        });
-        
-        // Just make sure something is selected for each dropdown
+        // Make sure something is selected for each dropdown
         var allSelected = true;
         $('.node-type-dropdown').each(function() {
             if (!$(this).val()) {
@@ -381,7 +387,7 @@ $(document).ready(function() {
             $('.node-type-dropdown').removeClass('is-invalid');
             return true;
         } else {
-            // Only mark empty dropdowns as invalid
+            // mark empty dropdowns as invalid
             $('.node-type-dropdown').each(function() {
                 if (!$(this).val()) {
                     $(this).addClass('is-invalid');

@@ -483,5 +483,23 @@
 
 
 <script src="{% static "annotations/js/relations/create.js" %}"></script>
+<script>
+    // Force toggle script to ensure relation_nodes_container appears
+    $(document).ready(function() {
+        // Check periodically if the checkbox is checked but relation_nodes_container is hidden
+        setInterval(function() {
+            if ($('#use_relation_nodes').is(':checked') && $('#relation_nodes_container').css('display') === 'none') {
+                console.log('Force fixing relation nodes visibility');
+                $('#relation_nodes_container').show();
+                $('#expression_container').hide();
+                
+                // Enable the node fields
+                $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').prop('disabled', false);
+                // Disable the original expression field
+                $('#expression_field_container textarea').prop('disabled', true);
+            }
+        }, 500);
+    });
+</script>
 
 {% endblock %}
