@@ -74,13 +74,68 @@
                         {{ templateform.description }}
                     </p>
                     <p>
-                        {% if templateform.expression.errors %}
-                            {% for error in templateform.expression.errors %}
-                            <div class="alert alert-warning">{{ error }}</div>
-                            {% endfor %}
-                        {% endif %}
-                        {{ templateform.expression }}
+                        <div class="form-check">
+                            {{ templateform.use_relation_nodes }} 
+                            <label class="form-check-label" for="use_relation_nodes">
+                                Use Relation Nodes instead of Expression
+                            </label>
+                        </div>
                     </p>
+                    <div id="expression_container">
+                        <p>
+                            {% if templateform.expression.errors %}
+                                {% for error in templateform.expression.errors %}
+                                <div class="alert alert-warning">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                            <div id="expression_field_container">
+                                {{ templateform.expression }}
+                            </div>
+                        </p>
+                    </div>
+                    <div id="relation_nodes_container" style="display:none;">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="first_node_type">First Element</label>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            {{ templateform.first_node_type }}
+                                        </div>
+                                        <div class="col-md-8">
+                                            {{ templateform.first_node_value }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="second_node_type">Second Element</label>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            {{ templateform.second_node_type }}
+                                        </div>
+                                        <div class="col-md-8">
+                                            {{ templateform.second_node_value }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="third_node_type">Third Element</label>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            {{ templateform.third_node_type }}
+                                        </div>
+                                        <div class="col-md-8">
+                                            {{ templateform.third_node_value }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <p>
                         {% if templateform.terminal_nodes.errors %}
                             {% for error in templateform.terminal_nodes.errors %}
@@ -89,6 +144,9 @@
                         {% endif %}
                         {{ templateform.terminal_nodes }}
                     </p>
+                    
+                    <!-- Include the structured_mapping hidden field -->
+                    {{ templateform.structured_mapping }}
                     <table id="form_table" class="table table-condensed table-striped table-bordered table-responsive">
                         <thead>
                             <tr class="text-center info">
@@ -385,6 +443,29 @@
                     ID of the target relation.
                 </dd>
             </dl>
+        </p>
+        
+        <p>
+            <div class="h4">Relation Nodes Mode</div>
+            <p>
+                The relation nodes mode provides an alternative way to create relations using a structured format:
+            </p>
+            <dl>
+                <dt>Node</dt>
+                <dd>
+                    A node represents a concept in the relation template. Node values must also be included in the terminal nodes field.
+                </dd>
+            </dl>
+            <dl>
+                <dt>URI</dt>
+                <dd>
+                    A URI (Uniform Resource Identifier) represents a web resource. This typically points to an external concept or definition.
+                </dd>
+            </dl>
+            <p>
+                You can use any combination of Nodes and URIs in your relation template when using relation nodes mode.
+                The arrangement of these elements is flexible - you can have them in any order that makes sense for your relation.
+            </p>
         </p>
 
     </div>
