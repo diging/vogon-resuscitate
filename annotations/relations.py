@@ -248,6 +248,9 @@ def create_template(template_data, part_data):
     part_ids = {}    # Internal IDs to PK ids for RelationTemplatePart.
     
     # Filter out UI-only fields that don't exist in the model
+    # These fields are used only in the frontend for template configuration
+    # but don't correspond to actual database fields in the RelationTemplate model.
+    # Removing them prevents errors when saving to the database and keeps the data clean.
     ui_fields = [
         'use_relation_nodes', 
         'first_node_type', 'first_node_value',
