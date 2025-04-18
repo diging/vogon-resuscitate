@@ -252,6 +252,10 @@ def add_concept_comment(request, concept_id):
 @login_required
 def edit_comment(request, comment_id):
     comment = get_object_or_404(Comment, pk=comment_id)
+    
+    if request.user != comment.created_by:
+        messages.error(request, 'You do not have permission to edit this comment.')
+        return redirect('concept', concept_id=comment.concept.id)
 
     if request.method == 'POST':
         comment_text = request.POST.get('comment_text')
@@ -259,17 +263,24 @@ def edit_comment(request, comment_id):
             comment.text = comment_text
             comment.save()
             messages.success(request, 'Comment edited successfully.')
+            return redirect('concept', concept_id=comment.concept.id)
         else:
             messages.error(request, 'Comment text cannot be empty.')
-
+    
     return redirect('concept', concept_id=comment.concept.id)
 
 @login_required
 def delete_comment(request, comment_id):
     comment = get_object_or_404(Comment, pk=comment_id)
+    
+    if request.user != comment.created_by:
+        messages.error(request, 'You do not have permission to delete this comment.')
+        return redirect('concept', concept_id=comment.concept.id)
 
     if request.method == 'POST':
+        concept_id = comment.concept.id
         comment.delete()
         messages.success(request, 'Comment deleted successfully.')
-
+        return redirect('concept', concept_id=concept_id)
+    
     return redirect('concept', concept_id=comment.concept.id)

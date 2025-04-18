@@ -55,7 +55,7 @@
                 <div class="form-group">
                     <textarea name="comment_text" class="form-control" rows="3" placeholder="Write your comment here..." required autocomplete="off"></textarea>
                 </div>
-                <button type="submit" class="btn btn-primary">Submit Comment</button>
+                <button type="submit" class="btn btn-primary">Add Comment</button>
             </form>
         </div>
     </div>
@@ -76,6 +76,33 @@ document.addEventListener('DOMContentLoaded', function() {
             const commentId = this.getAttribute('data-comment-id');
             const replyForm = document.getElementById(`reply-form-${commentId}`);
             replyForm.style.display = replyForm.style.display === 'none' ? 'block' : 'none';
+        });
+    });
+
+    const editButtons = document.querySelectorAll('.edit-button');
+    editButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const commentId = this.getAttribute('data-comment-id');
+            const commentText = document.getElementById(`comment-text-${commentId}`);
+            const editForm = document.getElementById(`comment-edit-form-${commentId}`);
+            
+            commentText.style.display = 'none';
+            editForm.style.display = 'block';
+            
+            const textarea = document.getElementById(`comment-textarea-${commentId}`);
+            textarea.focus();
+        });
+    });
+
+    const cancelButtons = document.querySelectorAll('.cancel-edit');
+    cancelButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const commentId = this.getAttribute('data-comment-id');
+            const commentText = document.getElementById(`comment-text-${commentId}`);
+            const editForm = document.getElementById(`comment-edit-form-${commentId}`);
+            
+            editForm.style.display = 'none';
+            commentText.style.display = 'block';
         });
     });
 });
