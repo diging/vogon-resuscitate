@@ -73,14 +73,7 @@
                         {% endif %}
                         {{ templateform.description }}
                     </p>
-                    <p>
-                        <div class="form-check">
-                            {{ templateform.use_relation_nodes }} 
-                            <label class="form-check-label" for="use_relation_nodes">
-                                Use Relation Nodes instead of Expression
-                            </label>
-                        </div>
-                    </p>
+                    <h4>Expression Fields</h4>
                     <div id="expression_container">
                         <p>
                             {% if templateform.expression.errors %}
@@ -89,11 +82,13 @@
                                 {% endfor %}
                             {% endif %}
                             <div id="expression_field_container">
+                                <label for="id_expression"><strong>Expression (Required)</strong></label>
                                 {{ templateform.expression }}
                             </div>
                         </p>
                     </div>
-                    <div id="relation_nodes_container" style="display:none;">
+                    <div id="relation_nodes_container">
+                        <h4>Relation Nodes (Required)</h4>
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group">

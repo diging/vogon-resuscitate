@@ -236,10 +236,6 @@ class RelationTemplateForm(forms.ModelForm):
             'rows': 2,
             'placeholder': 'Please describe this relation.',
         }))
-    use_relation_nodes = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={
-            'class': 'form-check-input',
-            'id': 'use_relation_nodes'
-        }))
     expression = forms.CharField(widget=forms.Textarea(attrs={
             'class': 'form-control input-sm',
             'rows': 3,
@@ -260,29 +256,29 @@ class RelationTemplateForm(forms.ModelForm):
         }))
     
     # Add fields for relation node mode
-    first_node_type = forms.ChoiceField(required=False, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
+    first_node_type = forms.ChoiceField(required=True, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
             'class': 'form-control input-sm node-type-dropdown',
             'id': 'first_node_type'
         }))
-    first_node_value = forms.CharField(required=False, widget=forms.TextInput(attrs={
+    first_node_value = forms.CharField(required=True, widget=forms.TextInput(attrs={
             'class': 'form-control input-sm',
             'id': 'first_node_value',
             'placeholder': 'Enter value'
         }))
-    second_node_type = forms.ChoiceField(required=False, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
+    second_node_type = forms.ChoiceField(required=True, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
             'class': 'form-control input-sm node-type-dropdown',
             'id': 'second_node_type'
         }))
-    second_node_value = forms.CharField(required=False, widget=forms.TextInput(attrs={
+    second_node_value = forms.CharField(required=True, widget=forms.TextInput(attrs={
             'class': 'form-control input-sm',
             'id': 'second_node_value',
             'placeholder': 'Enter value'
         }))
-    third_node_type = forms.ChoiceField(required=False, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
+    third_node_type = forms.ChoiceField(required=True, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
             'class': 'form-control input-sm node-type-dropdown',
             'id': 'third_node_type'
         }))
-    third_node_value = forms.CharField(required=False, widget=forms.TextInput(attrs={
+    third_node_value = forms.CharField(required=True, widget=forms.TextInput(attrs={
             'class': 'form-control input-sm',
             'id': 'third_node_value',
             'placeholder': 'Enter value'
@@ -290,64 +286,51 @@ class RelationTemplateForm(forms.ModelForm):
     
     class Meta:
         model = RelationTemplate
-        fields = ['name', 'description', 'expression', 'terminal_nodes', 'structured_mapping']
+        fields = ['name', 'description', 'expression', 'terminal_nodes', 'structured_mapping',
+                 'first_node_type', 'first_node_value', 
+                 'second_node_type', 'second_node_value', 
+                 'third_node_type', 'third_node_value']
     
     def clean_expression(self):
-        from string import Formatter
-        value = self.cleaned_data.get('expression')
-        # If using relation nodes, we don't need to validate the expression
-        # as it will be built by JavaScript
-        if self.cleaned_data.get('use_relation_nodes'):
-            return value
-        try:
-            [k[1] for k in Formatter().parse(value)]
-        except Exception as E:
-            raise ValidationError('Invalid expression')
-        return value
-
+        """
+        Validates expression field. Expression is always required.
+        """
+        expression = self.cleaned_data.get('expression')
+        if not expression:
+            raise forms.ValidationError("Expression is required")
+        return expression
+        
     def clean(self):
+        """
+        Validates the form data.
+        """
         cleaned_data = super(RelationTemplateForm, self).clean()
         
-        if cleaned_data.get('use_relation_nodes'):
-            # Check that node type fields are selected
-            node_types = [
-                cleaned_data.get('first_node_type'),
-                cleaned_data.get('second_node_type'),
-                cleaned_data.get('third_node_type')
-            ]
+        # Validate node fields
+        first_node_type = cleaned_data.get('first_node_type')
+        first_node_value = cleaned_data.get('first_node_value')
+        second_node_type = cleaned_data.get('second_node_type')
+        second_node_value = cleaned_data.get('second_node_value')
+        third_node_type = cleaned_data.get('third_node_type')
+        third_node_value = cleaned_data.get('third_node_value')
+        
+        # Both expression and relation nodes fields are now required
+        if not first_node_type or not first_node_value:
+            self.add_error('first_node_value', 'First node fields are required')
             
-            # Check if user inputted values for all fields
-            for i, prefix in enumerate(['first', 'second', 'third']):
-                if not cleaned_data.get(f'{prefix}_node_type'):
-                    self.add_error(f'{prefix}_node_type', ValidationError('Please select a node type'))
-                if not cleaned_data.get(f'{prefix}_node_value'):
-                    self.add_error(f'{prefix}_node_value', ValidationError('This field is required'))
+        if not second_node_type or not second_node_value:
+            self.add_error('second_node_value', 'Second node fields are required')
             
-            # Make sure terminal nodes match with node values
-            if cleaned_data.get('terminal_nodes'):
-                terminal_nodes = cleaned_data.get('terminal_nodes').split(',')
-                # Check each value that is specified as a Node type
-                for i, prefix in enumerate(['first', 'second', 'third']):
-                    if cleaned_data.get(f'{prefix}_node_type') == 'Node':
-                        node_value = cleaned_data.get(f'{prefix}_node_value')
-                        if node_value not in terminal_nodes:
-                            self.add_error(f'{prefix}_node_value', 
-                                         ValidationError(f'Node value must be included in terminal nodes'))
-                
+        if not third_node_type or not third_node_value:
+            self.add_error('third_node_value', 'Third node fields are required')
+            
         return cleaned_data
-    
+
     def clean_terminal_nodes(self):
         value = self.cleaned_data.get('terminal_nodes')
         # Handle empty value for the case where there are no Nodes (all URIs)
-        if not value and self.cleaned_data.get('use_relation_nodes'):
-            # Check if all types are URI
-            all_uri = True
-            for prefix in ['first', 'second', 'third']:
-                if self.cleaned_data.get(f'{prefix}_node_type') == 'Node':
-                    all_uri = False
-                    break
-            if all_uri:
-                return ""
+        if not value:
+            return value
         
         try:
             # Skip validation if empty
@@ -363,37 +346,69 @@ class RelationTemplateForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super(RelationTemplateForm, self).__init__(*args, **kwargs)
-        # if editing an existing template that already has a mapping, populate its PK
-        if self.instance.pk and self.instance.structured_mapping_id:
-            self.fields['structured_mapping'].initial = self.instance.structured_mapping_id
+        
+        # If we're editing an existing instance with a structured_mapping
+        if self.instance and self.instance.pk and self.instance.structured_mapping:
+            # Populate the relation node fields from the structured mapping
+            mapping = self.instance.structured_mapping
+            self.initial['first_node_type'] = mapping.subject_type
+            self.initial['first_node_value'] = mapping.subject_value
+            self.initial['second_node_type'] = mapping.predicate_type
+            self.initial['second_node_value'] = mapping.predicate_value
+            self.initial['third_node_type'] = mapping.object_type
+            self.initial['third_node_value'] = mapping.object_value
 
     def save(self, commit=True):
-        """
-        1) If the user chose "relation nodes", build or update a DefaultMapping
-        2) Attach it to self.instance.structured_mapping
-        3) Clear it out if they didn't choose relation nodes
-        """
-        use_nodes = self.cleaned_data.get('use_relation_nodes')
-
-        # build/update the mapping
-        if use_nodes:
-            mapping = self.instance.structured_mapping or DefaultMapping()
-            # map your three parts
-            mapping.subject_type = self.cleaned_data['first_node_type']
-            mapping.subject_value = self.cleaned_data['first_node_value']
-            mapping.predicate_type = self.cleaned_data['second_node_type']
-            mapping.predicate_value = self.cleaned_data['second_node_value']
-            mapping.object_type = self.cleaned_data['third_node_type']
-            mapping.object_value = self.cleaned_data['third_node_value']
+        instance = super(RelationTemplateForm, self).save(commit=False)
+        
+        # Process relation nodes and create a DefaultMapping
+        first_node_type = self.cleaned_data.get('first_node_type')
+        first_node_value = self.cleaned_data.get('first_node_value')
+        second_node_type = self.cleaned_data.get('second_node_type')
+        second_node_value = self.cleaned_data.get('second_node_value')
+        third_node_type = self.cleaned_data.get('third_node_type')
+        third_node_value = self.cleaned_data.get('third_node_value')
+        
+        # Create or update the DefaultMapping
+        if instance.structured_mapping:
+            # Update existing mapping
+            mapping = instance.structured_mapping
+            mapping.subject_type = first_node_type
+            mapping.subject_value = first_node_value
+            mapping.predicate_type = second_node_type
+            mapping.predicate_value = second_node_value
+            mapping.object_type = third_node_type
+            mapping.object_value = third_node_value
             mapping.save()
-            self.instance.structured_mapping = mapping
         else:
-            # clear out any previous mapping
-            self.instance.structured_mapping = None
-
-        # ModelForm will take care of the rest of the fields
-        # note: expression and terminal_nodes will still get saved
-        return super(RelationTemplateForm, self).save(commit=commit)
+            # Create new mapping
+            mapping = DefaultMapping.objects.create(
+                subject_type=first_node_type,
+                subject_value=first_node_value,
+                predicate_type=second_node_type,
+                predicate_value=second_node_value,
+                object_type=third_node_type,
+                object_value=third_node_value
+            )
+            instance.structured_mapping = mapping
+        
+        # Update terminal nodes from relation nodes
+        terminal_nodes = []
+        if first_node_type == 'Node':
+            terminal_nodes.append(first_node_value)
+        if second_node_type == 'Node':
+            terminal_nodes.append(second_node_value)
+        if third_node_type == 'Node':
+            terminal_nodes.append(third_node_value)
+        
+        # Set terminal nodes if there are any
+        if terminal_nodes:
+            instance.terminal_nodes = ','.join(terminal_nodes)
+        
+        if commit:
+            instance.save()
+        
+        return instance
 
 
 class UberCheckboxInput(forms.CheckboxInput):

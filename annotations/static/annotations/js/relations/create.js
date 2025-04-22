@@ -231,140 +231,78 @@ $('.autocomplete').each(function() {
 
 var searchPromise = null;
 
-// Toggle between expression and relation nodes mode
-$('#use_relation_nodes').on('change', function() {
-    toggleMode($(this).is(':checked'));
-});
-
-function toggleMode(useRelationNodes) {
-    
-    if (useRelationNodes) {
-        $('#expression_container').hide();
-        $('#relation_nodes_container').show();
-        // Make sure the fields are visible and enabled
-        $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').prop('disabled', false);
-        // Disable the original expression field but keep its value for submission
-        $('#expression_field_container textarea').prop('disabled', true);
-    } else {
-        $('#expression_container').show();
-        $('#relation_nodes_container').hide();
-        // Disable the node fields
-        $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').prop('disabled', true);
-        // Enable the original expression field
-        $('#expression_field_container textarea').prop('disabled', false);
-    }
-    
-
-}
-
-// Initialize the toggle state when the page loads
+// Initialize both expression and relation nodes fields when the page loads
 $(document).ready(function() {
-    // Get initial checkbox state
-    var isChecked = $('#use_relation_nodes').is(':checked');
-
-    // First attempt at toggleMode
-    toggleMode(isChecked);
+    // Always show both sets of fields
+    $('#expression_container').show();
+    $('#relation_nodes_container').show();
     
-    // Set a small timeout to ensure DOM is fully loaded
-    setTimeout(function() {
-        var isCheckedAfterDelay = $('#use_relation_nodes').is(':checked');
-        toggleMode(isCheckedAfterDelay);
-        
-        // Make sure relation_nodes_container is visible if checkbox is checked
-        if (isCheckedAfterDelay && $('#relation_nodes_container').css('display') === 'none') {
-            $('#relation_nodes_container').show();
-            $('#expression_container').hide();
-        }
-    }, 200);
+    // Enable all fields - both expression and node fields are required
+    $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').prop('disabled', false);
+    $('#expression_field_container textarea').prop('disabled', false);
     
-    // Add form submission handler to build expression from node values
+    // Add form submission handler to validate all fields
     $('form').on('submit', function(e) {
         try {
-            if ($('#use_relation_nodes').is(':checked')) {
-                // Validate that required fields are filled
-                var allFieldsFilled = true;
-                var nodeFields = [
-                    '#first_node_type', '#first_node_value',
-                    '#second_node_type', '#second_node_value', 
-                    '#third_node_type', '#third_node_value'
-                ];
-                
-                nodeFields.forEach(function(field) {
-                    if (!$(field).val()) {
-                        allFieldsFilled = false;
-                        $(field).addClass('is-invalid');
-                    } else {
-                        $(field).removeClass('is-invalid');
-                    }
-                });
-                
-                if (!allFieldsFilled) {
-                    // Just highlight the invalid fields and prevent form submission
-                    // without showing an alert
-                    e.preventDefault();
-                    return false;
-                }
-                
-                // Disable the original expression field
-                $('#expression_field_container textarea').prop('disabled', false);
-                
-                // Get the values directly from inputs
-                var firstType = $('#first_node_type').val();
-                var firstValue = $('#first_node_value').val();
-                
-                var secondType = $('#second_node_type').val();
-                var secondValue = $('#second_node_value').val();
-                
-                var thirdType = $('#third_node_type').val();
-                var thirdValue = $('#third_node_value').val();
-                
-                // Create expression by wrapping Node values in curly braces
-                var parts = [];
-                
-                // Add each part based on its type
-                if (firstType === 'Node') {
-                    parts.push('{' + firstValue + '}');
+            // Validate that all required fields are filled
+            var allFieldsFilled = true;
+            
+            // Check all node fields
+            var nodeFields = [
+                '#first_node_type', '#first_node_value',
+                '#second_node_type', '#second_node_value', 
+                '#third_node_type', '#third_node_value'
+            ];
+            
+            nodeFields.forEach(function(field) {
+                if (!$(field).val()) {
+                    allFieldsFilled = false;
+                    $(field).addClass('is-invalid');
                 } else {
-                    parts.push(firstValue);
+                    $(field).removeClass('is-invalid');
                 }
-                
-                if (secondType === 'Node') {
-                    parts.push('{' + secondValue + '}');
-                } else {
-                    parts.push(secondValue);
-                }
-                
-                if (thirdType === 'Node') {
-                    parts.push('{' + thirdValue + '}');
-                } else {
-                    parts.push(thirdValue);
-                }
-                
-                // Join with spaces
-                var formattedExpression = parts.join(' ');
-                
-                // Set the expression in the original field
-                $('#expression_field_container textarea').val(formattedExpression);
-                
-                // Update terminal nodes from node values
-                var terminalNodes = [];
-                
-                if (firstType === 'Node') {
-                    terminalNodes.push(firstValue);
-                }
-                
-                if (secondType === 'Node') {
-                    terminalNodes.push(secondValue);
-                }
-                
-                if (thirdType === 'Node') {
-                    terminalNodes.push(thirdValue);
-                }
-                
-                // Set terminal nodes field
-                $('#id_terminal_nodes').val(terminalNodes.join(','));
-
+            });
+            
+            // Check expression field
+            if (!$('#expression_field_container textarea').val()) {
+                allFieldsFilled = false;
+                $('#expression_field_container textarea').addClass('is-invalid');
+            } else {
+                $('#expression_field_container textarea').removeClass('is-invalid');
             }
+            
+            if (!allFieldsFilled) {
+                e.preventDefault();
+                return false;
+            }
+            
+            // Get the values directly from inputs
+            var firstType = $('#first_node_type').val();
+            var firstValue = $('#first_node_value').val();
+            
+            var secondType = $('#second_node_type').val();
+            var secondValue = $('#second_node_value').val();
+            
+            var thirdType = $('#third_node_type').val();
+            var thirdValue = $('#third_node_value').val();
+            
+            // Update terminal nodes from node values
+            var terminalNodes = [];
+            
+            if (firstType === 'Node') {
+                terminalNodes.push(firstValue);
+            }
+            
+            if (secondType === 'Node') {
+                terminalNodes.push(secondValue);
+            }
+            
+            if (thirdType === 'Node') {
+                terminalNodes.push(thirdValue);
+            }
+            
+            // Set terminal nodes field
+            $('#id_terminal_nodes').val(terminalNodes.join(','));
             
             return true; // Allow form submission to continue
         } catch (error) {
