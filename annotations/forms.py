@@ -164,7 +164,7 @@ class ConceptField(forms.CharField):
     queryset = Concept.objects.all()
 
     def label_from_instance(self, obj):
-        """
+        r"""
         The ``_concept`` field should be populated with the :class:`.Concept`\s
         id.
         """
@@ -198,7 +198,7 @@ class ConceptField(forms.CharField):
     
 class TemplateChoiceField(forms.ChoiceField):
     def label_from_instance(self, obj):
-        """
+        r"""
         The ``_concept`` field should be populated with the :class:`.Concept`\s
         id.
         """
@@ -234,9 +234,10 @@ class RelationTemplateForm(forms.ModelForm):
             'rows': 2,
             'placeholder': 'Please describe this relation.',
         }))
-    expression = forms.CharField(widget=forms.Textarea(attrs={
+    expression = forms.CharField(required=False, widget=forms.Textarea(attrs={
             'class': 'form-control input-sm',
             'rows': 3,
+            'id': 'id_expression',
             'placeholder': "Enter an expression pattern for this relation."
                            " This should be a full-sentence structure that"
                            " expresses the content of the relation. Indicate"
@@ -246,16 +247,70 @@ class RelationTemplateForm(forms.ModelForm):
                            " of the second part, or {2p} for the predicate of"
                            " the third part."
         }))
-    terminal_nodes = forms.CharField(widget=forms.TextInput(attrs={
+    terminal_nodes = forms.CharField(required=False, widget=forms.TextInput(attrs={
             'class': 'form-control input-sm',
             'rows': 2,
             'placeholder': "Enter comma-separated node identifiers. E.g."
                            " ``0s,1o``."
         }))
     
+    # Alternative input fields - these won't be saved to the model
+    relation_node_1 = forms.CharField(required=False, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm relation-node-input',
+            'placeholder': 'First relation node ID'
+        }))
+    relation_node_2 = forms.CharField(required=False, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm relation-node-input',
+            'placeholder': 'Second relation node ID'
+        }))
+    concept_behavior = forms.CharField(required=False, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm relation-node-input',
+            'placeholder': 'How does the concept behave? (e.g. teaches, influences)'
+        }))
+    predicate_concept = forms.CharField(required=False, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm relation-node-input',
+            'placeholder': 'Enter concept URI'
+        }))
+
+    class Meta:
+        model = RelationTemplate
+        fields = ['name', 'description', 'expression', 'terminal_nodes']
+
+    def clean(self):
+        cleaned_data = super().clean()
+        node1 = cleaned_data.pop('relation_node_1', None)
+        node2 = cleaned_data.pop('relation_node_2', None)
+        behavior = cleaned_data.pop('concept_behavior', None)
+        predicate_uri = cleaned_data.pop('predicate_concept', None)
+        
+        # Check if using alternative input method
+        if any([node1, node2, behavior, predicate_uri]):
+            # Validate all fields are present for alternative method
+            if not all([node1, node2, behavior, predicate_uri]):
+                raise forms.ValidationError("All fields are required when using relation nodes input")
+            
+            # Create expression and terminal_nodes from alternative input
+            cleaned_data['expression'] = f"{{{node1}}} {behavior}:{predicate_uri} {{{node2}}}"
+            cleaned_data['terminal_nodes'] = f"{node1},{node2}"
+            
+            # Validate that relation nodes match terminal nodes
+            terminal_nodes = cleaned_data['terminal_nodes'].split(',')
+            if sorted([node1, node2]) != sorted(terminal_nodes):
+                raise forms.ValidationError("Relation node IDs must match the terminal nodes identifiers")
+        else:
+            # Using direct expression input - validate required fields
+            if not cleaned_data.get('expression'):
+                raise forms.ValidationError("Please either enter an expression or use the relation nodes input method")
+            if not cleaned_data.get('terminal_nodes'):
+                raise forms.ValidationError("Terminal nodes are required when using direct expression input")
+            
+        return cleaned_data
+
     def clean_expression(self):
         from string import Formatter
         value = self.cleaned_data.get('expression')
+        if not value:  # Allow empty expression if using alternative input
+            return value
         try:
             [k[1] for k in Formatter().parse(value)]
         except Exception as E:
@@ -264,20 +319,17 @@ class RelationTemplateForm(forms.ModelForm):
 
     def clean_terminal_nodes(self):
         value = self.cleaned_data.get('terminal_nodes')
+        if not value:  # Allow empty terminal_nodes if using alternative input
+            return value
         try:
             for u, v in map(tuple, value.split(',')):
                 pass
         except Exception as E:
             raise ValidationError('Invalid terminal nodes')
         return value
-    
-    class Meta:
-        model = RelationTemplate
-        exclude = ['createdBy']
 
     def __init__(self, *args, **kwargs):
         super(RelationTemplateForm, self).__init__(*args, **kwargs)
-        # Set the initial value of 'terminal_nodes' field from the instance's current value for editing form
         if self.instance and hasattr(self.instance, 'terminal_nodes'):
             self.fields['terminal_nodes'].initial = self.instance.terminal_nodes
 

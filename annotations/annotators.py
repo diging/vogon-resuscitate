@@ -1,4 +1,4 @@
-"""
+r"""
 This module provides annotation functionality using a rough approximation of a
 factory pattern.
 
@@ -50,15 +50,9 @@ by :mod:`annotations.views.relationtemplate_views` should be used to generate
 
 """
 
-
-import requests
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import render
 from django.http import Http404
-from annotations.tasks import tokenize
-from annotations.utils import basepath
-from annotations.models import TextCollection, VogonUserDefaultProject, Text
-from urllib.parse import urlparse
-import chardet
+from annotations.models import TextCollection
 
 
 class Annotator(object):
@@ -112,7 +106,7 @@ class Annotator(object):
 
 
     def render(self, context={}):
-        """
+        r"""
         Render this annotator's template to a response.
 
         Parameters
@@ -130,7 +124,7 @@ class Annotator(object):
         return render(self.context.get('request'), self.template, context)
 
     def render_display(self, context={}):
-        """
+        r"""
         Render this annotator's display template to a response.
 
         If :prop:`.display_template` is not set, will raise
