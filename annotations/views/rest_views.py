@@ -214,6 +214,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
+        user_id = data.get('createdBy')
         position = data.get('position')
         pos = data.get('pos')
         label = data.get('label')
@@ -249,6 +250,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                         description=concept_data.get('description'),
                         typed=type_instance,
                         authority=concept_data.get('authority', {}),
+                        createdBy=VogonUser.objects.get(id=user_id)
                     ).instance
 
                 data['interpretation'] = concept.id
@@ -261,6 +263,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                     description=concept_data.get('description'),
                     typed=type_instance,
                     authority=concept_data.get('authority', {}),
+                    createdBy=VogonUser.objects.get(id=user_id)
                 ).instance
 
                 # Set the interpretation to the concept ID
@@ -643,10 +646,12 @@ class ConceptViewSet(viewsets.ModelViewSet):
                         
                 return Response({'results': results})
             else:
-                return Response({'results': []})
+                error_msg = 'ConceptPower service is currently unavailable. Please try again later.'
+                return Response({'error': error_msg}, status=response.status_code)
         except Exception as e:
-            logger.error(f'Error searching VIAF: {str(e)}')
-            return Response({'results': []})
+            logger.error(f'Error searching concepts: {str(e)}')
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
     def get_queryset(self, *args, **kwargs):
         """
