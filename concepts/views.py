@@ -213,9 +213,6 @@ def sandbox(request, text_id):
 
 @login_required
 def add_comment_reply(request, comment_id):
-    """
-    Add a reply to an existing comment
-    """
     parent_comment = get_object_or_404(Comment, pk=comment_id)
     if request.method == "POST":
         reply_text = request.POST.get("reply_text", "").strip()
