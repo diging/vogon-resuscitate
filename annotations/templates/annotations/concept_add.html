@@ -188,13 +188,7 @@ $(document).ready(function() {
     
     searchInput.on('input', function() {
         var query = $(this).val();
-        if (query.length < 3) {
-            resultsContainer.empty();
-            statusIcon.removeClass('glyphicon-ok glyphicon-remove').addClass('glyphicon-search');
-            return;
-        }
-        
-        statusIcon.removeClass('glyphicon-search glyphicon-ok glyphicon-remove').addClass('glyphicon-hourglass');
+        statusIcon.removeClass('glyphicon-search glyphicon-ok').addClass('glyphicon-hourglass');
         
         $.ajax({
             url: BASE_URL + '/rest/concept/search',
@@ -239,12 +233,12 @@ $(document).ready(function() {
                     });
                     statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-search');
                 } else {
-                    statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-remove');
+                    statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-search');
                     resultsContainer.append($('<div class="list-group-item">No results found</div>'));
                 }
             },
             error: function(xhr, status, error) {
-                statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-remove');
+                statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-search');
                 resultsContainer.empty().append($('<div class="list-group-item alert alert-danger">Error searching concepts: ' + error + '</div>'));
             }
         });
