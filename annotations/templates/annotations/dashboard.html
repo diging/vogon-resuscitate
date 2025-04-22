@@ -17,6 +17,21 @@
 <div class="container-fluid">
     <div class="h2">Welcome back, {{ user.username }}</div>
 
+    {% if flagged_concepts %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="panel">
+                <div class="panel-heading clearfix" style="background-color: #fff3cd; padding: 10px; border-radius: 5px;">
+                    <span class="h4" style="color: #856404;">
+                        <i class="fa fa-exclamation-triangle text-warning"></i> There are flagged concepts that require resolution.
+                    </span>
+                    <a href="{% url 'concepts' %}?concept_state=Flagged" class="btn btn-sm btn-warning" style="margin-left: 10px;">Resolve Concepts</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %} 
+
     <div class="row" style="margin-bottom: 20px;">
         <div class="col-md-12">
             <div class="panel panel-default">
