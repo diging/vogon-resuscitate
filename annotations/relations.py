@@ -247,17 +247,16 @@ def create_template(template_data, part_data):
     dependencies = dict(build_dependency_graph(template_data, part_data).edges())
     part_ids = {}    # Internal IDs to PK ids for RelationTemplatePart.
     
-    # Filter out UI-only fields that don't exist in the model
-    # These fields are used only in the frontend for template configuration
-    # but don't correspond to actual database fields in the RelationTemplate model.
-    # Removing them prevents errors when saving to the database and keeps the data clean.
-    ui_fields = [
+    # Filter out structured mapping fields that don't exist directly in the RelationTemplate model
+    # These fields are used for the DefaultMapping model that's linked via the structured_mapping field
+    # but aren't direct fields of the RelationTemplate model itself.
+    structured_mapping_fields = [
         'use_relation_nodes', 
         'first_node_type', 'first_node_value',
         'second_node_type', 'second_node_value',
         'third_node_type', 'third_node_value'
     ]
-    template_data = {k: v for k, v in template_data.items() if k not in ui_fields}
+    template_data = {k: v for k, v in template_data.items() if k not in structured_mapping_fields}
 
     creation_data = list(map(parse_template_part_data, part_data))
 
@@ -518,14 +517,16 @@ def create_relationset(template, raw_data, creator, text, project_id=None):
 
 def update_template(template, template_data, part_data_list):
     with transaction.atomic():
-        # Filter out UI-only fields that don't exist in the model
-        ui_fields = [
+        # Filter out structured mapping fields that don't exist directly in the RelationTemplate model
+        # These fields are used for the DefaultMapping model that's linked via the structured_mapping field
+        # but aren't direct fields of the RelationTemplate model itself.
+        structured_mapping_fields = [
             'use_relation_nodes', 
             'first_node_type', 'first_node_value',
             'second_node_type', 'second_node_value',
             'third_node_type', 'third_node_value'
         ]
-        template_data = {k: v for k, v in template_data.items() if k not in ui_fields}
+        template_data = {k: v for k, v in template_data.items() if k not in structured_mapping_fields}
         
         # Update the template fields
         for field, value in template_data.items():
