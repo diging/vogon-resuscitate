@@ -358,7 +358,6 @@ TextDisplay = {
                                 
                                 // Clear editing state
                                 localStorage.removeItem('editingAppellation');
-                                self.isEditing = false;
                                 EventBus.$emit('cancelEdit');
 
                                 // Update text selection
