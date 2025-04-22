@@ -26,6 +26,9 @@ from concepts.lifecycle import *
 from external_accounts.models import CitesphereAccount
 from annotations.quadriga import submit_to_quadriga, generate_graph_data
 
+# Import viapy API for VIAF integration
+from viapy.api import ViafAPI
+
 import uuid
 
 import requests
@@ -624,33 +627,31 @@ class ConceptViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f'Error searching ConceptPower: {str(e)}')
         
-        # VIAF search
-        viaf_url = "https://viaf.org/viaf/AutoSuggest"
-        viaf_params = {
-            'query': q
-        }
+        # VIAF search using viapy
+        viaf_api = ViafAPI()
         
         try:
-            viaf_response = requests.get(viaf_url, headers=headers, params=viaf_params)
-            print(f"VIAF Response Details:\n"
-                  f"Status Code: {viaf_response.status_code}\n"
-                  f"Headers: {viaf_response.headers}\n"
-                  f"Content: {viaf_response.content}\n"
-                  f"Text: {viaf_response.text}\n"
-                  f"URL: {viaf_response.url}\n"
-                  f"Encoding: {viaf_response.encoding}\n"
-                  f"Elapsed Time: {viaf_response.elapsed}")  # DEBUG
+            # Get suggestions from VIAF API
+            viaf_results = viaf_api.suggest(q)
             
-            if viaf_response.status_code == 200:
-                data = viaf_response.json()
-                if isinstance(data, dict):
-                    for entry in data.get('result', []):
-                        try:
-                            viaf_result = parse_viaf_result(entry)
-                            results.append(viaf_result)
-                        except Exception as e:
-                            logger.warning(f'Error parsing VIAF entry: {str(e)}')
-                            continue
+            if viaf_results:
+                for entry in viaf_results:
+                    try:
+                        # Convert to the format expected by the UI
+                        viaf_result = {
+                            'uri': viaf_api.uri_from_id(entry['viafid']),
+                            'label': entry['displayForm'],
+                            'description': f"Type: {entry['nametype']}",
+                            'type': 'viaf',
+                            'authority': {
+                                'name': 'VIAF',
+                                'uri': viaf_api.uri_from_id(entry['viafid'])
+                            }
+                        }
+                        results.append(viaf_result)
+                    except Exception as e:
+                        logger.warning(f'Error parsing VIAF entry: {str(e)}')
+                        continue
         except Exception as e:
             logger.error(f'Error searching VIAF: {str(e)}')
 
@@ -662,45 +663,44 @@ class ConceptViewSet(viewsets.ModelViewSet):
     def viaf_search(self, request, **kwargs):
         """
         Search VIAF (Virtual International Authority File) for entities.
-        Uses the VIAF AutoSuggest API to find matching authority clusters.
+        Uses the viapy library to interact with the VIAF API.
         """
         q = request.GET.get('search', None)
         if not q:
             return Response({'results': []})
             
-        # VIAF API endpoint
-        url = "https://viaf.org/viaf/AutoSuggest"
-        parameters = {
-            'query': q
-        }
-        headers = {
-            'Accept': 'application/json',
-        }
+        # Use viapy's ViafAPI to search VIAF
+        viaf_api = ViafAPI()
         
         try:
-            response = requests.get(url, headers=headers, params=parameters)
+            # Get suggestions from VIAF API
+            suggestions = viaf_api.suggest(q)
             
-            if response.status_code == 200:
-                data = response.json()
-                if not isinstance(data, dict):
-                    logger.error(f'Invalid VIAF response format: {data}')
-                    return Response({'results': []})
+            if not suggestions:
+                return Response({'results': []})
                 
-                results = []
-                for entry in data.get('result', []):
-                    try:
-                        viaf_result = parse_viaf_result(entry)
-                        results.append(viaf_result)
-                    except Exception as e:
-                        logger.warning(f'Error parsing VIAF entry: {str(e)}')
-                        continue
+            results = []
+            for entry in suggestions:
+                try:
+                    # Convert to the format expected by the UI
+                    viaf_result = {
+                        'uri': viaf_api.uri_from_id(entry['viafid']),
+                        'label': entry['displayForm'],
+                        'description': f"Type: {entry['nametype']}",
+                        'type': 'viaf',
+                        'authority': {
+                            'name': 'VIAF',
+                            'uri': viaf_api.uri_from_id(entry['viafid'])
+                        }
+                    }
+                    results.append(viaf_result)
+                except Exception as e:
+                    logger.warning(f'Error parsing VIAF entry: {str(e)}')
+                    continue
                         
-                return Response({'results': results})
-            else:
-                error_msg = 'ConceptPower service is currently unavailable. Please try again later.'
-                return Response({'error': error_msg}, status=response.status_code)
+            return Response({'results': results})
         except Exception as e:
-            logger.error(f'Error searching concepts: {str(e)}')
+            logger.error(f'Error searching VIAF: {str(e)}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -806,9 +806,13 @@ def parse_concept(concept_entry):
 def parse_viaf_result(entry):
     """
     Parse a VIAF result entry and return a format compatible with the UI.
+    Uses viapy's ViafAPI to create proper URIs.
     """
+    # Create a viapy ViafAPI instance to use its helper methods
+    viaf_api = ViafAPI()
+    
     viaf_id = entry.get('viafid', '')
-    name = entry.get('term', '')
+    name = entry.get('displayForm', entry.get('term', ''))
     
     # Create description from available metadata
     description_parts = []
@@ -825,16 +829,18 @@ def parse_viaf_result(entry):
     
     description = "; ".join(description_parts)
     
+    # Use viapy to generate the proper URI
+    uri = viaf_api.uri_from_id(viaf_id)
+    
     result = {
-        'uri': f"http://viaf.org/viaf/{viaf_id}",
+        'uri': uri,
         'label': name,
         'description': description,
         'type': 'viaf',
         'authority': {
             'name': 'VIAF',
-            'uri': f"http://viaf.org/viaf/{viaf_id}"
+            'uri': uri
         }
     }    
 
-    print(result)
     return result
