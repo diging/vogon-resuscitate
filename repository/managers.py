@@ -129,6 +129,12 @@ class RepositoryManager:
         """Fetch all collections within a specific group."""
         return self.api.get_group_collections(group_id)
 
+    def get_subcollections(self, group_id, collection_id):
+        """
+        Fetch sub-collections of a given collection in a group.
+        """
+        return self.api.get_group_subcollections(group_id, collection_id).get('collections', [])
+
     def collection_items(self, group_id, collection_id, page=1):
         """
         Fetch items from a specific collection in a group for a specific page.

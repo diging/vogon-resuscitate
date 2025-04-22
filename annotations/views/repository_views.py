@@ -321,7 +321,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
 
     subcollections = []
     try:
-        subcollections = manager.api.get_group_subcollections(group_id, group_collection_id).get('collections', [])
+        subcollections = manager.get_subcollections(group_id, group_collection_id)
         # Sort subcollections alphabetically
         subcollections = sorted(
             subcollections, 
@@ -338,7 +338,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     if not collection_name:
         parent_collection_key = request.GET.get('parent_collection_key')
         if parent_collection_key:
-            parent_data = manager.api.get_group_subcollections(group_id, parent_collection_key).get('collections', [])
+            parent_data = manager.get_subcollections(group_id, parent_collection_key)
             for collection_item in parent_data:
                 if collection_item['key'] == group_collection_id:
                     collection_name = collection_item['name']
