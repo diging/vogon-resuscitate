@@ -4,7 +4,7 @@
 {% load addcss %}
 
 {% block breadcrumbs %}
-<a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "concepts" %}" class="btn btn-xs">Concepts</a>&raquo;<a href="{% url "concept" concept.id %}" class="btn btn-xs">{{ concept.label }}</a>&raquo;<a href="" class="btn btn-xs">Add</a>
+<a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "concepts" %}" class="btn btn-xs">Concepts</a>&raquo;<a href="{% url "concept" concept.instance.id %}" class="btn btn-xs">{{ concept.instance.label }}</a>&raquo;<a href="" class="btn btn-xs">Add</a>
 {% endblock %}
 
 
@@ -13,6 +13,7 @@
     <div class="row" style="display: flex; align-items: flex-start;">
         <div class="col-md-12">
             <div class="row" style="display: flex; align-items: flex-start;">
+                {% if not concept.is_external %}
                 <div class="col-md-6" id="search-panel" style="transition: all 0.3s ease;">
                     <div class="panel panel-default">
                         <div class="panel-heading">
@@ -42,8 +43,13 @@
                         <span class="glyphicon glyphicon-chevron-left"></span>
                     </a>
                 </div>
+                {% endif %}
 
+                {% if not concept.is_external %}
                 <div class="col-md-6" id="details-panel" style="transition: all 0.3s ease;">
+                {% else %}
+                <div class="col-md-12" id="details-panel">
+                {% endif %}
                     <div class="panel panel-default">
                         <div class="panel-body">
                             <div class="h3">Are you sure?</div>
@@ -53,13 +59,13 @@
                                 nasty things in the future.
                                 <dl class="dl-horizontal">
                                     <dt>Label</dt>
-                                    <dd>{{ concept.label }}</dd>
+                                    <dd>{{ concept.instance.label }}</dd>
                                     <dt>URI</dt>
-                                    <dd>{{ concept.uri }}</dd>
+                                    <dd>{{ concept.instance.uri }}</dd>
                                     <dt>Type</dt>
-                                    <dd>{{ concept.typed }}</dd>
+                                    <dd>{{ concept.instance.typed }}</dd>
                                     <dt>Description</dt>
-                                    <dd>{{ concept.description }}</dd>
+                                    <dd>{{ concept.instance.description }}</dd>
                                 </dl>
                             </p>
 
@@ -79,7 +85,7 @@
                                 {% for candidate in matches %}
                                 <li class="list-group-item clearfix">
                                     <div class="pull-right btn-group">
-                                        <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
+                                        <a class="btn btn-success" href="{% url "merge_concepts" concept.instance.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
                                     </div>
                                     <div><strong>{{ candidate.label }}</strong> </div>
                                     <div class="text-warning">
@@ -100,7 +106,7 @@
                                 {% for candidate in candidates %}
                                 <li class="list-group-item clearfix">
                                     <div class="pull-right btn-group">
-                                        <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
+                                        <a class="btn btn-success" href="{% url "merge_concepts" concept.instance.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
                                     </div>
                                     <div><strong>{{ candidate.label }}</strong> </div>
                                     <div class="text-warning">
@@ -124,14 +130,14 @@
                                         {% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}
                                     </button>
                                 </form>
-                                {% if concept.concept_state != concept.FLAGGED %}
+                                {% if concept.instance.concept_state != concept.instance.FLAGGED %}
                                 <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#flagModal">
                                     Flag concept
                                 </button>
                                 <div class="modal fade" id="flagModal" tabindex="-1" role="dialog" aria-labelledby="flagModalLabel" aria-hidden="true">
                                     <div class="modal-dialog" role="document">
                                         <div class="modal-content">
-                                            <form action="{% url 'flag_concept' concept.id %}" method="post">
+                                            <form action="{% url 'flag_concept' concept.instance.id %}" method="post">
                                             {% csrf_token %}
                                             <div class="modal-header">
                                                 <h5 class="modal-title" id="flagModalLabel">Flag Concept
@@ -202,7 +208,7 @@ $(document).ready(function() {
                         var mergeButton = $('<div class="pull-right btn-group"></div>');
                         var mergeLink = $('<a class="btn btn-success"></a>')
                             .text('Merge')
-                            .attr('href', '{% url "merge_concepts" concept.id %}?target=' + concept.uri + '&next={{ next_page }}');
+                            .attr('href', '{% url "merge_concepts" concept.instance.id %}?target=' + concept.uri + '&next={{ next_page }}');
                         mergeButton.append(mergeLink);
                         item.append(mergeButton);
                         
