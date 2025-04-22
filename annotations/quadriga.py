@@ -1,18 +1,26 @@
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 from django.utils import timezone
+import logging
+import json
+import urllib.request
+import lxml.etree as ET
+import requests
 
-from annotations.models import Relation, Appellation, DateAppellation, DocumentPosition, RelationTemplate, RelationTemplatePart
+from annotations.models import (
+    Relation, Appellation, DateAppellation, DocumentPosition, 
+    RelationTemplate, RelationTemplatePart, DefaultMapping
+)
 from external_accounts.models import CitesphereAccount
 
 import xml.etree.ElementTree as ET
 import datetime
-import requests
 import re
-import json
 
 from rest_framework.response import Response
 from rest_framework import status
+
+logger = logging.getLogger(__name__)
 
 def _created_element(element, annotation):
     ET.SubElement(element, 'id')
@@ -465,80 +473,46 @@ def generate_graph_data(relationset, user):
         else:
             obj_key = f"app-{object_node.id}-{object_node.created.isoformat()}"
     
-    if relationset.template and relationset.template.structured_mapping:
-        try:
-            # Get the structured mapping from the DefaultMapping model
-            structured_mapping = relationset.template.structured_mapping
-            
-            # Build the defaultMapping structure
-            default_mapping = {}
-            
-            # Map source to subject based on structured_mapping.subject_type
-            if structured_mapping.subject_type == 'Node':
-                default_mapping['subject'] = {
-                    'type': 'REF',
-                    'reference': node_mapping.get(subj_key, "0")
-                }
-            else:  # URI
-                default_mapping['subject'] = {
-                    'type': 'URI',
-                    'uri': structured_mapping.subject_value
-                }
-            
-            # Map predicate based on structured_mapping.predicate_type
-            if structured_mapping.predicate_type == 'Node':
-                default_mapping['predicate'] = {
-                    'type': 'REF',
-                    'reference': node_mapping.get(f"app-{predicate_node.id}-{predicate_node.created.isoformat()}", "0")
-                }
-            else:  # URI
-                default_mapping['predicate'] = {
-                    'type': 'URI',
-                    'uri': structured_mapping.predicate_value
-                }
-            
-            # Map object based on structured_mapping.object_type
-            if structured_mapping.object_type == 'Node':
-                default_mapping['object'] = {
-                    'type': 'REF',
-                    'reference': node_mapping.get(obj_key, "0")
-                }
-            else:  # URI
-                default_mapping['object'] = {
-                    'type': 'URI',
-                    'uri': structured_mapping.object_value
-                }
-        except (AttributeError, KeyError) as e:
-            # Fallback to standard mapping if structured mapping can't be processed
-            default_mapping = {
-                "subject": {
-                    "type": "REF",
-                    "reference": node_mapping.get(subj_key, "0"),
-                },
-                "predicate": {
-                    "type": "URI",
-                    "uri": predicate_node.interpretation.master.uri,
-                },
-                "object": {
-                    "type": "REF",
-                    "reference": node_mapping.get(obj_key, "0"),
-                }
-            }
-    else:
-        # If no structured mapping available, we use the standard approach
-        default_mapping = {
-            "subject": {
-                "type": "REF",
-                "reference": node_mapping.get(subj_key, "0"),
-            },
-            "predicate": {
-                "type": "URI",
-                "uri": predicate_node.interpretation.master.uri,
-            },
-            "object": {
-                "type": "REF",
-                "reference": node_mapping.get(obj_key, "0"),
-            }
+    # Get the structured mapping (guaranteed to be present now)
+    structured_mapping = relationset.template.structured_mapping
+    
+    # Build the defaultMapping structure using the structured_mapping
+    default_mapping = {}
+    
+    # Map source to subject based on structured_mapping.subject_type
+    if structured_mapping.subject_type == DefaultMapping.NODE:
+        default_mapping['subject'] = {
+            'type': 'REF',
+            'reference': node_mapping.get(subj_key, "0")
+        }
+    else:  # URI
+        default_mapping['subject'] = {
+            'type': 'URI',
+            'uri': structured_mapping.subject_value
+        }
+    
+    # Map predicate based on structured_mapping.predicate_type
+    if structured_mapping.predicate_type == DefaultMapping.NODE:
+        default_mapping['predicate'] = {
+            'type': 'REF',
+            'reference': node_mapping.get(f"app-{predicate_node.id}-{predicate_node.created.isoformat()}", "0")
+        }
+    else:  # URI
+        default_mapping['predicate'] = {
+            'type': 'URI',
+            'uri': structured_mapping.predicate_value
+        }
+    
+    # Map object based on structured_mapping.object_type
+    if structured_mapping.object_type == DefaultMapping.NODE:
+        default_mapping['object'] = {
+            'type': 'REF',
+            'reference': node_mapping.get(obj_key, "0")
+        }
+    else:  # URI
+        default_mapping['object'] = {
+            'type': 'URI',
+            'uri': structured_mapping.object_value
         }
     
     # Finally return the complete graph data structure
