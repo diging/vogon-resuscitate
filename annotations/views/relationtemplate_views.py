@@ -8,22 +8,23 @@ from django.contrib import messages
 from django.urls import reverse
 from django.db.models import Q
 from django.db import transaction, DatabaseError
-from django.forms import formset_factory
+from django.forms.formsets import formset_factory
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
+import logging
 
 from annotations.forms import (RelationTemplatePartFormSet,
-                               RelationTemplatePartForm, RelationTemplateForm)
-from annotations.models import *
+                             RelationTemplateForm,
+                             RelationTemplatePartForm,)
+from annotations.models import (RelationTemplate, RelationTemplatePart, 
+                              Appellation, DefaultMapping, TextCollection, Text)
 from annotations import relations
 from annotations.decorators import vogon_admin_or_staff_required
 import copy
 import json
-import logging
 import networkx as nx
 
 logger = logging.getLogger(__name__)
-logger.setLevel('ERROR')
 
 @vogon_admin_or_staff_required
 def add_relationtemplate(request):
@@ -47,7 +48,6 @@ def add_relationtemplate(request):
     context = {}
 
     if request.POST:
-        logger.debug('add_relationtemplate: post request')
         # Instatiate both form(set)s with data.
         relationtemplatepart_formset = formset(request.POST, prefix='parts')
         relationtemplate_form = form_class(request.POST)
@@ -57,19 +57,9 @@ def add_relationtemplate(request):
         formset_is_valid = relationtemplatepart_formset.is_valid()
         form_is_valid = relationtemplate_form.is_valid()
 
-        # Debug the form validation
-        if not form_is_valid:
-            logger.error(f"Form validation errors: {relationtemplate_form.errors}")
-        
-        if not formset_is_valid:
-            logger.error(f"Formset validation errors: {relationtemplatepart_formset.errors}")
-
         if formset_is_valid and form_is_valid:
             relationtemplate_data = dict(relationtemplate_form.cleaned_data)
             relationtemplate_data['createdBy'] = request.user
-            
-            # Debug output to check form data
-            logger.error(f"Form data: {relationtemplate_form.cleaned_data}")
             
             # Get the structured template for saving
             template = relationtemplate_form.save(commit=False)
@@ -397,16 +387,6 @@ def edit_relationtemplate(request, template_id):
 
         if formset_is_valid and form_is_valid:
             relationtemplate_data = relationtemplate_form.cleaned_data
-            
-            
-            ui_fields = [
-                'use_relation_nodes',
-                'first_node_type', 'first_node_value',
-                'second_node_type', 'second_node_value',
-                'third_node_type', 'third_node_value'
-            ]
-            relationtemplate_data = {k: v for k, v in relationtemplate_data.items() 
-                                     if k not in ui_fields}
             
             part_data = [form.cleaned_data for form in relationtemplatepart_formset]
 

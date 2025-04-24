@@ -6,11 +6,12 @@ from django.db import transaction
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 
-from annotations.models import *
+from annotations.models import RelationTemplate, RelationTemplatePart, RelationSet, Relation, Appellation, DateAppellation, DocumentPosition, DefaultMapping
 from concepts.models import Concept
 
 import networkx as nx
 from string import Formatter
+import logging
 
 
 PRED_MAP = {    # Used in expression and terminal node templates.
@@ -18,6 +19,8 @@ PRED_MAP = {    # Used in expression and terminal node templates.
     'p': 'predicate',
     'o': 'object_content_object'
 }
+
+logger = logging.getLogger(__name__)
 
 
 class InvalidTemplate(RuntimeError):
@@ -247,21 +250,71 @@ def create_template(template_data, part_data):
     dependencies = dict(build_dependency_graph(template_data, part_data).edges())
     part_ids = {}    # Internal IDs to PK ids for RelationTemplatePart.
     
-    # Filter out structured mapping fields that don't exist directly in the RelationTemplate model
-    # These fields are used for the DefaultMapping model that's linked via the structured_mapping field
-    # but aren't direct fields of the RelationTemplate model itself.
+    # Extract structured mapping fields before filtering them out
+    # These fields represent the three components of a relation mapping:
+    # - first_node_* represents the subject
+    # - second_node_* represents the predicate
+    # - third_node_* represents the object
+    # Each component can be either a Node (reference to another node) or URI (direct URI reference)
     structured_mapping_fields = [
         'use_relation_nodes', 
         'first_node_type', 'first_node_value',
         'second_node_type', 'second_node_value',
         'third_node_type', 'third_node_value'
     ]
-    template_data = {k: v for k, v in template_data.items() if k not in structured_mapping_fields}
+    
+    # Extract the structured mapping values
+    first_node_type = template_data.get('first_node_type')
+    first_node_value = template_data.get('first_node_value')
+    second_node_type = template_data.get('second_node_type')
+    second_node_value = template_data.get('second_node_value')
+    third_node_type = template_data.get('third_node_type')
+    third_node_value = template_data.get('third_node_value')
+    
+    # Filter out structured mapping fields from template_data
+    # Since these are handled separately through the DefaultMapping model
+    template_data_filtered = {k: v for k, v in template_data.items() if k not in structured_mapping_fields}
 
     creation_data = list(map(parse_template_part_data, part_data))
 
     with transaction.atomic():
-        template = RelationTemplate.objects.create(**template_data)
+        # Create the template
+        template = RelationTemplate.objects.create(**template_data_filtered)
+        
+        # Create DefaultMapping if we have valid data
+        # The DefaultMapping stores the structured representation of the relation
+        # with three components: subject, predicate, and object
+        if (first_node_type and first_node_value and 
+            second_node_type and second_node_value and 
+            third_node_type and third_node_value):
+            # Create new mapping
+            mapping = DefaultMapping.objects.create(
+                subject_type=str(first_node_type),
+                subject_value=first_node_value,
+                predicate_type=str(second_node_type),
+                predicate_value=second_node_value,
+                object_type=str(third_node_type),
+                object_value=third_node_value
+            )
+            template.structured_mapping = mapping
+            template.save()
+            
+            # Update terminal nodes based on node values
+            # Terminal nodes are only created for Node types (not URIs)
+            terminal_nodes = []
+            
+            # Add nodes to terminal_nodes based on type
+            if str(first_node_type) == str(DefaultMapping.NODE):
+                terminal_nodes.append(first_node_value)
+            if str(second_node_type) == str(DefaultMapping.NODE):
+                terminal_nodes.append(second_node_value)
+            if str(third_node_type) == str(DefaultMapping.NODE):
+                terminal_nodes.append(third_node_value)
+            
+            if terminal_nodes:
+                template.terminal_nodes = ','.join(terminal_nodes)
+                template.save()
+        
         for datum in creation_data:
             datum['part_of_id'] = template.id
 
@@ -517,21 +570,63 @@ def create_relationset(template, raw_data, creator, text, project_id=None):
 
 def update_template(template, template_data, part_data_list):
     with transaction.atomic():
-        # Filter out structured mapping fields that don't exist directly in the RelationTemplate model
-        # These fields are used for the DefaultMapping model that's linked via the structured_mapping field
-        # but aren't direct fields of the RelationTemplate model itself.
+        # Extract structured mapping fields before filtering them out
         structured_mapping_fields = [
             'use_relation_nodes', 
             'first_node_type', 'first_node_value',
             'second_node_type', 'second_node_value',
             'third_node_type', 'third_node_value'
         ]
+        
+        # Extract the structured mapping values
+        first_node_type = template_data.get('first_node_type')
+        first_node_value = template_data.get('first_node_value')
+        second_node_type = template_data.get('second_node_type')
+        second_node_value = template_data.get('second_node_value')
+        third_node_type = template_data.get('third_node_type')
+        third_node_value = template_data.get('third_node_value')
+        
+        # Filter out structured mapping fields from template_data
+        # Since these are handled separately through the DefaultMapping model
         template_data = {k: v for k, v in template_data.items() if k not in structured_mapping_fields}
         
-        # Update the template fields
+        # Update the template fields first
         for field, value in template_data.items():
             setattr(template, field, value)
         template.save()
+        
+        # Update or create the DefaultMapping
+        # The DefaultMapping stores the structured representation of the relation
+        # with three components: subject, predicate, and object
+        if template.structured_mapping:
+            # Update existing mapping
+            mapping = template.structured_mapping
+            
+            # Only update if values are provided
+            if first_node_type and first_node_value:
+                mapping.subject_type = str(first_node_type)
+                mapping.subject_value = first_node_value
+            if second_node_type and second_node_value:
+                mapping.predicate_type = str(second_node_type)
+                mapping.predicate_value = second_node_value
+            if third_node_type and third_node_value:
+                mapping.object_type = str(third_node_type)
+                mapping.object_value = third_node_value
+            mapping.save()
+        elif (first_node_type and first_node_value and 
+              second_node_type and second_node_value and 
+              third_node_type and third_node_value):
+            # Create new mapping if none exists
+            mapping = DefaultMapping.objects.create(
+                subject_type=str(first_node_type),
+                subject_value=first_node_value,
+                predicate_type=str(second_node_type),
+                predicate_value=second_node_value,
+                object_type=str(third_node_type),
+                object_value=third_node_value
+            )
+            template.structured_mapping = mapping
+            template.save()  # Make sure to save the template with the new mapping relationship
 
         # Get the list of valid field names from the RelationTemplatePart model
         field_names = [field.name for field in RelationTemplatePart._meta.get_fields()]
@@ -579,5 +674,20 @@ def update_template(template, template_data, part_data_list):
                 part.object_relationtemplate = None
 
             part.save()
+        
+        # Update terminal nodes based on node values if needed
+        terminal_nodes = []
+        
+        # Compare against the actual enum values
+        if str(first_node_type) == str(DefaultMapping.NODE):
+            terminal_nodes.append(first_node_value)
+        if str(second_node_type) == str(DefaultMapping.NODE):
+            terminal_nodes.append(second_node_value)
+        if str(third_node_type) == str(DefaultMapping.NODE):
+            terminal_nodes.append(third_node_value)
+        
+        if terminal_nodes:
+            template.terminal_nodes = ','.join(terminal_nodes)
+            template.save()
 
     return template
