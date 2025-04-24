@@ -241,6 +241,78 @@ $(document).ready(function() {
     $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').prop('disabled', false);
     $('#expression_field_container textarea').prop('disabled', false);
     
+    // Disable the terminal_nodes field since it's handled by the syncTerminalNodes function
+    $('#id_terminal_nodes').prop('disabled', true).css('background-color', '#f0f0f0');
+    
+    // Add a help note
+    if ($('#id_terminal_nodes').parent().find('.terminal-nodes-note').length === 0) {
+        $('#id_terminal_nodes').after('<small class="form-text text-muted terminal-nodes-note">Terminal nodes are automatically generated from Node values and expression references.</small>');
+    }
+    
+    // Initialize terminal nodes on page load
+    syncTerminalNodes();
+    
+    // Add event listeners to keep terminal nodes in sync
+    $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').on('change', syncTerminalNodes);
+    $('#expression_field_container textarea').on('input', syncTerminalNodes);
+    
+    // Function to synchronize terminal nodes with both expression and relation nodes
+    function syncTerminalNodes() {
+        try {
+            // Get the values from inputs
+            var firstType = $('#first_node_type').val();
+            var firstValue = $('#first_node_value').val();
+            
+            var secondType = $('#second_node_type').val();
+            var secondValue = $('#second_node_value').val();
+            
+            var thirdType = $('#third_node_type').val();
+            var thirdValue = $('#third_node_value').val();
+            
+            // Extract nodes from expression
+            var expression = $('#expression_field_container textarea').val();
+            var expressionNodes = [];
+            
+            // Match patterns like {0s}, {1p}, {2o}, etc.
+            var nodePattern = /\{([^\}]+)\}/g;
+            var match;
+            while ((match = nodePattern.exec(expression)) !== null) {
+                expressionNodes.push(match[1]);
+            }
+            
+            // Build terminal nodes from Node type fields
+            var terminalNodes = [];
+            if (firstType === 'Node' && firstValue) {
+                terminalNodes.push(firstValue);
+            }
+            if (secondType === 'Node' && secondValue) {
+                terminalNodes.push(secondValue);
+            }
+            if (thirdType === 'Node' && thirdValue) {
+                terminalNodes.push(thirdValue);
+            }
+            
+            // Combine with expression nodes
+            expressionNodes.forEach(function(node) {
+                if (terminalNodes.indexOf(node) === -1) {
+                    terminalNodes.push(node);
+                }
+            });
+            
+            // Only update if we have values to set and they're different from current value
+            if (terminalNodes.length > 0) {
+                var currentValue = $('#id_terminal_nodes').val();
+                var newValue = terminalNodes.join(',');
+                
+                if (currentValue !== newValue) {
+                    $('#id_terminal_nodes').val(newValue);
+                }
+            }
+        } catch (error) {
+            console.error('Error in syncTerminalNodes:', error);
+        }
+    }
+    
     // Add form submission handler to validate all fields
     $('form').on('submit', function(e) {
         try {
@@ -273,6 +345,9 @@ $(document).ready(function() {
             
             if (!allFieldsFilled) {
                 e.preventDefault();
+                // Show error message
+                $('#form-error-message').remove(); // Remove any existing error message
+                $('form').prepend('<div id="form-error-message" class="alert alert-danger alert-dismissible fade show" role="alert">Please fill in all required fields<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
                 return false;
             }
             
@@ -286,23 +361,60 @@ $(document).ready(function() {
             var thirdType = $('#third_node_type').val();
             var thirdValue = $('#third_node_value').val();
             
-            // Update terminal nodes from node values
-            var terminalNodes = [];
+            // Extract nodes from expression
+            var expression = $('#expression_field_container textarea').val();
+            var expressionNodes = [];
             
+            // Match patterns like {0s}, {1p}, {2o}, etc.
+            var nodePattern = /\{([^\}]+)\}/g;
+            var match;
+            while ((match = nodePattern.exec(expression)) !== null) {
+                expressionNodes.push(match[1]);
+            }
+            
+            // Build terminal nodes from Node type fields
+            var terminalNodes = [];
             if (firstType === 'Node') {
                 terminalNodes.push(firstValue);
             }
-            
             if (secondType === 'Node') {
                 terminalNodes.push(secondValue);
             }
-            
             if (thirdType === 'Node') {
                 terminalNodes.push(thirdValue);
             }
             
-            // Set terminal nodes field
+            // Combine with expression nodes
+            expressionNodes.forEach(function(node) {
+                if (terminalNodes.indexOf(node) === -1) {
+                    terminalNodes.push(node);
+                }
+            });
+            
+            // Check that the user hasn't manually entered incompatible terminal nodes
+            var userTerminalNodes = $('#id_terminal_nodes').val().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+            var missingNodes = [];
+            
+            // Check that all calculated nodes are in the user-entered nodes
+            terminalNodes.forEach(function(node) {
+                if (userTerminalNodes.indexOf(node) === -1) {
+                    missingNodes.push(node);
+                }
+            });
+            
+            if (missingNodes.length > 0) {
+                // Alert the user about missing nodes and update the field
+                alert('Terminal nodes must include all Node values and expression references. Missing: ' + missingNodes.join(', '));
+                $('#id_terminal_nodes').val(terminalNodes.join(','));
+                e.preventDefault();
+                return false;
+            }
+            
+            // Set terminal nodes field to include all needed nodes
             $('#id_terminal_nodes').val(terminalNodes.join(','));
+            
+            // Re-enable the field for form submission
+            $('#id_terminal_nodes').prop('disabled', false);
             
             return true; // Allow form submission to continue
         } catch (error) {

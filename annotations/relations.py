@@ -5,6 +5,7 @@ Business logic for building and using :class:`.RelationTemplate`\s.
 from django.db import transaction
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 
 from annotations.models import RelationTemplate, RelationTemplatePart, RelationSet, Relation, Appellation, DateAppellation, DocumentPosition, DefaultMapping
 from concepts.models import Concept
@@ -570,7 +571,7 @@ def create_relationset(template, raw_data, creator, text, project_id=None):
 
 def update_template(template, template_data, part_data_list):
     with transaction.atomic():
-        # Extract structured mapping fields before filtering them out
+        # Extract structured mapping fields
         structured_mapping_fields = [
             'use_relation_nodes', 
             'first_node_type', 'first_node_value',
@@ -586,8 +587,11 @@ def update_template(template, template_data, part_data_list):
         third_node_type = template_data.get('third_node_type')
         third_node_value = template_data.get('third_node_value')
         
+        # Get the expression and terminal nodes from template data
+        expression = template_data.get('expression')
+        terminal_nodes = template_data.get('terminal_nodes')
+        
         # Filter out structured mapping fields from template_data
-        # Since these are handled separately through the DefaultMapping model
         template_data = {k: v for k, v in template_data.items() if k not in structured_mapping_fields}
         
         # Update the template fields first
@@ -596,8 +600,6 @@ def update_template(template, template_data, part_data_list):
         template.save()
         
         # Update or create the DefaultMapping
-        # The DefaultMapping stores the structured representation of the relation
-        # with three components: subject, predicate, and object
         if template.structured_mapping:
             # Update existing mapping
             mapping = template.structured_mapping
@@ -626,7 +628,36 @@ def update_template(template, template_data, part_data_list):
                 object_value=third_node_value
             )
             template.structured_mapping = mapping
-            template.save()  # Make sure to save the template with the new mapping relationship
+            template.save()
+            
+        # Update terminal nodes to ensure it includes node values from both 
+        # expression and relation nodes fields
+        calculated_terminal_nodes = []
+        
+        # First add nodes from relation fields
+        if first_node_type and str(first_node_type) == str(DefaultMapping.NODE):
+            calculated_terminal_nodes.append(first_node_value)
+        if second_node_type and str(second_node_type) == str(DefaultMapping.NODE):
+            calculated_terminal_nodes.append(second_node_value)
+        if third_node_type and str(third_node_type) == str(DefaultMapping.NODE):
+            calculated_terminal_nodes.append(third_node_value)
+        
+        # Also add nodes from expression if present
+        if expression:
+            # Extract node references from expression
+            formatter = Formatter()
+            refs = [key for _, key, _, _ in formatter.parse(expression) if key is not None]
+            for ref in refs:
+                if '{' + ref + '}' in expression and ref not in calculated_terminal_nodes:
+                    calculated_terminal_nodes.append(ref)
+        
+        # If we have calculated nodes and they differ from provided ones, update
+        if calculated_terminal_nodes:
+            # Check if they're already in the template.terminal_nodes
+            existing_nodes = template.terminal_nodes.split(',') if template.terminal_nodes else []
+            if set(calculated_terminal_nodes) != set(existing_nodes):
+                template.terminal_nodes = ','.join(calculated_terminal_nodes)
+                template.save()
 
         # Get the list of valid field names from the RelationTemplatePart model
         field_names = [field.name for field in RelationTemplatePart._meta.get_fields()]
@@ -674,20 +705,59 @@ def update_template(template, template_data, part_data_list):
                 part.object_relationtemplate = None
 
             part.save()
-        
-        # Update terminal nodes based on node values if needed
-        terminal_nodes = []
-        
-        # Compare against the actual enum values
-        if str(first_node_type) == str(DefaultMapping.NODE):
-            terminal_nodes.append(first_node_value)
-        if str(second_node_type) == str(DefaultMapping.NODE):
-            terminal_nodes.append(second_node_value)
-        if str(third_node_type) == str(DefaultMapping.NODE):
-            terminal_nodes.append(third_node_value)
-        
-        if terminal_nodes:
-            template.terminal_nodes = ','.join(terminal_nodes)
-            template.save()
 
     return template
+
+
+def clean_terminal_nodes(self):
+    value = self.cleaned_data.get('terminal_nodes')
+    if not value:
+        return value
+    
+    try:
+        # Parse the terminal nodes, validating format
+        parsed_nodes = [node.strip() for node in value.split(',')]
+        
+        # Get relation node values for validation
+        first_node_type = self.cleaned_data.get('first_node_type')
+        first_node_value = self.cleaned_data.get('first_node_value')
+        second_node_type = self.cleaned_data.get('second_node_type')
+        second_node_value = self.cleaned_data.get('second_node_value')
+        third_node_type = self.cleaned_data.get('third_node_type')
+        third_node_value = self.cleaned_data.get('third_node_value')
+        
+        # Check if using relation nodes
+        using_relation_nodes = first_node_type and first_node_value and \
+                              second_node_type and second_node_value and \
+                              third_node_type and third_node_value
+        
+        # If using relation nodes, ensure terminal nodes correspond to the Node values
+        if using_relation_nodes:
+            expected_nodes = []
+            if str(first_node_type) == str(DefaultMapping.NODE):
+                expected_nodes.append(first_node_value)
+            if str(second_node_type) == str(DefaultMapping.NODE):
+                expected_nodes.append(second_node_value)
+            if str(third_node_type) == str(DefaultMapping.NODE):
+                expected_nodes.append(third_node_value)
+            
+            # Check that all expected nodes are in the terminal nodes list
+            for node in expected_nodes:
+                if node not in parsed_nodes:
+                    raise ValidationError(f"Terminal nodes must include all Node values. Missing: {node}")
+        
+        # Also validate against expression field if present
+        expression = self.cleaned_data.get('expression')
+        if expression:
+            # Extract node references from expression
+            formatter = Formatter()
+            refs = [key for _, key, _, _ in formatter.parse(expression) if key is not None]
+            
+            # Ensure refs from expression match terminal nodes
+            for ref in refs:
+                if '{' + ref + '}' in expression and ref not in parsed_nodes:
+                    raise ValidationError(f"Terminal nodes must include all nodes referenced in the expression. Missing: {ref}")
+        
+        return value
+    except Exception as E:
+        raise ValidationError('Invalid terminal nodes format or values')
