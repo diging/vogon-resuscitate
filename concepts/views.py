@@ -14,6 +14,7 @@ from unidecode import unidecode
 from urllib.parse import urlencode
 from annotations.decorators import vogon_admin_or_staff_required
 from django.contrib import messages
+from concepts.decorators import concept_access_required
 
 
 
@@ -212,6 +213,7 @@ def sandbox(request, text_id):
     return render(request, "annotations/relationtemplate_creator.html", {})
 
 @login_required
+@concept_access_required
 def add_comment_reply(request, comment_id):
     parent_comment = get_object_or_404(Comment, pk=comment_id)
     if request.method == "POST":
@@ -229,6 +231,7 @@ def add_comment_reply(request, comment_id):
     return HttpResponseRedirect(reverse('concepts'))
 
 @login_required
+@concept_access_required
 def add_concept_comment(request, concept_id):
     if request.method == 'POST':
         concept = get_object_or_404(Concept, pk=concept_id)
