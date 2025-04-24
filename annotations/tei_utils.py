@@ -8,11 +8,11 @@ TEI-XML Integration utilities for Vogon.
    - Preserves structural layout (paragraphs, line/page breaks, headings, etc.)
    - Provides a simpler display of editorial tags (e.g., <choice>, <orig>, <reg>)
 4. Maintains xpath references for annotation
-5. Optionally tokenizes the resulting HTML for word-level annotation
 """
 
 from lxml import etree
 from django.utils.safestring import mark_safe
+import re
 
 # ===== Content Type Detection =====
 
@@ -70,7 +70,10 @@ def parse_tei_document(xml_content):
         - facsimile_data: info about facsimile images
     """
     try:
-        root = etree.fromstring(xml_content.encode('utf-8'))
+        # Use a parser that removes processing instructions (XML declarations, etc.)
+        # This prevents issues with <?xml ...?> and <?xml-model ...?> tags 
+        parser = etree.XMLParser(remove_comments=True, remove_pis=True)
+        root = etree.fromstring(xml_content.encode('utf-8'), parser)
 
         # Remove namespaces for easier processing
         clean_root = strip_namespaces(root)
@@ -95,28 +98,47 @@ def parse_tei_document(xml_content):
             'facsimile_data': facsimile_data
         }
     except Exception as e:
+        # Simple error reporting
         raise ValueError(f"Failed to parse TEI-XML: {str(e)}")
 
-def strip_namespaces(root):
+def strip_namespaces(node):
     """
-    Recursively remove namespaces from XML element tags.
+    Deep-copy *node* with all namespaces removed.
+    • Ordinary element nodes are copied and cleaned.
+    • Processing instructions, comments, and text nodes that are
+      NOT children (.text / .tail) are skipped – they don't belong
+      in the cleaned tree and would otherwise raise TypeError
+      when appended.
     """
-    new_root = etree.Element(_local_name(root.tag))
-    # Copy attributes without namespaces
-    for name, value in root.attrib.items():
-        new_root.set(_local_name(name), value)
+    # Skip non-element nodes (like processing instructions) to prevent errors
+    if not isinstance(node, etree._Element):
+        return None
 
-    # Process children
-    for child in root:
-        if isinstance(child, etree._Element):
-            child_clean = strip_namespaces(child)
-            new_root.append(child_clean)
+    # ── create namespace-free copy of *this* element ────────────────────
+    if node.tag.startswith('{'):
+        _, tag = node.tag[1:].split('}', 1)
+        new_node = etree.Element(tag)
+    else:
+        new_node = etree.Element(node.tag)
 
-    # Also handle text and tail
-    new_root.text = root.text
-    new_root.tail = root.tail
+    # copy attributes without namespaces
+    for k, v in node.attrib.items():
+        if k.startswith('{'):
+            _, attr = k[1:].split('}', 1)
+            new_node.set(attr, v)
+        else:
+            new_node.set(k, v)
 
-    return new_root
+    # ── recurse on children ─────────────────────────────────────────────
+    for child in node:
+        cleaned_child = strip_namespaces(child)
+        if cleaned_child is not None:          # skip PI / comments
+            new_node.append(cleaned_child)
+
+    # preserve text and tail
+    new_node.text = node.text
+    new_node.tail = node.tail
+    return new_node
 
 def _local_name(tag):
     """Helper to remove {namespace} from a tag or attribute name."""
@@ -215,22 +237,58 @@ def create_display_content(root):
     html_parts = []
     element_map = []
 
+    # Generate XML representation for debugging
+    try:
+        xml_string = etree.tostring(body, encoding='unicode', pretty_print=True)
+        # We'll include this in a comment for debugging if needed
+        # html_parts.append(f'<!-- Original XML structure:\n{xml_string}\n-->')
+    except:
+        pass
+
     # Recursively process
     result = process_element(body, html_parts, element_map, path='')
+    
+    # Ensure we're returning valid HTML
+    html_content = ''.join(result['html_parts'])
+    
     return {
-        'display_html': mark_safe(''.join(result['html_parts'])),
+        'display_html': mark_safe(html_content),
         'element_map': result['element_map'],
     }
 
-
 def process_element(element, html_parts, element_map, path=''):
-    tg   = element.tag
+    """
+    Process each element in the TEI-XML tree and convert to HTML representation.
+    This function preserves the structure while creating annotatable content.
+    
+    Args:
+        element: The current XML element
+        html_parts: List of HTML string parts being constructed
+        element_map: List of mappings from positions to XPaths
+        path: Current XPath
+        
+    Returns:
+        Dict with 'html_parts' and 'element_map'
+    """
+    tg = element.tag
     xpth = add_position_predicates(element, path)
+    
+    # Log the tag and path for debugging
+    # print(f"Processing element: {tg} at path: {xpth}")
 
-
+    # Handle body and text containers
     if tg in ('body', 'text'):
+        # Create a containing element but process children
+        html_parts.append(f'<div class="tei-{tg}" data-xpath="{xpth}">')
+        element_map.append({'xpath': xpth, 'element_type': tg,
+                            'start_pos': len("".join(html_parts))})
+        if element.text:
+            html_parts.append(_escape_html(element.text))
         for ch in element:
             process_element(ch, html_parts, element_map, xpth)
+            if ch.tail:
+                html_parts.append(_escape_html(ch.tail))
+        html_parts.append(f'</div>')
         return {'html_parts': html_parts, 'element_map': element_map}
 
     # -------- Paragraphs ------------------------------------------------
@@ -238,10 +296,12 @@ def process_element(element, html_parts, element_map, path=''):
         html_parts.append(f'<p class="tei-p" data-xpath="{xpth}">')
         element_map.append({'xpath': xpth, 'element_type': 'paragraph',
                             'start_pos': len("".join(html_parts))})
-        if element.text: html_parts.append(_escape_html(element.text))
+        if element.text: 
+            html_parts.append(_escape_html(element.text))
         for ch in element:
             process_element(ch, html_parts, element_map, xpth)
-            if ch.tail: html_parts.append(_escape_html(ch.tail))
+            if ch.tail: 
+                html_parts.append(_escape_html(ch.tail))
         html_parts.append('</p>')
         return {'html_parts': html_parts, 'element_map': element_map}
 
@@ -250,10 +310,12 @@ def process_element(element, html_parts, element_map, path=''):
         html_parts.append(f'<h3 class="tei-head" data-xpath="{xpth}">')
         element_map.append({'xpath': xpth, 'element_type': 'heading',
                             'start_pos': len("".join(html_parts))})
-        if element.text: html_parts.append(_escape_html(element.text))
+        if element.text: 
+            html_parts.append(_escape_html(element.text))
         for ch in element:
             process_element(ch, html_parts, element_map, xpth)
-            if ch.tail: html_parts.append(_escape_html(ch.tail))
+            if ch.tail: 
+                html_parts.append(_escape_html(ch.tail))
         html_parts.append('</h3>')
         return {'html_parts': html_parts, 'element_map': element_map}
 
@@ -273,7 +335,8 @@ def process_element(element, html_parts, element_map, path=''):
     if tg == 'lb':
         n = element.get('n', '')
         br = f'<br class="tei-lb" data-xpath="{xpth}" data-n="{n}" />'
-        if n: br = f'<span class="tei-line-num">{n}</span>{br}'
+        if n: 
+            br = f'<span class="tei-line-num">{n}</span>{br}'
         html_parts.append(br)
         element_map.append({'xpath': xpth, 'element_type': 'linebreak',
                             'start_pos': len("".join(html_parts))})
@@ -308,110 +371,31 @@ def process_element(element, html_parts, element_map, path=''):
                 f'title="Abbreviation: {_extract_full_text(abbr)}">'
                 f'{_extract_full_text(expn)}</span>')
         else:
+            # Process other elements in choice
+            html_parts.append(f'<span class="tei-choice" data-xpath="{xpth}">')
+            if element.text:
+                html_parts.append(_escape_html(element.text))
             for ch in element:
                 process_element(ch, html_parts, element_map, xpth)
+                if ch.tail:
+                    html_parts.append(_escape_html(ch.tail))
+            html_parts.append('</span>')
         element_map.append({'xpath': xpth, 'element_type': 'choice',
                             'start_pos': len("".join(html_parts))})
         return {'html_parts': html_parts, 'element_map': element_map}
 
-    # -------- Editorial markup (add / del / supplied / subst) ----------
-    def _editorial_span(cls, inner_open='[', inner_close=']'):
-        html_parts.append(f'<span class="tei-{cls}" data-xpath="{xpth}">')
-        element_map.append({'xpath': xpth, 'element_type': cls,
-                            'start_pos': len("".join(html_parts))})
-        if cls == 'add' or cls == 'supplied':
-            html_parts.append(inner_open)
-
-    if tg == 'add':
-        _editorial_span('add')
-        if element.text: html_parts.append(_escape_html(element.text))
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
-            if ch.tail: html_parts.append(_escape_html(ch.tail))
-        html_parts.append(']</span>')
-        return {'html_parts': html_parts, 'element_map': element_map}
-
-    if tg == 'del':
-        html_parts.append(f'<span class="tei-del" data-xpath="{xpth}" '
-                          f'style="text-decoration:line-through;">')
-        element_map.append({'xpath': xpth, 'element_type': 'deletion',
-                            'start_pos': len("".join(html_parts))})
-        if element.text: html_parts.append(_escape_html(element.text))
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
-            if ch.tail: html_parts.append(_escape_html(ch.tail))
-        html_parts.append('</span>')
-        return {'html_parts': html_parts, 'element_map': element_map}
-
-    if tg == 'supplied':
-        _editorial_span('supplied')
-        if element.text: html_parts.append(_escape_html(element.text))
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
-            if ch.tail: html_parts.append(_escape_html(ch.tail))
-        html_parts.append(']</span>')
-        return {'html_parts': html_parts, 'element_map': element_map}
-
-    if tg == 'subst':
-        html_parts.append(f'<span class="tei-subst" data-xpath="{xpth}">')
-        element_map.append({'xpath': xpth, 'element_type': 'substitution',
-                            'start_pos': len("".join(html_parts))})
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
-            if ch.tail: html_parts.append(_escape_html(ch.tail))
-        html_parts.append('</span>')
-        return {'html_parts': html_parts, 'element_map': element_map}
-
-    # -------- Divisions -------------------------------------------------
-    if tg == 'div':
-        html_parts.append(
-            f'<div class="tei-div" data-xpath="{xpth}" '
-            f'data-type="{element.get("type", "")}" data-n="{element.get("n", "")}">'
-        )
-        element_map.append({'xpath': xpth, 'element_type': 'division',
-                            'start_pos': len("".join(html_parts))})
-        if element.text: html_parts.append(_escape_html(element.text))
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
-            if ch.tail: html_parts.append(_escape_html(ch.tail))
-        html_parts.append('</div>')
-        return {'html_parts': html_parts, 'element_map': element_map}
-
-    # -------- Highlight (<hi>, <emph>, etc.) ---------------------------
-    if tg in ('hi', 'emph'):
-        html_parts.append(
-            f'<span class="tei-hi" data-xpath="{xpth}" data-rend="{element.get("rend", "")}">'
-        )
-        element_map.append({'xpath': xpth, 'element_type': 'highlight',
-                            'start_pos': len("".join(html_parts))})
-        if element.text: html_parts.append(_escape_html(element.text))
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
-            if ch.tail: html_parts.append(_escape_html(ch.tail))
-        html_parts.append('</span>')
-        return {'html_parts': html_parts, 'element_map': element_map}
-
-    # -------- QUICK INLINE TAGS that used to disappear -----------------
-    if tg in ('num', 'ex', 'sup'):
-        html_parts.append(f'<span class="tei-{tg}" data-xpath="{xpth}">')
-        element_map.append({'xpath': xpth, 'element_type': tg,
-                            'start_pos': len("".join(html_parts))})
-        if element.text: html_parts.append(_escape_html(element.text))
-        html_parts.append('</span>')
-        if element.tail: html_parts.append(_escape_html(element.tail))
-        return {'html_parts': html_parts, 'element_map': element_map}
-
-    # -------- Generic fallback (now keeps element.tail) ----------------
+    # Handle other elements generically
     html_parts.append(f'<span class="tei-{tg}" data-xpath="{xpth}">')
     element_map.append({'xpath': xpth, 'element_type': tg,
                         'start_pos': len("".join(html_parts))})
-    if element.text: html_parts.append(_escape_html(element.text))
+    if element.text:
+        html_parts.append(_escape_html(element.text))
     for ch in element:
         process_element(ch, html_parts, element_map, xpth)
-        if ch.tail: html_parts.append(_escape_html(ch.tail))
-    html_parts.append('</span>')
-    if element.tail: html_parts.append(_escape_html(element.tail))
-
+        if ch.tail:
+            html_parts.append(_escape_html(ch.tail))
+    html_parts.append(f'</span>')
+    
     return {'html_parts': html_parts, 'element_map': element_map}
 
 def add_position_predicates(element, path):
@@ -461,51 +445,70 @@ def tokenize_tei_content(display_html):
     Wrap every whitespace‑separated token in <word id="…">…</word>.
     *Real* sub‑elements are inserted so lxml does NOT escape them.
     """
-    parser = etree.HTMLParser()
-    root   = etree.fromstring(f'<root>{display_html}</root>', parser)
+    # Make sure the input is a string
+    if isinstance(display_html, bytes):
+        display_html = display_html.decode('utf-8')
+        
+    # Parse using HTML parser that preserves structure
+    parser = etree.HTMLParser(remove_blank_text=False, remove_comments=False, recover=True)
+    try:
+        root = etree.fromstring(f'<root>{display_html}</root>', parser)
+    except Exception as e:
+        # If parsing fails, return the original content
+        print(f"Error parsing HTML: {str(e)}")
+        return display_html
 
-    # Escape any HTML tags found in text nodes to prevent XSS and invalid HTML
-    # This handles both direct text content of elements (parent.text) and 
-    # tail text after child elements (child.tail)
-    for text_node in root.xpath('//text()'):
-        if '<' in text_node and '>' in text_node:
-            parent = text_node.getparent()
-            if parent.tag not in ('script', 'style'):
-                new_text = _escape_html(text_node)
-                if parent is not None:
-                    if text_node == parent.text:
-                        parent.text = new_text
-                    else:
-                        # Must be tail text of some child
-                        for child in parent:
-                            if text_node == child.tail:
-                                child.tail = new_text
-                                break
-
+    # We no longer escape XML tags - removed that code as it was causing problems
+    
     next_id = 0
-    # all nodes that directly own text (skip <script>, <style>, <word>)
-    for node in root.xpath('//*[text()]'):
-        if node.tag in ('script', 'style', 'word'):
-            continue
+    # Process all text nodes that are not inside script or style
+    for node in root.xpath('//*[text() and not(self::script) and not(self::style) and not(self::word)]'):
         if node.xpath('ancestor::word'):
             continue
-
-        text = node.text or ''
-        words = [w for w in text.split() if w]
-        if not words:
+            
+        text = node.text
+        if not text or not text.strip():
             continue
-
+            
+        # Split by whitespace while preserving it
+        tokens = []
+        current_pos = 0
+        for match in re.finditer(r'\S+', text):
+            # Add any whitespace before this token
+            if match.start() > current_pos:
+                tokens.append((text[current_pos:match.start()], True))  # True = is whitespace
+            # Add the token itself
+            tokens.append((match.group(), False))  # False = not whitespace
+            current_pos = match.end()
+        # Add any trailing whitespace
+        if current_pos < len(text):
+            tokens.append((text[current_pos:], True))
+            
+        # Replace the text with tokenized elements
         node.text = None
-        for i, token in enumerate(words):
-            w = etree.Element('word')
-            w.set('id', f'tei_{next_id}')
-            next_id += 1
-            w.text = token
-            node.insert(i, w)
-            # preserve spaces between tokens
-            if i < len(words) - 1:
-                w.tail = ' '
-
+        
+        # Insert tokens and whitespace
+        for i, (token, is_whitespace) in enumerate(tokens):
+            if is_whitespace:
+                # For whitespace, just add it as text
+                if i == 0:
+                    node.text = token
+                else:
+                    prev = node[i-1] if i-1 < len(node) else None
+                    if prev is not None:
+                        prev.tail = token
+            else:
+                # For actual tokens, create a word element
+                w = etree.Element('word')
+                w.set('id', f'tei_{next_id}')
+                next_id += 1
+                w.text = token
+                node.append(w)
+    
+    # Convert back to HTML string
     html = etree.tostring(root, encoding='unicode', method='html')
+    
     # strip the artificial <root> wrapper
-    return html.replace('<root>', '').replace('</root>', '')
+    result = html.replace('<root>', '').replace('</root>', '')
+    
+    return result
