@@ -58,4 +58,4 @@ PyJWT = "==1.7.1"
 Unidecode = "==1.0.23"
 
 [requires]
-python_version = "3.7"
+python_version = "3.9"
