@@ -240,8 +240,6 @@ def create_display_content(root):
     # Generate XML representation for debugging
     try:
         xml_string = etree.tostring(body, encoding='unicode', pretty_print=True)
-        # We'll include this in a comment for debugging if needed
-        # html_parts.append(f'<!-- Original XML structure:\n{xml_string}\n-->')
     except:
         pass
 
@@ -532,8 +530,6 @@ def tokenize_tei_content(display_html):
         # If parsing fails, return the original content
         print(f"Error parsing HTML: {str(e)}")
         return display_html
-
-    # We no longer escape XML tags - removed that code as it was causing problems
     
     next_id = 0
     # Process all text nodes that are not inside script or style
