@@ -251,6 +251,19 @@ def create_display_content(root):
     # Ensure we're returning valid HTML
     html_content = ''.join(result['html_parts'])
     
+    # Pull footnotes out of element_map and append
+    fnotes = [m for m in result["element_map"] if m.get("type") == "footnote"]
+    if fnotes:
+        html_content += '<hr class="tei-fn-rule"/><ol class="tei-footnotes">'
+        for i, fn in enumerate(fnotes, 1):
+            html_content += (
+                f'<li id="{fn["id"]}" class="tei-footnote">'
+                f'<a href="#ref-{fn["id"]}">{i}</a>. '
+                f'{_escape_html(fn["text"])}'
+                '</li>'
+            )
+        html_content += '</ol>'
+    
     return {
         'display_html': mark_safe(html_content),
         'element_map': result['element_map'],
@@ -324,8 +337,9 @@ def process_element(element, html_parts, element_map, path=''):
         n, facs = element.get('n', ''), element.get('facs', '')
         html_parts.append(
             f'<div class="tei-pb" data-xpath="{xpth}" '
-            f'data-n="{n}" data-facs="{facs}"><hr/><span class="tei-pb-label">'
-            f'Page {n}</span></div>'
+            f'data-n="{n}" data-facs="{facs}">'
+            f'<hr/><span class="tei-pb-label">Page {n}</span></div>'
+            '<span class="pb-spacer"></span>'   #  adds visual gap
         )
         element_map.append({'xpath': xpth, 'element_type': 'pagebreak',
                             'page': n, 'facs': facs,
@@ -382,6 +396,67 @@ def process_element(element, html_parts, element_map, path=''):
             html_parts.append('</span>')
         element_map.append({'xpath': xpth, 'element_type': 'choice',
                             'start_pos': len("".join(html_parts))})
+        return {'html_parts': html_parts, 'element_map': element_map}
+    
+    # ───────────────────────────────────────────────────────────────
+    # Lists and items
+    if tg == 'list':
+        html_parts.append(f'<ul class="tei-list" data-xpath="{xpth}">')
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+        html_parts.append('</ul>')
+        return {'html_parts': html_parts, 'element_map': element_map}
+
+    if tg in ('item', 'label'):
+        html_parts.append(f'<li class="tei-item" data-xpath="{xpth}">')
+        if element.text:
+            html_parts.append(_escape_html(element.text))
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+            if ch.tail:
+                html_parts.append(_escape_html(ch.tail))
+        html_parts.append('</li>')
+        return {'html_parts': html_parts, 'element_map': element_map}
+
+    # ───────────────────────────────────────────────────────────────
+    # Tables
+    if tg == 'table':
+        html_parts.append(f'<table class="tei-table" data-xpath="{xpth}">')
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+        html_parts.append('</table>')
+        return {'html_parts': html_parts, 'element_map': element_map}
+
+    if tg in ('row', 'rowGrp'):
+        html_parts.append('<tr>')
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+        html_parts.append('</tr>')
+        return {'html_parts': html_parts, 'element_map': element_map}
+
+    if tg in ('cell', 'entry'):
+        html_parts.append('<td>')
+        if element.text:
+            html_parts.append(_escape_html(element.text))
+        for ch in element:
+            process_element(ch, html_parts, element_map, xpth)
+            if ch.tail:
+                html_parts.append(_escape_html(ch.tail))
+        html_parts.append('</td>')
+        return {'html_parts': html_parts, 'element_map': element_map}
+
+    # ───────────────────────────────────────────────────────────────
+    # Footnotes
+    if tg == 'note' and element.get('place') == 'foot':
+        # create a unique id for cross-reference
+        fn_id = f"fn-{len(element_map)}"
+        marker = f'<sup id="ref-{fn_id}" class="tei-fn-ref" data-xpath="{xpth}"></sup>'
+        html_parts.append(marker)
+
+        # collect footnote text to append later (store at element_map level)
+        note_text = _extract_full_text(element)
+        element_map.append({'type': 'footnote', 'text': note_text, 'id': fn_id})
+
         return {'html_parts': html_parts, 'element_map': element_map}
 
     # Handle other elements generically
