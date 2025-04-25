@@ -231,102 +231,36 @@ $('.autocomplete').each(function() {
 
 var searchPromise = null;
 
-// Initialize both expression and relation nodes fields when the page loads
+// Initialize fields when the page loads
 $(document).ready(function() {
     // Always show both sets of fields
     $('#expression_container').show();
     $('#relation_nodes_container').show();
     
-    // Enable all fields - both expression and node fields are required
+    // Enable all fields
     $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').prop('disabled', false);
     $('#expression_field_container textarea').prop('disabled', false);
     
-    // Disable the terminal_nodes field since it's handled by the syncTerminalNodes function
-    $('#id_terminal_nodes').prop('disabled', true).css('background-color', '#f0f0f0');
-    
-    // Add a help note
+    // Add a help note for terminal nodes field - completely manual now
     if ($('#id_terminal_nodes').parent().find('.terminal-nodes-note').length === 0) {
-        $('#id_terminal_nodes').after('<small class="form-text text-muted terminal-nodes-note">Terminal nodes are automatically generated from Node values and expression references.</small>');
+        $('#id_terminal_nodes').after('<small class="form-text text-muted terminal-nodes-note">Terminal nodes must include all placeholders from the expression (e.g., if expression has {0s}, terminal nodes must include 0s).</small>');
     }
     
-    // Initialize terminal nodes on page load
-    syncTerminalNodes();
-    
-    // Add event listeners to keep terminal nodes in sync
-    $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').on('change', syncTerminalNodes);
-    $('#expression_field_container textarea').on('input', syncTerminalNodes);
-    
-    // Function to synchronize terminal nodes with both expression and relation nodes
-    function syncTerminalNodes() {
-        try {
-            // Get the values from inputs
-            var firstType = $('#first_node_type').val();
-            var firstValue = $('#first_node_value').val();
-            
-            var secondType = $('#second_node_type').val();
-            var secondValue = $('#second_node_value').val();
-            
-            var thirdType = $('#third_node_type').val();
-            var thirdValue = $('#third_node_value').val();
-            
-            // Extract nodes from expression
-            var expression = $('#expression_field_container textarea').val();
-            var expressionNodes = [];
-            
-            // Match patterns like {0s}, {1p}, {2o}, etc.
-            var nodePattern = /\{([^\}]+)\}/g;
-            var match;
-            while ((match = nodePattern.exec(expression)) !== null) {
-                expressionNodes.push(match[1]);
-            }
-            
-            // Build terminal nodes from Node type fields
-            var terminalNodes = [];
-            if (firstType === 'Node' && firstValue) {
-                terminalNodes.push(firstValue);
-            }
-            if (secondType === 'Node' && secondValue) {
-                terminalNodes.push(secondValue);
-            }
-            if (thirdType === 'Node' && thirdValue) {
-                terminalNodes.push(thirdValue);
-            }
-            
-            // Combine with expression nodes
-            expressionNodes.forEach(function(node) {
-                if (terminalNodes.indexOf(node) === -1) {
-                    terminalNodes.push(node);
-                }
-            });
-            
-            // Only update if we have values to set and they're different from current value
-            if (terminalNodes.length > 0) {
-                var currentValue = $('#id_terminal_nodes').val();
-                var newValue = terminalNodes.join(',');
-                
-                if (currentValue !== newValue) {
-                    $('#id_terminal_nodes').val(newValue);
-                }
-            }
-        } catch (error) {
-            console.error('Error in syncTerminalNodes:', error);
-        }
-    }
-    
-    // Add form submission handler to validate all fields
+    // Add form submission handler to validate fields
     $('form').on('submit', function(e) {
         try {
             // Validate that all required fields are filled
             var allFieldsFilled = true;
             
-            // Check all node fields
-            var nodeFields = [
+            // Check all required fields
+            var requiredFields = [
+                '#expression_field_container textarea', '#id_terminal_nodes',
                 '#first_node_type', '#first_node_value',
                 '#second_node_type', '#second_node_value', 
                 '#third_node_type', '#third_node_value'
             ];
             
-            nodeFields.forEach(function(field) {
+            requiredFields.forEach(function(field) {
                 if (!$(field).val()) {
                     allFieldsFilled = false;
                     $(field).addClass('is-invalid');
@@ -335,163 +269,48 @@ $(document).ready(function() {
                 }
             });
             
-            // Check expression field
-            if (!$('#expression_field_container textarea').val()) {
-                allFieldsFilled = false;
-                $('#expression_field_container textarea').addClass('is-invalid');
-            } else {
-                $('#expression_field_container textarea').removeClass('is-invalid');
-            }
-            
             if (!allFieldsFilled) {
                 e.preventDefault();
                 // Show error message
-                $('#form-error-message').remove(); // Remove any existing error message
+                $('#form-error-message').remove();
                 $('form').prepend('<div id="form-error-message" class="alert alert-danger alert-dismissible fade show" role="alert">Please fill in all required fields<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
                 return false;
             }
             
-            // Get the values directly from inputs
-            var firstType = $('#first_node_type').val();
-            var firstValue = $('#first_node_value').val();
-            
-            var secondType = $('#second_node_type').val();
-            var secondValue = $('#second_node_value').val();
-            
-            var thirdType = $('#third_node_type').val();
-            var thirdValue = $('#third_node_value').val();
+            // ONLY validate that terminal nodes include all expression references
+            // Do NOT modify terminal nodes - just validate and show error
+            var expression = $('#expression_field_container textarea').val();
+            var terminalNodes = $('#id_terminal_nodes').val().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
             
             // Extract nodes from expression
-            var expression = $('#expression_field_container textarea').val();
             var expressionNodes = [];
-            
-            // Match patterns like {0s}, {1p}, {2o}, etc.
             var nodePattern = /\{([^\}]+)\}/g;
             var match;
             while ((match = nodePattern.exec(expression)) !== null) {
                 expressionNodes.push(match[1]);
             }
             
-            // Build terminal nodes from Node type fields
-            var terminalNodes = [];
-            if (firstType === 'Node') {
-                terminalNodes.push(firstValue);
-            }
-            if (secondType === 'Node') {
-                terminalNodes.push(secondValue);
-            }
-            if (thirdType === 'Node') {
-                terminalNodes.push(thirdValue);
-            }
-            
-            // Combine with expression nodes
+            // Check for missing expression nodes
+            var missingNodes = [];
             expressionNodes.forEach(function(node) {
                 if (terminalNodes.indexOf(node) === -1) {
-                    terminalNodes.push(node);
-                }
-            });
-            
-            // Check that the user hasn't manually entered incompatible terminal nodes
-            var userTerminalNodes = $('#id_terminal_nodes').val().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-            var missingNodes = [];
-            
-            // Check that all calculated nodes are in the user-entered nodes
-            terminalNodes.forEach(function(node) {
-                if (userTerminalNodes.indexOf(node) === -1) {
                     missingNodes.push(node);
                 }
             });
             
             if (missingNodes.length > 0) {
-                // Alert the user about missing nodes and update the field
-                alert('Terminal nodes must include all Node values and expression references. Missing: ' + missingNodes.join(', '));
-                $('#id_terminal_nodes').val(terminalNodes.join(','));
+                // Just show error message - don't update terminal nodes
+                $('#form-error-message').remove();
+                $('form').prepend('<div id="form-error-message" class="alert alert-danger alert-dismissible fade show" role="alert">Terminal nodes must include all expression references. Missing: ' + missingNodes.join(', ') + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
                 e.preventDefault();
                 return false;
             }
-            
-            // Set terminal nodes field to include all needed nodes
-            $('#id_terminal_nodes').val(terminalNodes.join(','));
-            
-            // Re-enable the field for form submission
-            $('#id_terminal_nodes').prop('disabled', false);
             
             return true; // Allow form submission to continue
         } catch (error) {
             console.error('Error in form submission handler:', error);
             return true; 
         }
-    });
-    
-    // dynamic validation for node types
-    function validateNodeTypes() {
-        // Make sure something is selected for each dropdown
-        var allSelected = true;
-        $('.node-type-dropdown').each(function() {
-            if (!$(this).val()) {
-                allSelected = false;
-            }
-        });
-        
-        if (allSelected) {
-            $('.node-type-dropdown').removeClass('is-invalid');
-            return true;
-        } else {
-            // mark empty dropdowns as invalid
-            $('.node-type-dropdown').each(function() {
-                if (!$(this).val()) {
-                    $(this).addClass('is-invalid');
-                } else {
-                    $(this).removeClass('is-invalid');
-                }
-            });
-            return false;
-        }
-    }
-    
-    // Validate on change
-    $('.node-type-dropdown').on('change', validateNodeTypes);
-    
-    // Synchronize node values with terminal nodes
-    function updateTerminalNodes() {
-        if ($('#use_relation_nodes').is(':checked')) {
-            var nodeValues = [];
-            
-            // Collect all node values (only for Node type, not URI)
-            if ($('#first_node_type').val() === 'Node') {
-                var value = $('#first_node_value').val();
-                if (value) nodeValues.push(value);
-            }
-            
-            if ($('#second_node_type').val() === 'Node') {
-                var value = $('#second_node_value').val();
-                if (value) nodeValues.push(value);
-            }
-            
-            if ($('#third_node_type').val() === 'Node') {
-                var value = $('#third_node_value').val();
-                if (value) nodeValues.push(value);
-            }
-            
-            // If we have node values, update the terminal_nodes field
-            if (nodeValues.length > 0) {
-                $('#id_terminal_nodes').val(nodeValues.join(','));
-            } else {
-                // Handle case where there are no Node types (all URIs)
-                // Set terminal_nodes to a valid empty format
-                $('#id_terminal_nodes').val('');
-            }
-        }
-    }
-    
-    // Update terminal nodes when node values change
-    $('#first_node_value, #second_node_value, #third_node_value').on('change keyup', function() {
-        updateTerminalNodes();
-    });
-    
-    // Update node fields when their type changes
-    $('#first_node_type, #second_node_type, #third_node_type').on('change', function() {
-        updateTerminalNodes();
     });
 });
 

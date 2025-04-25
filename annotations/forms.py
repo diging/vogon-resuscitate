@@ -13,6 +13,8 @@ from django.utils.encoding import force_str
 import networkx as nx
 from concepts.conceptpower import Conceptpower
 from concepts.models import Concept, Type
+import re
+from string import Formatter
 
 class RegistrationForm(forms.Form):
     """
@@ -298,27 +300,88 @@ class RelationTemplateForm(forms.ModelForm):
         expression = self.cleaned_data.get('expression')
         if not expression:
             raise forms.ValidationError("Expression is required")
-        return expression
         
-
-    def clean_terminal_nodes(self):
-        value = self.cleaned_data.get('terminal_nodes')
-        # Handle empty value for the case where there are no Nodes (all URIs)
-        if not value:
-            return value
-        
+        # Validate expression format
         try:
-            # Skip validation if empty
-            if not value:
-                return value
-                
-            # Otherwise validate normally
-            for u, v in map(tuple, value.split(',')):
-                pass
-        except Exception as E:
-            raise ValidationError('Invalid terminal nodes')
-        return value
+            # Verify that the expression contains valid placeholders like {0s}, {1o}, etc.
+            formatter = Formatter()
+            placeholders = [key for _, key, _, _ in formatter.parse(expression) if key is not None]
+            
+            # Check that placeholders follow the expected format (e.g., '0s', '1o')
+            pattern = re.compile(r'^[0-9]+[spo]$')
+            for placeholder in placeholders:
+                if not pattern.match(placeholder):
+                    raise forms.ValidationError(f"Invalid placeholder format: {{{placeholder}}}. Should be {{n[spo]}} where n is a number and s/p/o indicates subject/predicate/object.")
+                    
+        except Exception as e:
+            raise forms.ValidationError(f"Invalid expression format: {str(e)}")
+            
+        return expression
     
+    def clean_terminal_nodes(self):
+        """
+        Validates that terminal nodes match the expression placeholders.
+        """
+        terminal_nodes = self.cleaned_data.get('terminal_nodes')
+        expression = self.cleaned_data.get('expression')
+        
+        if not terminal_nodes:
+            return terminal_nodes
+            
+        # Parse terminal nodes
+        try:
+            node_list = [node.strip() for node in terminal_nodes.split(',')]
+            
+            # If expression exists, check for placeholder references
+            if expression:
+                formatter = Formatter()
+                placeholders = [key for _, key, _, _ in formatter.parse(expression) if key is not None]
+                
+                # Ensure all expression placeholders are in terminal nodes
+                missing = []
+                for placeholder in placeholders:
+                    if placeholder not in node_list:
+                        missing.append(placeholder)
+                
+                if missing:
+                    raise forms.ValidationError(f"Terminal nodes must include all placeholders from expression. Missing: {', '.join(missing)}")
+            
+            return terminal_nodes
+        except Exception as e:
+            if isinstance(e, forms.ValidationError):
+                raise e
+            raise forms.ValidationError(f"Invalid terminal nodes format: {str(e)}")
+    
+    def clean(self):
+        """
+        Cross-field validation to ensure expression and terminal nodes are synchronized.
+        """
+        cleaned_data = super(RelationTemplateForm, self).clean()
+        
+        # If both expression and terminal_nodes exist, they should be synchronized
+        # This is handled in clean_terminal_nodes, but we'll double-check here
+        expression = cleaned_data.get('expression')
+        terminal_nodes = cleaned_data.get('terminal_nodes')
+        
+        if expression and terminal_nodes:
+            try:
+                # Extract placeholders from expression
+                formatter = Formatter()
+                placeholders = [key for _, key, _, _ in formatter.parse(expression) if key is not None]
+                
+                # Parse terminal nodes
+                node_list = [node.strip() for node in terminal_nodes.split(',')]
+                
+                # Check that all placeholders are in node_list
+                missing = [p for p in placeholders if p not in node_list]
+                if missing:
+                    self.add_error('terminal_nodes', f"Terminal nodes must include all placeholders from expression. Missing: {', '.join(missing)}")
+            except Exception as e:
+                # If there was an error in parsing, it should be caught in individual field validations
+                pass
+        
+        return cleaned_data
+
     def __init__(self, *args, **kwargs):
         super(RelationTemplateForm, self).__init__(*args, **kwargs)
         
@@ -367,18 +430,7 @@ class RelationTemplateForm(forms.ModelForm):
             )
             instance.structured_mapping = mapping
         
-        # Update terminal nodes from relation nodes
-        terminal_nodes = []
-        if first_node_type == 'Node':
-            terminal_nodes.append(first_node_value)
-        if second_node_type == 'Node':
-            terminal_nodes.append(second_node_value)
-        if third_node_type == 'Node':
-            terminal_nodes.append(third_node_value)
-        
-        # Set terminal nodes if there are any
-        if terminal_nodes:
-            instance.terminal_nodes = ','.join(terminal_nodes)
+        # DO NOT update terminal nodes - these are now completely user-managed
         
         if commit:
             instance.save()
