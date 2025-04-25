@@ -59,7 +59,7 @@ from annotations.utils import help_text
 from django.contrib.auth.models import (
     BaseUserManager, AbstractBaseUser, PermissionsMixin, Permission
 )
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from concepts.models import Concept, Type
 
