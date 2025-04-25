@@ -255,7 +255,7 @@ class RelationTemplateForm(forms.ModelForm):
                            " ``0s,1o``."
         }))
     
-    # Add fields for relation node mode
+    # This is not directly a part of the RelationTemplate, this is used to populate DefaultMapping model which is connect through structured_mapping field using a ForeignKey
     first_node_type = forms.ChoiceField(required=True, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
             'class': 'form-control input-sm node-type-dropdown',
             'id': 'first_node_type'
@@ -300,31 +300,6 @@ class RelationTemplateForm(forms.ModelForm):
             raise forms.ValidationError("Expression is required")
         return expression
         
-    def clean(self):
-        """
-        Validates the form data.
-        """
-        cleaned_data = super(RelationTemplateForm, self).clean()
-        
-        # Validate node fields
-        first_node_type = cleaned_data.get('first_node_type')
-        first_node_value = cleaned_data.get('first_node_value')
-        second_node_type = cleaned_data.get('second_node_type')
-        second_node_value = cleaned_data.get('second_node_value')
-        third_node_type = cleaned_data.get('third_node_type')
-        third_node_value = cleaned_data.get('third_node_value')
-        
-        # Both expression and relation nodes fields are now required
-        if not first_node_type or not first_node_value:
-            self.add_error('first_node_value', 'First node fields are required')
-            
-        if not second_node_type or not second_node_value:
-            self.add_error('second_node_value', 'Second node fields are required')
-            
-        if not third_node_type or not third_node_value:
-            self.add_error('third_node_value', 'Third node fields are required')
-            
-        return cleaned_data
 
     def clean_terminal_nodes(self):
         value = self.cleaned_data.get('terminal_nodes')
