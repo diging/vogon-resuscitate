@@ -1,7 +1,7 @@
 {% extends "annotations/base.html" %}
 {% load app_filters %}
 {% load addcss %}
-{% load staticfiles %}
+{% load static %}
 
 {% block breadcrumbs %}
 <a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "repository_list" %}{% if project_id %}?project_id={{ project_id }}{% endif %}" class="btn btn-xs">Repositories</a>
