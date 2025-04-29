@@ -338,7 +338,6 @@ class RelationTemplateForm(forms.ModelForm):
                 if extra_nodes:
                     raise ValidationError(f"Terminal nodes contain placeholders not found in expression: {', '.join(extra_nodes)}")
             
-            # Basic validation - can we parse the nodes as tuples?
             for u, v in map(tuple, value.split(',')):
                 pass
                 
