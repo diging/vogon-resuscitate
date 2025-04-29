@@ -394,19 +394,22 @@ class RelationTemplateForm(forms.ModelForm):
             self.initial['third_node_value'] = mapping.object_value
 
     def save(self, commit=True):
+        # Call parent's save method but don't commit to database yet, this gives us the instance to work with before final saving
         instance = super(RelationTemplateForm, self).save(commit=False)
         
-        # Process relation nodes and create a DefaultMapping
-        first_node_type = self.cleaned_data.get('first_node_type')
-        first_node_value = self.cleaned_data.get('first_node_value')
-        second_node_type = self.cleaned_data.get('second_node_type')
-        second_node_value = self.cleaned_data.get('second_node_value')
-        third_node_type = self.cleaned_data.get('third_node_type')
-        third_node_value = self.cleaned_data.get('third_node_value')
+        # Extract node configuration values from the form data
+        # These values define how the triple (subject-predicate-object) should be structured
+        # Each node can be either a reference to another node or a direct URI
+        first_node_type = self.cleaned_data.get('first_node_type')    # Subject type (Node or URI)
+        first_node_value = self.cleaned_data.get('first_node_value')  # Subject value
+        second_node_type = self.cleaned_data.get('second_node_type')  # Predicate type (Node or URI) 
+        second_node_value = self.cleaned_data.get('second_node_value')# Predicate value
+        third_node_type = self.cleaned_data.get('third_node_type')    # Object type (Node or URI)
+        third_node_value = self.cleaned_data.get('third_node_value')  # Object value
         
-        # Create or update the DefaultMapping
+        # DefaultMapping stores the structured representation of the relation with its three components: subject, predicate, and object
         if instance.structured_mapping:
-            # Update existing mapping
+            # If the instance already has a mapping, update its values which happens when editing an existing template
             mapping = instance.structured_mapping
             mapping.subject_type = first_node_type
             mapping.subject_value = first_node_value
@@ -416,7 +419,7 @@ class RelationTemplateForm(forms.ModelForm):
             mapping.object_value = third_node_value
             mapping.save()
         else:
-            # Create new mapping
+            # If no mapping exists, create a new DefaultMapping which happens when creating a new template
             mapping = DefaultMapping.objects.create(
                 subject_type=first_node_type,
                 subject_value=first_node_value,
@@ -425,9 +428,8 @@ class RelationTemplateForm(forms.ModelForm):
                 object_type=third_node_type,
                 object_value=third_node_value
             )
+            # Link the new mapping to the template
             instance.structured_mapping = mapping
-        
-        # DO NOT update terminal nodes - these are now completely user-managed
         
         if commit:
             instance.save()
