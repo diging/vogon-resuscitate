@@ -294,63 +294,60 @@ class RelationTemplateForm(forms.ModelForm):
                  'third_node_type', 'third_node_value']
     
     def clean_expression(self):
-        """
-        Validates expression field. Expression is always required.
-        """
-        expression = self.cleaned_data.get('expression')
-        if not expression:
-            raise forms.ValidationError("Expression is required")
-        
-        # Validate expression format
+        from string import Formatter
+        value = self.cleaned_data.get('expression')
         try:
-            # Verify that the expression contains valid placeholders like {0s}, {1o}, etc.
-            formatter = Formatter()
-            placeholders = [key for _, key, _, _ in formatter.parse(expression) if key is not None]
-            
-            # Check that placeholders follow the expected format (e.g., '0s', '1o')
-            pattern = re.compile(r'^[0-9]+[spo]$')
-            for placeholder in placeholders:
-                if not pattern.match(placeholder):
-                    raise forms.ValidationError(f"Invalid placeholder format: {{{placeholder}}}. Should be {{n[spo]}} where n is a number and s/p/o indicates subject/predicate/object.")
-                    
-        except Exception as e:
-            raise forms.ValidationError(f"Invalid expression format: {str(e)}")
-            
-        return expression
-    
+            [k[1] for k in Formatter().parse(value)]
+        except Exception as E:
+            raise ValidationError('Invalid expression')
+        return value
+
     def clean_terminal_nodes(self):
-        """
-        Validates that terminal nodes match the expression placeholders.
-        """
-        terminal_nodes = self.cleaned_data.get('terminal_nodes')
-        expression = self.cleaned_data.get('expression')
+        from string import Formatter
         
-        if not terminal_nodes:
-            return terminal_nodes
-            
-        # Parse terminal nodes
+        value = self.cleaned_data.get('terminal_nodes')
+        expression = self.cleaned_data.get('expression', '')
+        
         try:
-            node_list = [node.strip() for node in terminal_nodes.split(',')]
+            # Parse terminal nodes
+            terminal_nodes = [node.strip() for node in value.split(',') if node.strip()]
             
-            # If expression exists, check for placeholder references
+            # If expression exists, validate that terminal nodes match expression nodes
             if expression:
-                formatter = Formatter()
-                placeholders = [key for _, key, _, _ in formatter.parse(expression) if key is not None]
+                # Extract expression nodes
+                expression_nodes = []
+                for _, key, _, _ in Formatter().parse(expression):
+                    if key is not None:
+                        expression_nodes.append(key)
                 
-                # Ensure all expression placeholders are in terminal nodes
-                missing = []
-                for placeholder in placeholders:
-                    if placeholder not in node_list:
-                        missing.append(placeholder)
+                # Check that terminal nodes contain all expression nodes
+                missing_nodes = []
+                for node in expression_nodes:
+                    if node not in terminal_nodes:
+                        missing_nodes.append(node)
                 
-                if missing:
-                    raise forms.ValidationError(f"Terminal nodes must include all placeholders from expression. Missing: {', '.join(missing)}")
+                if missing_nodes:
+                    raise ValidationError(f"Terminal nodes missing placeholders from expression: {', '.join(missing_nodes)}")
+                
+                # Check that all terminal nodes are in expression
+                extra_nodes = []
+                for node in terminal_nodes:
+                    if node not in expression_nodes:
+                        extra_nodes.append(node)
+                
+                if extra_nodes:
+                    raise ValidationError(f"Terminal nodes contain placeholders not found in expression: {', '.join(extra_nodes)}")
             
-            return terminal_nodes
-        except Exception as e:
-            if isinstance(e, forms.ValidationError):
-                raise e
-            raise forms.ValidationError(f"Invalid terminal nodes format: {str(e)}")
+            # Basic validation - can we parse the nodes as tuples?
+            for u, v in map(tuple, value.split(',')):
+                pass
+                
+        except ValidationError:
+            raise
+        except Exception as E:
+            raise ValidationError('Invalid terminal nodes')
+            
+        return value
     
     def clean(self):
         """

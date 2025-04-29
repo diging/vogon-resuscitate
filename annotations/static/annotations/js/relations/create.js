@@ -254,7 +254,7 @@ $(document).ready(function() {
             
             // Check all required fields
             var requiredFields = [
-                '#expression_field_container textarea', '#id_terminal_nodes',
+                '#id_expression', '#id_terminal_nodes',
                 '#first_node_type', '#first_node_value',
                 '#second_node_type', '#second_node_value', 
                 '#third_node_type', '#third_node_value'
@@ -273,24 +273,29 @@ $(document).ready(function() {
                 e.preventDefault();
                 // Show error message
                 $('#form-error-message').remove();
-                $('form').prepend('<div id="form-error-message" class="alert alert-danger alert-dismissible fade show" role="alert">Please fill in all required fields<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
+                $('form').prepend('<div id="form-error-message" class="alert alert-danger alert-dismissible fade show" role="alert">Please fill in all required fields<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>');
                 return false;
             }
             
-            // ONLY validate that terminal nodes include all expression references
-            // Do NOT modify terminal nodes - just validate and show error
-            var expression = $('#expression_field_container textarea').val();
-            var terminalNodes = $('#id_terminal_nodes').val().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+            // Get terminal nodes and expression values
+            var expression = $('#id_expression').val();
+            var terminalNodesValue = $('#id_terminal_nodes').val();
+            
+            // Parse terminal nodes
+            var terminalNodes = terminalNodesValue.split(',').map(function(s) { 
+                return s.trim(); 
+            }).filter(Boolean);
             
             // Extract nodes from expression
             var expressionNodes = [];
             var nodePattern = /\{([^\}]+)\}/g;
             var match;
+            
             while ((match = nodePattern.exec(expression)) !== null) {
                 expressionNodes.push(match[1]);
             }
             
-            // Check for missing expression nodes
+            // Check for missing expression nodes in terminal nodes
             var missingNodes = [];
             expressionNodes.forEach(function(node) {
                 if (terminalNodes.indexOf(node) === -1) {
@@ -299,17 +304,35 @@ $(document).ready(function() {
             });
             
             if (missingNodes.length > 0) {
-                // Just show error message - don't update terminal nodes
+                // Show error message with dismissible button
                 $('#form-error-message').remove();
-                $('form').prepend('<div id="form-error-message" class="alert alert-danger alert-dismissible fade show" role="alert">Terminal nodes must include all expression references. Missing: ' + missingNodes.join(', ') + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
+                $('form').prepend('<div id="form-error-message" class="alert alert-danger alert-dismissible fade show" role="alert">Terminal nodes missing placeholders from expression: ' + missingNodes.join(', ') + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>');
                 e.preventDefault();
+                $('html, body').animate({ scrollTop: 0 }, 'fast'); // Scroll to top to see the error
                 return false;
             }
             
-            return true; // Allow form submission to continue
+            // Check for extra terminal nodes not in expression
+            var extraNodes = [];
+            terminalNodes.forEach(function(node) {
+                if (expressionNodes.indexOf(node) === -1) {
+                    extraNodes.push(node);
+                }
+            });
+            
+            if (extraNodes.length > 0) {
+                // Show error message with dismissible button
+                $('#form-error-message').remove();
+                $('form').prepend('<div id="form-error-message" class="alert alert-danger alert-dismissible fade show" role="alert">Terminal nodes contain placeholders not found in expression: ' + extraNodes.join(', ') + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>');
+                e.preventDefault();
+                $('html, body').animate({ scrollTop: 0 }, 'fast'); // Scroll to top to see the error
+                return false;
+            }
+            
+            return true; // Let the form submit if validation passes
         } catch (error) {
-            console.error('Error in form submission handler:', error);
-            return true; 
+            console.error('Error in form validation:', error);
+            return true; // Let server-side validation handle errors
         }
     });
 });

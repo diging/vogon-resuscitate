@@ -425,9 +425,6 @@ def generate_graph_data(relationset, user):
     # The default mapping is based on the relation template structure.
     #############################################################################
     
-    # Initialize an empty default mapping dictionary
-    default_mapping = {}
-    
     # Get the template part from the relationset's template
     template_part = relationset.template.template_parts.first()
     

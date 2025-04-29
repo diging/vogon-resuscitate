@@ -161,14 +161,46 @@ def validate_terminal_nodes(template_data, part_data, **kwargs):
     ``0s,1o`` refers to the subject of the first part and object of the second
     part.
     """
+    from string import Formatter
+    
     N_parts = len(part_data)
     terminal_nodes = template_data.get('terminal_nodes', '')
+    expression = template_data.get('expression', '')
+    
     try:
-        for part_id, pred_flag in map(tuple, terminal_nodes.split(',')):
+        # Parse terminal nodes
+        terminal_node_list = []
+        for node in terminal_nodes.split(','):
+            node = node.strip()
+            if not node:
+                continue
+            terminal_node_list.append(node)
+            part_id, pred_flag = node
             if not int(part_id) <= N_parts:
                 raise InvalidTemplate("Part ID in terminal nodes is invalid.")
             if not pred_flag in ['s', 'p', 'o']:
                 raise InvalidTemplate("Node ID in terminal nodes is invalid.")
+                
+        # If we have an expression, check that terminal nodes match expression nodes
+        if expression:
+            # Extract nodes from expression
+            expression_nodes = []
+            for _, key, _, _ in Formatter().parse(expression):
+                if key is not None:
+                    expression_nodes.append(key)
+            
+            # Check for missing expression nodes in terminal nodes
+            missing_nodes = [node for node in expression_nodes if node not in terminal_node_list]
+            if missing_nodes:
+                raise InvalidTemplate(f"Terminal nodes missing placeholders from expression: {', '.join(missing_nodes)}")
+            
+            # Check for extra terminal nodes not in expression
+            extra_nodes = [node for node in terminal_node_list if node not in expression_nodes]
+            if extra_nodes:
+                raise InvalidTemplate(f"Terminal nodes contain placeholders not found in expression: {', '.join(extra_nodes)}")
+                
+    except InvalidTemplate:
+        raise
     except Exception as E:
         raise InvalidTemplate("Invalid pattern for terminal nodes")
 
