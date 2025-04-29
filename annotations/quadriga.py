@@ -612,7 +612,6 @@ def submit_to_quadriga(relationset, user, project):
     endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add"
 
     graph_data = generate_graph_data(relationset, user)
-    print(graph_data) # DEBUG
     response = requests.post(endpoint, json=graph_data, headers=headers)
     response.raise_for_status()
 
