@@ -236,56 +236,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                 except Concept.DoesNotExist:
                     # Special handling for VIAF URIs
                     if 'viaf.org' in interpretation:
-                        viaf_id = interpretation.split('/')[-1]  # Extract VIAF ID from URI
-                        
-                        # Get VIAF description from search results
-                        viaf_description = ""
-                        try:
-                            # Use viapy to get more details about this VIAF entity
-                            viaf_api = ViafAPI()
-                            viaf_info = viaf_api.get_record(viaf_id)
-                            if viaf_info:
-                                # Extract helpful information from VIAF record
-                                viaf_description = label  # Use label as fallback
-                                
-                                # If there's additional information, include it
-                                if hasattr(viaf_info, 'titles') and viaf_info.titles:
-                                    viaf_description = viaf_info.titles[0]
-                                elif hasattr(viaf_info, 'namedetails') and viaf_info.namedetails:
-                                    viaf_description = str(viaf_info.namedetails)
-                        except Exception as e:
-                            print(f"Error getting VIAF description: {e}")
-                            # Fall back to using the label if we can't get the description
-                            viaf_description = label or f"VIAF entity {viaf_id}"
-                        
-                        # Create a person type if needed
-                        person_type_uri = 'http://www.digitalhps.org/types/TYPE_9e9f27b3-fb96-4d45-b910-88434326143a'
-                        try:
-                            type_instance = Type.objects.get(uri=person_type_uri)
-                        except Type.DoesNotExist:
-                            type_instance = Type.objects.create(
-                                uri=person_type_uri,
-                                label='Person',
-                                description='Person entity from VIAF',
-                                authority={'name': 'VIAF'},
-                            )
-                        
-                        # Create the VIAF concept directly
-                        concept = Concept.objects.create(
-                            uri=interpretation,
-                            label=label,
-                            description=viaf_description,  # Use actual description
-                            typed=type_instance,
-                            concept_state='Resolved',  # Use string value from the choices
-                            pos='NOUN',  # Always set a POS for VIAF entities
-                            authority='VIAF',
-                            createdBy_id=user_id
-                        )
-
-                        print(f"Created VIAF concept: {concept.id}", f"pos: {concept.pos}")
-                        # Force reload to ensure pos field is set
-                        concept.refresh_from_db()
-                        print(f"Created VIAF concept: {concept.id}", f"pos: {concept.pos}")
+                        concept = create_viaf_concept(interpretation, label, user_id)
                     else:
                         # Regular ConceptPower handling
                         concept_data = fetch_concept_data(interpretation, pos)
@@ -294,16 +245,12 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                         
                         # Handle concept type creation if necessary
                         if type_data:
-                            try:
-                                type_instance = Type.objects.get(uri=type_data.get('type_uri'))
-                            except Type.DoesNotExist:
-                                # Create a new Type instance if it doesn't exist
-                                type_instance = Type.objects.create(
-                                    uri=type_data.get('type_uri'),
-                                    label=type_data.get('type_name'),
-                                    description=type_data.get('description',''),
-                                    authority=concept_data.get('authority', {}),
-                                )
+                            type_instance = get_or_create_type(
+                                type_data.get('type_uri'),
+                                type_data.get('type_name'),
+                                type_data.get('description', ''),
+                                concept_data.get('authority', {})
+                            )
 
                         # Create a new concept instance for ConceptPower
                         concept = ConceptLifecycle.create(
@@ -682,75 +629,16 @@ class ConceptViewSet(viewsets.ModelViewSet):
         pos = request.GET.get('pos', None)
         results = []
         
-        # ConceptPower search
-        conceptpower_url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
-        conceptpower_params = {
-            'word': q,
-            'pos': pos if pos else None,
-        }
-        headers = {
-            'Accept': 'application/json',
-            "Cache-Control": "no-cache",
-            'Accept-Encoding': 'gzip, deflate',
-            'Connection': 'keep-alive',
-        }
+        # Search ConceptPower
+        cp_results = search_conceptpower(q, pos)
+        results.extend(cp_results)
         
-        try:
-            conceptpower_response = requests.get(conceptpower_url, headers=headers, params=conceptpower_params)
-            
-            if conceptpower_response.status_code == 200:
-                data = conceptpower_response.json()
-                for concept_entry in data.get('conceptEntries', []):
-                    try:
-                        concept = parse_concept(concept_entry)
-                        concept = _relabel(concept)
-                        results.append(concept)
-                    except Exception as e:
-                        logger.warning(f'Error parsing ConceptPower entry: {str(e)}')
-                        continue
-        except Exception as e:
-            logger.error(f'Error searching ConceptPower: {str(e)}')
+        # Search VIAF
+        viaf_results = search_viaf(q)
+        results.extend(viaf_results)
         
-        # VIAF search using viapy
-        viaf_api = ViafAPI()
-        
-        try:
-            # Get suggestions from VIAF API
-            viaf_results = viaf_api.suggest(q)
-            
-            if viaf_results:
-                for entry in viaf_results:
-                    try:
-                        # Convert to the format expected by the UI
-                        viaf_result = {
-                            'uri': viaf_api.uri_from_id(entry['viafid']),
-                            'label': entry['displayForm'],
-                            'description': f"{entry.get('displayForm', '')} - {entry.get('nametype', 'Person')}",
-                            'type': 'viaf',
-                            'pos': 'NOUN',  # Add POS explicitly for VIAF results
-                            'authority': {
-                                'name': 'VIAF',
-                                'uri': viaf_api.uri_from_id(entry['viafid'])
-                            }
-                        }
-                        
-                        # Add dates to description if available
-                        if 'dateOfBirth' in entry or 'dateOfDeath' in entry:
-                            birth = entry.get('dateOfBirth', '')
-                            death = entry.get('dateOfDeath', '')
-                            if birth or death:
-                                date_info = f" ({birth}-{death})"
-                                viaf_result['description'] += date_info
-                                
-                        results.append(viaf_result)
-                    except Exception as e:
-                        logger.warning(f'Error parsing VIAF entry: {str(e)}')
-                        continue
-        except Exception as e:
-            logger.error(f'Error searching VIAF: {str(e)}')
-
         print(results) #DEBUG
-            
+        
         return Response({'results': results})
 
 
@@ -853,3 +741,224 @@ def parse_concept(concept_entry):
         concept['authority'] = {'name': 'Unknown'}
     
     return concept
+
+# Utility functions to reduce code repetition
+
+def get_or_create_type(type_uri, type_label, type_description, authority=None):
+    """
+    Get an existing Type or create a new one
+    
+    Parameters:
+    -----------
+    type_uri : str
+        The URI of the type
+    type_label : str
+        The label of the type
+    type_description : str
+        The description of the type
+    authority : dict, optional
+        Authority information
+        
+    Returns:
+    --------
+    Type
+        The retrieved or created Type instance
+    """
+    try:
+        return Type.objects.get(uri=type_uri)
+    except Type.DoesNotExist:
+        return Type.objects.create(
+            uri=type_uri,
+            label=type_label,
+            description=type_description,
+            authority=authority or {},
+        )
+
+def create_viaf_concept(viaf_uri, label, user_id):
+    """
+    Create a new Concept from a VIAF URI
+    
+    Parameters:
+    -----------
+    viaf_uri : str
+        The VIAF URI
+    label : str
+        The label for the concept
+    user_id : int
+        The ID of the user creating the concept
+        
+    Returns:
+    --------
+    Concept
+        The created Concept instance
+    """
+    viaf_id = viaf_uri.split('/')[-1]  # Extract VIAF ID from URI
+    
+    # Get VIAF description from search results
+    viaf_description = ""
+    try:
+        # Use viapy to get more details about this VIAF entity
+        viaf_api = ViafAPI()
+        viaf_info = viaf_api.get_record(viaf_id)
+        if viaf_info:
+            # Extract helpful information from VIAF record
+            viaf_description = label  # Use label as fallback
+            
+            # If there's additional information, include it
+            if hasattr(viaf_info, 'titles') and viaf_info.titles:
+                viaf_description = viaf_info.titles[0]
+            elif hasattr(viaf_info, 'namedetails') and viaf_info.namedetails:
+                viaf_description = str(viaf_info.namedetails)
+    except Exception as e:
+        logger.error(f"Error getting VIAF description: {e}")
+        # Fall back to using the label if we can't get the description
+        viaf_description = label or f"VIAF entity {viaf_id}"
+    
+    # Create a person type if needed
+    person_type_uri = 'http://www.digitalhps.org/types/TYPE_9e9f27b3-fb96-4d45-b910-88434326143a'
+    type_instance = get_or_create_type(
+        person_type_uri,
+        'Person',
+        'Person entity from VIAF',
+        {'name': 'VIAF'}
+    )
+    
+    # Create the VIAF concept directly
+    concept = Concept.objects.create(
+        uri=viaf_uri,
+        label=label,
+        description=viaf_description,
+        typed=type_instance,
+        concept_state='Resolved',
+        pos='NOUN',  # Always set a POS for VIAF entities
+        authority='VIAF',
+        createdBy_id=user_id
+    )
+    
+    # Force reload to ensure all fields are set
+    concept.refresh_from_db()
+    print(f"Created VIAF concept: {concept.id}", f"pos: {concept.pos}")
+    
+    return concept
+
+def process_viaf_search_result(viaf_api, entry):
+    """
+    Process a VIAF search result entry into the expected format
+    
+    Parameters:
+    -----------
+    viaf_api : ViafAPI
+        The VIAF API instance
+    entry : dict
+        The VIAF entry to process
+        
+    Returns:
+    --------
+    dict
+        Processed VIAF entry in the format expected by the UI
+    """
+    # Convert to the format expected by the UI
+    viaf_result = {
+        'uri': viaf_api.uri_from_id(entry['viafid']),
+        'label': entry['displayForm'],
+        'description': f"{entry.get('displayForm', '')} - {entry.get('nametype', 'Person')}",
+        'type': 'viaf',
+        'pos': 'NOUN',  # Add POS explicitly for VIAF results
+        'authority': {
+            'name': 'VIAF',
+            'uri': viaf_api.uri_from_id(entry['viafid'])
+        }
+    }
+    
+    # Add dates to description if available
+    if 'dateOfBirth' in entry or 'dateOfDeath' in entry:
+        birth = entry.get('dateOfBirth', '')
+        death = entry.get('dateOfDeath', '')
+        if birth or death:
+            date_info = f" ({birth}-{death})"
+            viaf_result['description'] += date_info
+    
+    return viaf_result
+
+def search_conceptpower(query, pos=None):
+    """
+    Search ConceptPower for concepts
+    
+    Parameters:
+    -----------
+    query : str
+        The search query
+    pos : str, optional
+        Part of speech to filter by
+        
+    Returns:
+    --------
+    list
+        List of concept results
+    """
+    results = []
+    
+    conceptpower_url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
+    conceptpower_params = {
+        'word': query,
+        'pos': pos if pos else None,
+    }
+    headers = {
+        'Accept': 'application/json',
+        "Cache-Control": "no-cache",
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive',
+    }
+    
+    try:
+        conceptpower_response = requests.get(conceptpower_url, headers=headers, params=conceptpower_params)
+        
+        if conceptpower_response.status_code == 200:
+            data = conceptpower_response.json()
+            for concept_entry in data.get('conceptEntries', []):
+                try:
+                    concept = parse_concept(concept_entry)
+                    concept = _relabel(concept)
+                    results.append(concept)
+                except Exception as e:
+                    logger.warning(f'Error parsing ConceptPower entry: {str(e)}')
+                    continue
+    except Exception as e:
+        logger.error(f'Error searching ConceptPower: {str(e)}')
+    
+    return results
+
+def search_viaf(query):
+    """
+    Search VIAF for entities
+    
+    Parameters:
+    -----------
+    query : str
+        The search query
+        
+    Returns:
+    --------
+    list
+        List of VIAF results
+    """
+    results = []
+    viaf_api = ViafAPI()
+    
+    try:
+        # Get suggestions from VIAF API
+        viaf_results = viaf_api.suggest(query)
+        print(f"VIAF results: {viaf_results}")
+        
+        if viaf_results:
+            for entry in viaf_results:
+                try:
+                    result = process_viaf_search_result(viaf_api, entry)
+                    results.append(result)
+                except Exception as e:
+                    logger.warning(f'Error parsing VIAF entry: {str(e)}')
+                    continue
+    except Exception as e:
+        logger.error(f'Error searching VIAF: {str(e)}')
+    
+    return results
