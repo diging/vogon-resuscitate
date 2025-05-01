@@ -3,7 +3,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
 
 optional = { 'blank': True, 'null': True }
-
+import ast
 
 class HeritableObject(models.Model):
     """
@@ -54,6 +54,7 @@ class Concept(HeritableObject):
     resolved = models.BooleanField(default=False)
     typed = models.ForeignKey('Type', related_name='instances', **optional, on_delete=models.CASCADE)
     description = models.TextField(**optional)
+    # authority is a string that contains a dictionary in the format: {'name': 'ConceptPower'}
     authority = models.CharField(max_length=255, blank=True, null=True)
     pos = models.CharField(max_length=255, **optional)
 
@@ -101,6 +102,18 @@ class Concept(HeritableObject):
                     id_list += traverse_mergers(child)
             return id_list
         return traverse_mergers(self)
+    
+    @property
+    def authority_dict(self):
+        # parse the string value into a dictionary
+        if self.authority:
+            return ast.literal_eval(self.authority)
+        return {}
+
+    @property
+    def authority_name(self):
+        """Returns just the name from the authority dict, or empty string if name doesn't exist."""
+        return self.authority_dict.get('name', '')
 
     def get_absolute_url(self):
         return reverse('concept', args=(self.id,))
