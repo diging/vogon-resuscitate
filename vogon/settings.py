@@ -54,8 +54,6 @@ INSTALLED_APPS = (
     'corsheaders',
     'repository',
     'oauth2_provider',
-    'dal',
-    'dal_select2',
 )
 
 MIDDLEWARE = (
