@@ -241,18 +241,36 @@ class ConceptLifecycle(object):
         q = re.sub("[0-9]", "", unidecode(self.instance.label).translate(string.punctuation).lower())
         if not q:
             return []
+            
+        # Create search terms: full name first, then individual parts
+        search_terms = [q]
+        search_terms.extend(q.split())
+        
+        all_concepts = []
         try:
-            parameters = {
-                'word': q,
-                'pos': None,
-            }
-            headers = {
+            for term in search_terms:
+                parameters = {
+                    'word': term,
+                    'pos': None,
+                }
+                headers = {
                     'Accept': 'application/json',
-            }
-            concepts = self.conceptpower.search(params=parameters, headers=headers)
+                }
+                concepts = self.conceptpower.search(params=parameters, headers=headers)
+                all_concepts.extend(concepts)
+                
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
-        return concepts if not equals else equals
+            
+        seen_uris = set()
+        unique_concepts = []
+        for concept in all_concepts:
+            uri = concept.get('uri')
+            if uri and uri not in seen_uris:
+                seen_uris.add(uri)
+                unique_concepts.append(concept)
+                
+        return unique_concepts if not equals else equals
 
     def get_equal(self):
         """
