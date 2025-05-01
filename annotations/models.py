@@ -59,7 +59,7 @@ from annotations.utils import help_text
 from django.contrib.auth.models import (
     BaseUserManager, AbstractBaseUser, PermissionsMixin, Permission
 )
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from concepts.models import Concept, Type
 
@@ -308,7 +308,7 @@ class TextCollection(models.Model):
     collaborators = models.ManyToManyField(VogonUser, related_name='collaborations', blank=True)
 
     texts = models.ManyToManyField('Text', related_name='partOf',
-                                   blank=True, null=True)
+                                   blank=True)
     created = models.DateTimeField(auto_now_add=True)
     participants = models.ManyToManyField(VogonUser,
                                           related_name='contributes_to')

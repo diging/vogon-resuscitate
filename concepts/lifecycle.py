@@ -255,7 +255,7 @@ class ConceptLifecycle(object):
         return concepts if not equals else equals
 
     def get_equal(self):
-        """
+        r"""
         Retrieve data about Conceptpower entries that are "equal to" the
         managed :class:`.Concept`\.
 
