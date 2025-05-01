@@ -338,6 +338,9 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     if not collection_name:
         parent_collection_key = request.GET.get('parent_collection_key')
         if parent_collection_key:
+            # Find the collection name by matching the 'key' field in subcollections
+            # Uses next() with generator expression to efficiently return the first match
+            # Returns None if no matching collection is found (avoids StopIteration exception)
             collection_name = next(
                 (item['name'] for item in manager.get_subcollections(group_id, parent_collection_key) 
                  if item['key'] == group_collection_id), None
