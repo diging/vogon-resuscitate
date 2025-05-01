@@ -14,16 +14,8 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 import os
 from urllib.parse  import urlparse
 from dotenv import load_dotenv
-import django
-from django.utils.encoding import smart_str
-from django.utils.encoding import force_str
-from django.utils.translation import gettext_lazy
 
 load_dotenv()
-django.utils.encoding.smart_text = smart_str
-django.utils.encoding.force_text = force_str
-django.utils.translation.ugettext_lazy = gettext_lazy
-
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -52,7 +44,6 @@ INSTALLED_APPS = (
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
-    'django_inlinecss',
     'concepts',
     'annotations',
     'external_accounts',
@@ -274,4 +265,4 @@ REPOSITORY_TEXT_PAGINATION_PAGE_SIZE = 20
 PROJECT_TEXT_PAGINATION_PAGE_SIZE = 20
 
 # Django 3.2+ requires to explicitly define the type of default auto-created primary keys.
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'

@@ -308,7 +308,7 @@ class TextCollection(models.Model):
     collaborators = models.ManyToManyField(VogonUser, related_name='collaborations', blank=True)
 
     texts = models.ManyToManyField('Text', related_name='partOf',
-                                   blank=True, null=True)
+                                   blank=True)
     created = models.DateTimeField(auto_now_add=True)
     participants = models.ManyToManyField(VogonUser,
                                           related_name='contributes_to')
