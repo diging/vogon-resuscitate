@@ -306,7 +306,6 @@ class TEIProcessor:
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
 
 # ===== Content Type Detection =====
-
 def detect_content_type(text_content):
     """
     Detect the content type of a text by examining its structure.
@@ -346,14 +345,13 @@ def detect_content_type(text_content):
     }
 
 # ===== TEI Parsing Functions =====
-
 def parse_tei_document(xml_content):
     """
     Parse a TEI-XML document and prepare it for annotation.
 
     Returns a dictionary with:
         - original_xml
-        - clean_xml: namespace-stripped XML
+        - clean_xml: namespace-stripped XML (for backward compatibility)
         - display_html: improved HTML representation
         - element_map: mapping between display positions and TEI elements
         - tei_metadata: extracted metadata from TEI header
@@ -365,16 +363,31 @@ def parse_tei_document(xml_content):
         # This prevents issues with <?xml ...?> and <?xml-model ...?> tags 
         parser = etree.XMLParser(remove_comments=True, remove_pis=True)
         root = etree.fromstring(xml_content.encode('utf-8'), parser)
-
-        # Remove namespaces for easier processing
+        
+        # Register common TEI namespace if present
+        nsmap = root.nsmap.copy()
+        namespaces = {}
+        
+        # Look for TEI namespace and register it
+        tei_ns_uri = None
+        for prefix, uri in nsmap.items():
+            if uri and ('tei-c.org' in uri):
+                tei_ns_uri = uri
+                if prefix is not None:
+                    namespaces[prefix] = uri
+                else:
+                    # Default namespace is TEI, register as 'tei'
+                    namespaces['tei'] = uri
+        
+        # For backward compatibility, still create a namespace-stripped version
         clean_root = strip_namespaces(root)
         clean_xml = etree.tostring(clean_root, encoding='unicode')
 
-        # Extract metadata
-        metadata = extract_tei_metadata(clean_root)
+        # Extract metadata using the namespace-aware approach
+        metadata = extract_tei_metadata(root, namespaces)
 
-        # Extract facsimile data
-        facsimile_data = extract_facsimile_data(clean_root)
+        # Extract facsimile data using the namespace-aware approach
+        facsimile_data = extract_facsimile_data(root, namespaces)
 
         # Create display version
         display_result = create_display_content(clean_root)
@@ -386,7 +399,8 @@ def parse_tei_document(xml_content):
             'element_map': display_result['element_map'],
             'tei_metadata': metadata,
             'css': display_result.get('css', ''),
-            'facsimile_data': facsimile_data
+            'facsimile_data': facsimile_data,
+            'namespaces': namespaces  # Include the namespaces in the result
         }
     except Exception as e:
         # Simple error reporting
@@ -437,10 +451,10 @@ def _local_name(tag):
         return tag.split('}', 1)[1]
     return tag
 
-def extract_tei_metadata(root):
+def extract_tei_metadata(root, namespaces=None):
     """
     Extract basic metadata (title, author, date, etc.) from the TEI header.
-    Adapt as needed for your TEI schemas.
+    Uses namespace-aware queries if namespaces are provided.
     """
     metadata = {
         'title': None,
@@ -451,47 +465,75 @@ def extract_tei_metadata(root):
         'language': None,
         'msDesc': []
     }
+    
+    # Helper function to construct XPath with or without namespaces
+    def ns_path(path):
+        if not namespaces:
+            return path
+            
+        # If we have TEI namespace, use it properly in XPath
+        if 'tei' in namespaces:
+            # Convert simple path like './/titleStmt/title' to namespace-aware path
+            parts = path.strip().split('/')
+            ns_parts = []
+            for part in parts:
+                if part and not part.startswith('@') and not part == '.':
+                    if part.startswith('*'):
+                        ns_parts.append(part)  # Keep wildcards as is
+                    else:
+                        ns_parts.append(f"tei:{part}")
+                else:
+                    ns_parts.append(part)
+            return '/'.join(ns_parts)
+        return path
 
     # Title
-    title_elem = root.find('.//titleStmt/title')
-    if title_elem is not None and title_elem.text:
-        metadata['title'] = title_elem.text.strip()
+    title_path = ns_path('.//titleStmt/title')
+    title_elem = root.xpath(title_path, namespaces=namespaces)
+    if title_elem and title_elem[0].text:
+        metadata['title'] = title_elem[0].text.strip()
 
     # Author
-    author_elem = root.find('.//titleStmt/author')
-    if author_elem is not None and author_elem.text:
-        metadata['author'] = author_elem.text.strip()
+    author_path = ns_path('.//titleStmt/author')
+    author_elem = root.xpath(author_path, namespaces=namespaces)
+    if author_elem and author_elem[0].text:
+        metadata['author'] = author_elem[0].text.strip()
 
     # Publisher
-    publisher_elem = root.find('.//publicationStmt/publisher')
-    if publisher_elem is not None and publisher_elem.text:
-        metadata['publisher'] = publisher_elem.text.strip()
+    publisher_path = ns_path('.//publicationStmt/publisher')
+    publisher_elem = root.xpath(publisher_path, namespaces=namespaces)
+    if publisher_elem and publisher_elem[0].text:
+        metadata['publisher'] = publisher_elem[0].text.strip()
 
     # Date
-    date_elem = root.find('.//publicationStmt/date') or root.find('.//sourceDesc//date')
-    if date_elem is not None:
-        if date_elem.text:
-            metadata['date'] = date_elem.text.strip()
-        elif 'when' in date_elem.attrib:
-            metadata['date'] = date_elem.attrib['when']
+    date_path = ns_path('.//publicationStmt/date | .//sourceDesc//date')
+    date_elem = root.xpath(date_path, namespaces=namespaces)
+    if date_elem:
+        if date_elem[0].text:
+            metadata['date'] = date_elem[0].text.strip()
+        elif 'when' in date_elem[0].attrib:
+            metadata['date'] = date_elem[0].attrib['when']
 
     # Source
-    source_elem = root.find('.//sourceDesc')
-    if source_elem is not None:
-        source_text = source_elem.xpath('string()').strip()
+    source_path = ns_path('.//sourceDesc')
+    source_elem = root.xpath(source_path, namespaces=namespaces)
+    if source_elem:
+        source_text = source_elem[0].xpath('string()', namespaces=namespaces)
         if source_text:
-            metadata['source'] = source_text
+            metadata['source'] = source_text.strip()
 
     # Language
-    language_elem = root.find('.//language')
-    if language_elem is not None:
-        if language_elem.text:
-            metadata['language'] = language_elem.text.strip()
-        elif 'ident' in language_elem.attrib:
-            metadata['language'] = language_elem.attrib['ident']
+    language_path = ns_path('.//language')
+    language_elem = root.xpath(language_path, namespaces=namespaces)
+    if language_elem:
+        if language_elem[0].text:
+            metadata['language'] = language_elem[0].text.strip()
+        elif 'ident' in language_elem[0].attrib:
+            metadata['language'] = language_elem[0].attrib['ident']
 
     # Example: gather <msDesc> info
-    for ms_desc in root.findall('.//msDesc'):
+    msDesc_path = ns_path('.//msDesc')
+    for ms_desc in root.xpath(msDesc_path, namespaces=namespaces):
         ms_info = {}
         if 'xml:id' in ms_desc.attrib:
             ms_info['xml_id'] = ms_desc.attrib['xml:id']
@@ -500,18 +542,47 @@ def extract_tei_metadata(root):
 
     return metadata
 
-def extract_facsimile_data(root):
+def extract_facsimile_data(root, namespaces=None):
     """
     Extract info about facsimile images (<facsimile>/<graphic>).
+    Uses namespace-aware queries if namespaces are provided.
     """
     facsimile_data = []
-    facsimile = root.find('.//facsimile')
-    if facsimile is not None:
-        for graphic in facsimile.findall('.//graphic'):
+    
+    # Helper function to construct XPath with or without namespaces
+    def ns_path(path):
+        if not namespaces:
+            return path
+            
+        # If we have TEI namespace, use it properly in XPath
+        if 'tei' in namespaces:
+            # Convert simple path like './/facsimile' to namespace-aware path
+            parts = path.strip().split('/')
+            ns_parts = []
+            for part in parts:
+                if part and not part.startswith('@') and not part == '.':
+                    if part.startswith('*'):
+                        ns_parts.append(part)  # Keep wildcards as is
+                    else:
+                        ns_parts.append(f"tei:{part}")
+                else:
+                    ns_parts.append(part)
+            return '/'.join(ns_parts)
+        return path
+    
+    # Find facsimile elements with namespace support
+    facsimile_path = ns_path('.//facsimile')
+    facsimile_elems = root.xpath(facsimile_path, namespaces=namespaces)
+    
+    if facsimile_elems:
+        graphic_path = ns_path('.//graphic')
+        for graphic in facsimile_elems[0].xpath(graphic_path, namespaces=namespaces):
             image_info = {}
             for attr, value in graphic.attrib.items():
-                image_info[_local_name(attr)] = value
+                attr_name = _local_name(attr)
+                image_info[attr_name] = value
             facsimile_data.append(image_info)
+            
     return facsimile_data
 
 
