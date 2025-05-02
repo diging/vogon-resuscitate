@@ -142,7 +142,7 @@ def _generate_workspace_label(createdBy):
 def to_quadruples(relationsets, text, user, network_label=None,
                   workspace_id=None, workspace_label=None,
                   project_id=None, toString=False):
-    """
+    r"""
     Generate quadruple XML for a collection of :class:`.RelationSet`\s.
 
     Parameters
@@ -249,7 +249,7 @@ def submit_relationsets(relationsets, text, user,
                         userid=settings.QUADRIGA_USERID,
                         password=settings.QUADRIGA_PASSWORD,
                         endpoint=settings.QUADRIGA_ENDPOINT, **kwargs):
-    """
+    r"""
     Submit the :class:`.RelationSet`\s in ``relationsets`` to Quadriga.
     """
     payload, params = to_quadruples(relationsets, text, user, toString=True, **kwargs)
