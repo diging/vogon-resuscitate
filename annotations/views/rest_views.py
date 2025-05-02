@@ -826,7 +826,6 @@ def create_viaf_concept(viaf_uri, label, user_id):
     
     # Force reload to ensure all fields are set
     concept.refresh_from_db()
-    print(f"Created VIAF concept: {concept.id}", f"pos: {concept.pos}")
     
     return concept
 
@@ -910,7 +909,7 @@ def search_conceptpower(query, pos=None):
                     concept = _relabel(concept)
                     results.append(concept)
                 except Exception as e:
-                    logger.warning(f'Error parsing ConceptPower entry: {str(e)}')
+                    # Skip entries that fail to parse
                     continue
     except Exception as e:
         logger.error(f'Error searching ConceptPower: {str(e)}')
@@ -937,7 +936,6 @@ def search_viaf(query):
     try:
         # Get suggestions from VIAF API
         viaf_results = viaf_api.suggest(query)
-        print(f"VIAF results: {viaf_results}")
         
         if viaf_results:
             for entry in viaf_results:
@@ -945,7 +943,7 @@ def search_viaf(query):
                     result = process_viaf_search_result(viaf_api, entry)
                     results.append(result)
                 except Exception as e:
-                    logger.warning(f'Error parsing VIAF entry: {str(e)}')
+                    # Skip entries that fail to process
                     continue
     except Exception as e:
         logger.error(f'Error searching VIAF: {str(e)}')
