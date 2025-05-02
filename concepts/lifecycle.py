@@ -211,8 +211,6 @@ class ConceptLifecycle(object):
                                             self.instance.description,
                                             concept_type,
                                             equal_to=equal_uri)
-        except ConceptPowerCredentialsMissingException as e:
-            raise e
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
                                            " concept to Conceptpower:"

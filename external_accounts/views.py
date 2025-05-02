@@ -191,7 +191,7 @@ def conceptpower_update_password(request):
             account.save()
             messages.success(request, "Password updated successfully!")
         except ConceptpowerAccount.DoesNotExist:
-            messages.error(request, "No ConceptPower account found.")
+            messages.error(request, "No Conceptpower account found.")
         except Exception as e:
             messages.error(request, "Something went wrong! Please try again.")
             print(f"Error updating ConceptPower password: {e}")
@@ -202,7 +202,8 @@ def conceptpower_update_password(request):
 def conceptpower_disconnect(request):
     try:
         ConceptpowerAccount.objects.filter(user=request.user).delete()
+        messages.success(request, "Your Conceptpower account has been successfully disconnected.")
     except Exception as e:
-        print(f"Error disconnecting Conceptpower account: {e}")
+        messages.error(request, f"Error disconnecting Conceptpower account: {str(e)}")
         
     return redirect(reverse('dashboard'))
