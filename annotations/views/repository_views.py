@@ -316,12 +316,39 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
     for collection_item in texts['group']:
         if collection_item['key'] == group_collection_id:
             collection_name = collection_item['name']
+            break
 
     # retrieve items per page from settings and calculate pagination metadata from util function
     items_per_page = settings.PAGINATION_PAGE_SIZE
     pagination = get_pagination_metadata(total_items=texts.get('total_items'), page=page, items_per_page=items_per_page)
 
+    subcollections = []
+    try:
+        subcollections = manager.get_subcollections(group_id, group_collection_id)
+        # Sort subcollections alphabetically
+        subcollections = sorted(
+            subcollections, 
+            key=lambda x: x['name'].lower()
+        )
+    except CitesphereAPIError as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': str(e)}, status=500)
+    except Exception as e:
+        print(traceback.format_exc())
+        return render(request, 'annotations/repository_ioerror.html', {'error': 'An unexpected error occurred'}, status=500)
     project_id = request.GET.get('project_id')
+    
+    if not collection_name:
+        parent_collection_key = request.GET.get('parent_collection_key')
+        if parent_collection_key:
+            # Find the collection name by matching the 'key' field in subcollections
+            # Uses next() with generator expression to efficiently return the first match
+            # Returns None if no matching collection is found (avoids StopIteration exception)
+            collection_name = next(
+                (item['name'] for item in manager.get_subcollections(group_id, parent_collection_key) 
+                 if item['key'] == group_collection_id), None
+            )
+
     context = {
         'user': user,
         'repository': repository,
@@ -335,6 +362,7 @@ def repository_collection_texts(request, repository_id, group_id, group_collecti
         'total_pages': pagination['total_pages'],
         'page_range': pagination['page_range'],
         'APP_ROOT': settings.APP_ROOT,
+        'subcollections': subcollections,
     }
 
     return render(request, 'annotations/repository_collections_text_list.html', context)
