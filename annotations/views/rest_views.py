@@ -24,9 +24,9 @@ from concepts.models import Concept, Type
 from concepts.lifecycle import *
 
 from external_accounts.models import CitesphereAccount
-from annotations.quadriga import submit_to_quadriga, generate_graph_data
+from annotations.quadriga import submit_to_quadriga
 
-# Import viapy API for VIAF integration
+# viapy API for VIAF integration
 from viapy.api import ViafAPI
 
 import uuid
@@ -42,6 +42,11 @@ logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOGLEVEL)
 
+
+# Set concept property constants for VIAF and ConceptPower utility functionsq
+CONCEPT_POS = 'NOUN'
+CONCEPT_AUTHORITY = {'name': 'VIAF'}
+CONCEPT_STATE = 'Resolved'
 
 # Custom permission class that restricts write access (POST/PUT/DELETE) to only project owners and collaborators,
 # while allowing read access (GET) to any authenticated user. This is used to ensure that only authorized users
@@ -637,8 +642,6 @@ class ConceptViewSet(viewsets.ModelViewSet):
         viaf_results = search_viaf(q)
         results.extend(viaf_results)
         
-        print(results) #DEBUG
-        
         return Response({'results': results})
 
 
@@ -742,8 +745,7 @@ def parse_concept(concept_entry):
     
     return concept
 
-# Utility functions to reduce code repetition
-
+# Utility functions
 def get_or_create_type(type_uri, type_label, type_description, authority=None):
     """
     Get an existing Type or create a new one
@@ -792,46 +794,33 @@ def create_viaf_concept(viaf_uri, label, user_id):
     Concept
         The created Concept instance
     """
-    viaf_id = viaf_uri.split('/')[-1]  # Extract VIAF ID from URI
+    viaf_id = viaf_uri.split('/')[-1]
     
     # Get VIAF description from search results
     viaf_description = ""
     try:
-        # Use viapy to get more details about this VIAF entity
         viaf_api = ViafAPI()
         viaf_info = viaf_api.get_record(viaf_id)
         if viaf_info:
-            # Extract helpful information from VIAF record
             viaf_description = label  # Use label as fallback
             
-            # If there's additional information, include it
             if hasattr(viaf_info, 'titles') and viaf_info.titles:
                 viaf_description = viaf_info.titles[0]
             elif hasattr(viaf_info, 'namedetails') and viaf_info.namedetails:
                 viaf_description = str(viaf_info.namedetails)
     except Exception as e:
         logger.error(f"Error getting VIAF description: {e}")
-        # Fall back to using the label if we can't get the description
-        viaf_description = label or f"VIAF entity {viaf_id}"
-    
-    # Create a person type if needed
-    person_type_uri = 'http://www.digitalhps.org/types/TYPE_9e9f27b3-fb96-4d45-b910-88434326143a'
-    type_instance = get_or_create_type(
-        person_type_uri,
-        'Person',
-        'Person entity from VIAF',
-        {'name': 'VIAF'}
-    )
-    
+        viaf_description = label
+
     # Create the VIAF concept directly
     concept = Concept.objects.create(
         uri=viaf_uri,
         label=label,
         description=viaf_description,
-        typed=type_instance,
-        concept_state='Resolved',
-        pos='NOUN',  # Always set a POS for VIAF entities
-        authority='VIAF',
+        typed=None,  # No type needed
+        concept_state=CONCEPT_STATE,
+        pos=CONCEPT_POS,
+        authority=CONCEPT_AUTHORITY,
         createdBy_id=user_id
     )
     
@@ -862,8 +851,8 @@ def process_viaf_search_result(viaf_api, entry):
         'uri': viaf_api.uri_from_id(entry['viafid']),
         'label': entry['displayForm'],
         'description': f"{entry.get('displayForm', '')} - {entry.get('nametype', 'Person')}",
-        'type': 'viaf',
-        'pos': 'NOUN',  # Add POS explicitly for VIAF results
+        'type': 'VIAF',
+        'pos': CONCEPT_POS,
         'authority': {
             'name': 'VIAF',
             'uri': viaf_api.uri_from_id(entry['viafid'])
