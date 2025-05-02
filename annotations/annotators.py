@@ -238,11 +238,8 @@ class XMLAnnotator(Annotator):
         content_info = tei_utils.detect_content_type(resource)
         
         if content_info['is_tei']:
-            tei_data = tei_utils.parse_tei_document(resource)
-            
-            tokenized_content = tei_utils.tokenize_tei_content(tei_data['display_html'])
-
-            self.tei_data = tei_data
+            self.tei_data = tei_utils.parse_tei_document(resource)
+            tokenized_content = tei_utils.tokenize_tei_content(self.tei_data['display_html'])
             
             return tokenized_content
         else:

@@ -28,7 +28,7 @@ def detect_content_type(text_content):
     is_xml = False
     is_tei = False
 
-    if text_content.strip().startswith('<?xml') or text_content.strip().startswith('<'):
+    if text_content.strip().startswith('<?xml'):
         is_xml = True
         # Check for TEI namespace or common TEI markers
         if any(marker in text_content for marker in [
@@ -295,10 +295,10 @@ def process_element(element, html_parts, element_map, path=''):
                             'start_pos': len("".join(html_parts))})
         if element.text:
             html_parts.append(_escape_html(element.text))
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
-            if ch.tail:
-                html_parts.append(_escape_html(ch.tail))
+        for child_element in element:
+            process_element(child_element, html_parts, element_map, xpth)
+            if child_element.tail:
+                html_parts.append(_escape_html(child_element.tail))
         html_parts.append(f'</div>')
         return {'html_parts': html_parts, 'element_map': element_map}
 
@@ -309,10 +309,10 @@ def process_element(element, html_parts, element_map, path=''):
                             'start_pos': len("".join(html_parts))})
         if element.text: 
             html_parts.append(_escape_html(element.text))
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
-            if ch.tail: 
-                html_parts.append(_escape_html(ch.tail))
+        for child_element in element:
+            process_element(child_element, html_parts, element_map, xpth)
+            if child_element.tail: 
+                html_parts.append(_escape_html(child_element.tail))
         html_parts.append('</p>')
         return {'html_parts': html_parts, 'element_map': element_map}
 
@@ -323,10 +323,10 @@ def process_element(element, html_parts, element_map, path=''):
                             'start_pos': len("".join(html_parts))})
         if element.text: 
             html_parts.append(_escape_html(element.text))
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
-            if ch.tail: 
-                html_parts.append(_escape_html(ch.tail))
+        for child_element in element:
+            process_element(child_element, html_parts, element_map, xpth)
+            if child_element.tail: 
+                html_parts.append(_escape_html(child_element.tail))
         html_parts.append('</h3>')
         return {'html_parts': html_parts, 'element_map': element_map}
 
@@ -387,10 +387,10 @@ def process_element(element, html_parts, element_map, path=''):
             html_parts.append(f'<span class="tei-choice" data-xpath="{xpth}">')
             if element.text:
                 html_parts.append(_escape_html(element.text))
-            for ch in element:
-                process_element(ch, html_parts, element_map, xpth)
-                if ch.tail:
-                    html_parts.append(_escape_html(ch.tail))
+            for child_element in element:
+                process_element(child_element, html_parts, element_map, xpth)
+                if child_element.tail:
+                    html_parts.append(_escape_html(child_element.tail))
             html_parts.append('</span>')
         element_map.append({'xpath': xpth, 'element_type': 'choice',
                             'start_pos': len("".join(html_parts))})
@@ -400,8 +400,8 @@ def process_element(element, html_parts, element_map, path=''):
     # Lists and items
     if tg == 'list':
         html_parts.append(f'<ul class="tei-list" data-xpath="{xpth}">')
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
+        for child_element in element:
+            process_element(child_element, html_parts, element_map, xpth)
         html_parts.append('</ul>')
         return {'html_parts': html_parts, 'element_map': element_map}
 
@@ -409,10 +409,10 @@ def process_element(element, html_parts, element_map, path=''):
         html_parts.append(f'<li class="tei-item" data-xpath="{xpth}">')
         if element.text:
             html_parts.append(_escape_html(element.text))
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
-            if ch.tail:
-                html_parts.append(_escape_html(ch.tail))
+        for child_element in element:
+            process_element(child_element, html_parts, element_map, xpth)
+            if child_element.tail:
+                html_parts.append(_escape_html(child_element.tail))
         html_parts.append('</li>')
         return {'html_parts': html_parts, 'element_map': element_map}
 
@@ -420,15 +420,15 @@ def process_element(element, html_parts, element_map, path=''):
     # Tables
     if tg == 'table':
         html_parts.append(f'<table class="tei-table" data-xpath="{xpth}">')
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
+        for child_element in element:
+            process_element(child_element, html_parts, element_map, xpth)
         html_parts.append('</table>')
         return {'html_parts': html_parts, 'element_map': element_map}
 
     if tg in ('row', 'rowGrp'):
         html_parts.append('<tr>')
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
+        for child_element in element:
+            process_element(child_element, html_parts, element_map, xpth)
         html_parts.append('</tr>')
         return {'html_parts': html_parts, 'element_map': element_map}
 
@@ -436,10 +436,10 @@ def process_element(element, html_parts, element_map, path=''):
         html_parts.append('<td>')
         if element.text:
             html_parts.append(_escape_html(element.text))
-        for ch in element:
-            process_element(ch, html_parts, element_map, xpth)
-            if ch.tail:
-                html_parts.append(_escape_html(ch.tail))
+        for child_element in element:
+            process_element(child_element, html_parts, element_map, xpth)
+            if child_element.tail:
+                html_parts.append(_escape_html(child_element.tail))
         html_parts.append('</td>')
         return {'html_parts': html_parts, 'element_map': element_map}
 
@@ -463,10 +463,10 @@ def process_element(element, html_parts, element_map, path=''):
                         'start_pos': len("".join(html_parts))})
     if element.text:
         html_parts.append(_escape_html(element.text))
-    for ch in element:
-        process_element(ch, html_parts, element_map, xpth)
-        if ch.tail:
-            html_parts.append(_escape_html(ch.tail))
+    for child_element in element:
+        process_element(child_element, html_parts, element_map, xpth)
+        if child_element.tail:
+            html_parts.append(_escape_html(child_element.tail))
     html_parts.append(f'</span>')
     
     return {'html_parts': html_parts, 'element_map': element_map}
