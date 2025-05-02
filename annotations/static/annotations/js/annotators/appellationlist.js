@@ -166,11 +166,6 @@ var AppellationListItem = {
                 } else {
                     this.deleteError = "Error deleting annotation, Please try again later.";
                 }
-                
-                // Clear error message after 5 seconds
-                setTimeout(() => {
-                    this.deleteError = null;
-                }, 5000);
             });
         },
         editAppellation() {
