@@ -27,6 +27,7 @@ from external_accounts.models import CitesphereAccount
 from annotations.quadriga import submit_to_quadriga
 
 # viapy API for VIAF integration
+# https://viapy.readthedocs.io/en/latest/
 from viapy.api import ViafAPI
 
 import uuid
