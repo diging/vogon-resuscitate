@@ -193,7 +193,7 @@ def validate_template_data(template_data, part_data, **kwargs):
 
 
     dependencies = build_dependency_graph(template_data, part_data)
-    if not dependencies.number_of_selfloops() == 0:
+    if not nx.number_of_selfloops(dependencies) == 0:
         raise InvalidTemplate('Relation structure contains self-loops')
 
     if not nx.algorithms.is_directed_acyclic_graph(dependencies):
