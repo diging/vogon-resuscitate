@@ -95,6 +95,12 @@ AppellationDisplayItem = {
         });
     },
     methods: {
+        //  works on a saved Appellation (character offsets that come from
+        //  the backend). 
+        //  This wrapper forwards the appellation.position to the helper and stores the
+        //  returned rectangles in this component's reactive data so the
+        //  <li> elements update.
+        // -------------------------------------------------------------
         getLabel: function () {
             if (this.appellation.interpretation) {
                 return this.appellation.interpretation.label;
@@ -112,42 +118,15 @@ AppellationDisplayItem = {
             this.$emit('selectappellation', this.appellation);
         },
         updatePosition: function () {
-            this.mid_lines = [];
-            var lineHeight = parseInt(getStyle('text-content', 'line-height'));
-            this.position = getTextPosition(this.appellation.position);
-            this.line_height = lineHeight - 1;
-            var endPoint = getPointPosition(this.appellation.position.endOffset);
-            var nLines = 1 + (endPoint.bottom - this.position.bottom) / lineHeight;
-            if (nLines > 1) { // The selection may span several lines.
-                // clientLeft/clientWidth don't account for inner padding.
-                var _padding = parseInt(getStyle('text-content', 'padding'));
-                if (!_padding) { // Firefox.
-                    _padding = parseInt(getStyle('text-content', 'paddingLeft'));
-                }
-                var _left = parseInt(document.getElementById('text-content').clientLeft);
-                var _width = parseInt(document.getElementById('text-content').clientWidth);
-                var left = _left + _padding;
-                var width = _width - (2 * _padding);
-
-                this.end_position = { // This is the last line, running from
-                    top: endPoint.top, //  far left to the end of the
-                    left: left, //   selection.
-                    width: endPoint.right - left
-                }
-
-                // If the selection spans more than two lines, we need to
-                //  highlight the intermediate lines at full width.
-                for (i = 0; i < Math.max(0, nLines - 2); i++) {
-                    this.mid_lines.push({
-                        top: this.position.top + (i + 1) * lineHeight,
-                        left: left,
-                        width: width,
-                        height: lineHeight - 1
-                    })
-                }
-            } else {
-                this.end_position = {};
+            if (!this.appellation || !this.appellation.position) {
+                return;
             }
+
+            var calc = calculateOverlayPositions(this.appellation.position);
+            this.position     = calc.position;
+            this.mid_lines    = calc.mid_lines;
+            this.end_position = calc.end_position;
+            this.line_height  = calc.line_height;
         }
     }
 }
