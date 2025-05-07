@@ -160,6 +160,13 @@ var AppellationListItem = {
             Appellation.delete({id: this.appellation.id}).then(response => {
                 // Emit event to parent to remove from list and text display
                 this.$emit('removeappellation', this.appellation);
+
+                // Reset edit state
+                EventBus.$emit('resetEditState');
+                EventBus.$emit('cancelEdit');
+                this.isEditMode = false;
+
+                
             }).catch(error => {
                 if (error.status === 400) {
                     this.deleteError = "This annotation is used in a relation and cannot be deleted.";
