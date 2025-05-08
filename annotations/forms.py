@@ -306,7 +306,7 @@ class RelationTemplateForm(forms.ModelForm):
         value = self.cleaned_data.get('terminal_nodes')
         
         try:
-            # Parse terminal nodes - only validate format
+            # Parse terminal nodes - validate the format
             terminal_nodes = [node.strip() for node in value.split(',') if node.strip()]
             
             # Check each node has the right format (e.g., "0s", "1o")
@@ -328,11 +328,11 @@ class RelationTemplateForm(forms.ModelForm):
         """
         cleaned_data = super(RelationTemplateForm, self).clean()
         
-        # Still validate the individual fields if they exist
+        # validate the individual fields if they exist
         expression = cleaned_data.get('expression')
         if expression:
             try:
-                # Just check that the expression has valid placeholder format
+                # check that the expression has valid placeholder format
                 for _, field, _, _ in Formatter().parse(expression):
                     if field and not re.match(r'^\d+[spo]$', field):
                         self.add_error('expression', f"Invalid placeholder format: {{{field}}}. Should be a number followed by 's', 'p', or 'o'.")

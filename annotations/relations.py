@@ -174,7 +174,7 @@ def validate_terminal_nodes(template_data, part_data, **kwargs):
             if not node:
                 continue
                 
-            # Validate basic format
+            # Validate format eg 0s, 1o, 2p
             if len(node) < 2 or not node[0].isdigit() or node[-1] not in ['s', 'p', 'o']:
                 raise InvalidTemplate(f"Invalid node format: {node}. Expected format is a number followed by 's', 'p', or 'o'.")
                 
@@ -186,7 +186,7 @@ def validate_terminal_nodes(template_data, part_data, **kwargs):
 
 def validate_expression(template_data, part_data, **kwargs):
     """
-    Validate the basic format of the expression.
+    Validate the format of the expression.
     Each key in the expression should be two characters: 
     a digit representing part ID followed by a character 
     representing field (s, p, or o).
@@ -222,7 +222,6 @@ def validate_template_data(template_data, part_data, **kwargs):
     # Validate terminal nodes
     if 'terminal_nodes' in template_data and template_data['terminal_nodes']:
         try:
-            # Basic format validation - don't check against expression
             node_list = template_data['terminal_nodes'].split(',')
             for node in node_list:
                 node = node.strip()
@@ -236,12 +235,12 @@ def validate_template_data(template_data, part_data, **kwargs):
     # Validate expression
     if 'expression' in template_data and template_data['expression']:
         try:
-            # Just check that expression formatting is valid, no cross-checking
+            # check that expression formatting is valid
             formatter = Formatter()
             # Check that keys in the expression have valid syntax
             for _, key, _, _ in formatter.parse(template_data['expression']):
                 if key is not None and len(key) >= 2:
-                    # At minimum, verify the key has an index and a field identifier
+                    # verify the key has an index and a field identifier
                     try:
                         part_id = int(key[0])
                         field_id = key[-1]
@@ -357,8 +356,6 @@ def create_template(template_data, part_data):
             template.structured_mapping = mapping
             template.save()
             
-        # Terminal nodes and expression are now independent - no auto-generation needed
-        
         for datum in creation_data:
             datum['part_of_id'] = template.id
 
