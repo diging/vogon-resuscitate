@@ -376,9 +376,6 @@ class RelationTemplateForm(forms.ModelForm):
         third_node_type = self.cleaned_data.get('third_node_type')    # Object type (Node or URI)
         third_node_value = self.cleaned_data.get('third_node_value')  # Object value
         
-        # Get the structured_mapping from the form data
-        form_mapping = self.cleaned_data.get('structured_mapping')
-        
         # DefaultMapping stores the structured representation of the relation
         if instance.structured_mapping:
             # Always update the existing mapping when editing a template
@@ -390,9 +387,6 @@ class RelationTemplateForm(forms.ModelForm):
             mapping.object_type = third_node_type
             mapping.object_value = third_node_value
             mapping.save()
-        elif form_mapping:
-            # If the form has a mapping but instance doesn't, use the form's mapping
-            instance.structured_mapping = form_mapping
         else:
             # If no mapping exists, create a new DefaultMapping
             mapping = DefaultMapping.objects.create(

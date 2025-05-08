@@ -325,46 +325,14 @@ def create_default_mapping(relationset, node_mapping):
     # Get the template part from the relationset's template
     template_part = relationset.template.template_parts.first()
     
-    # Get the subject node from the relation
-    subject_node = None
-    if template_part.source_node_type == RelationTemplatePart.CONCEPT:  # Specific concept
-        subject_node = top_relation.source_content_object
-    elif template_part.source_node_type == RelationTemplatePart.TYPE:  # Open concept
-        subject_node = top_relation.source_content_object
-    elif template_part.source_node_type == RelationTemplatePart.DATE:  # Date
-        subject_node = top_relation.source_content_object
-    elif template_part.source_node_type == RelationTemplatePart.RELATION:  # Relation
-        subject_node = top_relation.source_content_object
-    
-    # Get the predicate node
+    # Get the subject, predicate, and object nodes
+    subject_node = top_relation.source_content_object
     predicate_node = top_relation.predicate
-    
-    # Get the object node from the relation
-    object_node = None
-    if template_part.object_node_type == RelationTemplatePart.CONCEPT:  # Specific concept
-        object_node = top_relation.object_content_object
-    elif template_part.object_node_type == RelationTemplatePart.TYPE:  # Open concept
-        object_node = top_relation.object_content_object
-    elif template_part.object_node_type == RelationTemplatePart.DATE:  # Date
-        object_node = top_relation.object_content_object
-    elif template_part.object_node_type == RelationTemplatePart.RELATION:  # Relation
-        object_node = top_relation.object_content_object
+    object_node = top_relation.object_content_object
     
     # Create keys for looking up node IDs
-    subj_key = None
-    obj_key = None
-    
-    if subject_node:
-        if hasattr(subject_node, 'source_content_type_id'):
-            subj_key = f"rel-{subject_node.id}-{subject_node.created.isoformat()}"
-        else:
-            subj_key = f"app-{subject_node.id}-{subject_node.created.isoformat()}"
-    
-    if object_node:
-        if hasattr(object_node, 'source_content_type_id'):
-            obj_key = f"rel-{object_node.id}-{object_node.created.isoformat()}"
-        else:
-            obj_key = f"app-{object_node.id}-{object_node.created.isoformat()}"
+    subj_key = f"rel-{subject_node.id}-{subject_node.created.isoformat()}" if subject_node and hasattr(subject_node, 'source_content_type_id') else f"app-{subject_node.id}-{subject_node.created.isoformat()}" if subject_node else None
+    obj_key = f"rel-{object_node.id}-{object_node.created.isoformat()}" if object_node and hasattr(object_node, 'source_content_type_id') else f"app-{object_node.id}-{object_node.created.isoformat()}" if object_node else None
     
     # Get the structured mapping (guaranteed to be present now)
     structured_mapping = relationset.template.structured_mapping
