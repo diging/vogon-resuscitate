@@ -250,7 +250,7 @@ class RelationTemplateForm(forms.ModelForm):
                            " of the second part, or {2p} for the predicate of"
                            " the third part."
         }))
-    terminal_nodes = forms.CharField(widget=forms.TextInput(attrs={
+    terminal_nodes = forms.CharField(required=True, widget=forms.TextInput(attrs={
             'class': 'form-control input-sm',
             'rows': 2,
             'placeholder': "Enter comma-separated node identifiers. E.g."
@@ -304,6 +304,8 @@ class RelationTemplateForm(forms.ModelForm):
 
     def clean_terminal_nodes(self):
         value = self.cleaned_data.get('terminal_nodes')
+        if not value:
+            raise ValidationError('Terminal nodes are required')
         
         try:
             # Parse terminal nodes - validate the format
@@ -321,10 +323,23 @@ class RelationTemplateForm(forms.ModelForm):
             
         return value
     
+    def validate_node_uri_field(self, node_type, node_value, field_name):
+        """Helper method to validate node/uri field pairs"""
+        if node_type == 'Node':
+            # If type is NODE, value must match pattern Number[spo]
+            if not re.match(r'^\d+[spo]$', node_value):
+                self.add_error(field_name, f"Node reference must be in format: Number followed by 's', 'p', or 'o'")
+                return False
+        elif node_type == 'URI':
+            # If type is URI, value must start with http:// or https://
+            if not node_value.startswith(('http://', 'https://')):
+                self.add_error(field_name, "URI must start with 'http://' or 'https://'")
+                return False
+        return True
+    
     def clean(self):
         """
-        No cross-field validation between terminal_nodes and expression anymore.
-        Terminal nodes and expression are now independent.
+        Validate the structure of the form data.
         """
         cleaned_data = super(RelationTemplateForm, self).clean()
         
@@ -338,6 +353,22 @@ class RelationTemplateForm(forms.ModelForm):
                         self.add_error('expression', f"Invalid placeholder format: {{{field}}}. Should be a number followed by 's', 'p', or 'o'.")
             except Exception as e:
                 self.add_error('expression', "Invalid expression format")
+        
+        # Validate Node/URI field pairs
+        first_node_type = cleaned_data.get('first_node_type')
+        first_node_value = cleaned_data.get('first_node_value')
+        if first_node_type and first_node_value:
+            self.validate_node_uri_field(first_node_type, first_node_value, 'first_node_value')
+            
+        second_node_type = cleaned_data.get('second_node_type')
+        second_node_value = cleaned_data.get('second_node_value')
+        if second_node_type and second_node_value:
+            self.validate_node_uri_field(second_node_type, second_node_value, 'second_node_value')
+            
+        third_node_type = cleaned_data.get('third_node_type')
+        third_node_value = cleaned_data.get('third_node_value')
+        if third_node_type and third_node_value:
+            self.validate_node_uri_field(third_node_type, third_node_value, 'third_node_value')
         
         return cleaned_data
 
@@ -367,6 +398,10 @@ class RelationTemplateForm(forms.ModelForm):
     def save(self, commit=True):
         # Call parent's save method but don't commit to database yet
         instance = super(RelationTemplateForm, self).save(commit=False)
+        
+        # Make sure terminal_nodes is saved
+        if 'terminal_nodes' in self.cleaned_data:
+            instance.terminal_nodes = self.cleaned_data['terminal_nodes']
         
         # Extract node configuration values from the form data
         first_node_type = self.cleaned_data.get('first_node_type')    # Subject type (Node or URI)

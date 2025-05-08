@@ -328,15 +328,29 @@ def create_template(template_data, part_data):
     third_node_type = template_data.get('third_node_type')
     third_node_value = template_data.get('third_node_value')
     
+    # Save terminal_nodes separately to ensure it's not lost
+    terminal_nodes = template_data.get('terminal_nodes', '')
+    logger.info(f"Terminal nodes in create_template: {terminal_nodes}")
+    
     # Filter out structured mapping fields from template_data
     # Since these are handled separately through the DefaultMapping model
     template_data_filtered = {k: v for k, v in template_data.items() if k not in structured_mapping_fields}
-
+    
+    # Ensure terminal_nodes is explicitly included in filtered data
+    if 'terminal_nodes' not in template_data_filtered and terminal_nodes:
+        template_data_filtered['terminal_nodes'] = terminal_nodes
+    
+    logger.info(f"Template data for creation: {template_data_filtered}")
     creation_data = list(map(parse_template_part_data, part_data))
 
     with transaction.atomic():
         # Create the template
         template = RelationTemplate.objects.create(**template_data_filtered)
+        
+        # Explicitly set terminal_nodes if it exists in original data
+        if terminal_nodes and not template.terminal_nodes:
+            template.terminal_nodes = terminal_nodes
+            template.save()
         
         # Create DefaultMapping if we have valid data
         # The DefaultMapping stores the structured representation of the relation
@@ -369,6 +383,9 @@ def create_template(template_data, part_data):
                 if internal > -1:
                     setattr(part, '%s_relationtemplate' % pred, parts[internal])
                     part.save()
+                    
+        # Log the final state of the template
+        logger.info(f"Created template with terminal_nodes: {template.terminal_nodes}")
     return template
 
 
@@ -631,13 +648,26 @@ def update_template(template, template_data, part_data_list):
         expression = template_data.get('expression')
         terminal_nodes = template_data.get('terminal_nodes')
         
+        # Log terminal nodes to debug
+        logger.info(f"Terminal nodes in update_template: {terminal_nodes}")
+        
         # Filter out structured mapping fields from template_data
-        template_data = {k: v for k, v in template_data.items() if k not in structured_mapping_fields}
+        template_data_filtered = {k: v for k, v in template_data.items() if k not in structured_mapping_fields}
+        
+        # Make sure terminal_nodes is explicitly included
+        if terminal_nodes and 'terminal_nodes' not in template_data_filtered:
+            template_data_filtered['terminal_nodes'] = terminal_nodes
         
         # Update the template fields first
-        for field, value in template_data.items():
+        for field, value in template_data_filtered.items():
             setattr(template, field, value)
+        
+        # Explicitly set terminal_nodes to ensure it's saved
+        if terminal_nodes:
+            template.terminal_nodes = terminal_nodes
+            
         template.save()
+        logger.info(f"Updated template with terminal_nodes: {template.terminal_nodes}")
         
         # Update or create the DefaultMapping
         if template.structured_mapping:

@@ -241,6 +241,11 @@ $(document).ready(function() {
     $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').prop('disabled', false);
     $('#expression_field_container textarea').prop('disabled', false);
     
+    // Add a heading above terminal nodes field
+    if ($('#id_terminal_nodes').parent().find('.terminal-nodes-heading').length === 0) {
+        $('#id_terminal_nodes').parent().prepend('<h4 class="terminal-nodes-heading">Terminal Nodes</h4>');
+    }
+    
     // Add a help note for terminal nodes field - completely manual now
     if ($('#id_terminal_nodes').parent().find('.terminal-nodes-note').length === 0) {
         $('#id_terminal_nodes').after('<small class="form-text text-muted terminal-nodes-note">Enter terminal nodes in comma separated format, This represents the nodes that will be used to create the relation Graph.</small>');
@@ -251,6 +256,7 @@ $(document).ready(function() {
         try {
             // Validate that all required fields are filled
             var allFieldsFilled = true;
+            var validationErrors = [];
             
             // Check all required fields
             var requiredFields = [
@@ -269,11 +275,40 @@ $(document).ready(function() {
                 }
             });
             
-            if (!allFieldsFilled) {
+            // Validate node/URI values
+            validateNodeUriField('#first_node_type', '#first_node_value', validationErrors);
+            validateNodeUriField('#second_node_type', '#second_node_value', validationErrors);
+            validateNodeUriField('#third_node_type', '#third_node_value', validationErrors);
+            
+            // Terminal nodes validation - check format
+            var terminalNodes = $('#id_terminal_nodes').val();
+            if (terminalNodes) {
+                var nodes = terminalNodes.split(',');
+                for (var i = 0; i < nodes.length; i++) {
+                    var node = nodes[i].trim();
+                    if (node && !/^\d+[spo]$/.test(node)) {
+                        validationErrors.push("Terminal node '" + node + "' is invalid. Format should be a number followed by 's', 'p', or 'o'.");
+                        $('#id_terminal_nodes').addClass('is-invalid');
+                    }
+                }
+            }
+            
+            if (!allFieldsFilled || validationErrors.length > 0) {
                 e.preventDefault();
                 // Show error message
                 $('#form-error-message').remove();
-                $('form').prepend('<div id="form-error-message" class="alert alert-danger alert-dismissible fade show" role="alert">Please fill in all required fields<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>');
+                var errorMessage = "";
+                
+                if (!allFieldsFilled) {
+                    errorMessage = "Please fill in all required fields";
+                }
+                
+                if (validationErrors.length > 0) {
+                    if (errorMessage) errorMessage += "<br>";
+                    errorMessage += validationErrors.join("<br>");
+                }
+                
+                $('form').prepend('<div id="form-error-message" class="alert alert-danger alert-dismissible fade show" role="alert">' + errorMessage + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>');
                 return false;
             }
             
@@ -283,6 +318,30 @@ $(document).ready(function() {
             return true; // Let server-side validation handle errors
         }
     });
+    
+    // Helper function to validate node/URI fields
+    function validateNodeUriField(typeField, valueField, errors) {
+        var type = $(typeField).val();
+        var value = $(valueField).val();
+        
+        if (!value) return; // Empty validation is handled separately
+        
+        $(valueField).removeClass('is-invalid');
+        
+        if (type === 'Node') {
+            // Node value should be in format Number[spo]
+            if (!/^\d+[spo]$/.test(value)) {
+                errors.push("Node reference value must be in format: Number followed by 's', 'p', or 'o'");
+                $(valueField).addClass('is-invalid');
+            }
+        } else if (type === 'URI') {
+            // URI value should start with http:// or https://
+            if (!/^https?:\/\//.test(value)) {
+                errors.push("URI value must start with 'http://' or 'https://'");
+                $(valueField).addClass('is-invalid');
+            }
+        }
+    }
 });
 
 
