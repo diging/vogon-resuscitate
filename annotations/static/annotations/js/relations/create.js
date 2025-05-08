@@ -243,7 +243,7 @@ $(document).ready(function() {
     
     // Add a help note for terminal nodes field - completely manual now
     if ($('#id_terminal_nodes').parent().find('.terminal-nodes-note').length === 0) {
-        $('#id_terminal_nodes').after('<small class="form-text text-muted terminal-nodes-note">Terminal nodes and expression can be defined independently.</small>');
+        $('#id_terminal_nodes').after('<small class="form-text text-muted terminal-nodes-note">Enter terminal nodes in comma separated format, This represents the nodes that will be used to create the relation Graph.</small>');
     }
     
     // Add form submission handler to validate fields
