@@ -222,9 +222,9 @@ class ChoiceIntegerField(forms.IntegerField):
 
 # TODO: widget details (e.g. CSS classes) should be in the template.
 class RelationTemplateForm(forms.ModelForm):
-    # Hidden field to carry the PK of the DefaultMapping for this RelationTemplate (populates structured_mapping)
+    # Field to handle the DefaultMapping for this RelationTemplate
     structured_mapping = forms.ModelChoiceField(
-        queryset=DefaultMapping.objects.all(),
+        queryset=DefaultMapping.objects.none(),  # Empty queryset by default, will be set in __init__
         required=False,
         widget=forms.HiddenInput(attrs={'id': 'id_structured_mapping'})
     )
@@ -303,78 +303,41 @@ class RelationTemplateForm(forms.ModelForm):
         return value
 
     def clean_terminal_nodes(self):
-        from string import Formatter
-        
         value = self.cleaned_data.get('terminal_nodes')
-        expression = self.cleaned_data.get('expression', '')
         
         try:
-            # Parse terminal nodes
+            # Parse terminal nodes - only validate format
             terminal_nodes = [node.strip() for node in value.split(',') if node.strip()]
             
-            # If expression exists, validate that terminal nodes match expression nodes
-            if expression:
-                # Extract expression nodes
-                expression_nodes = []
-                for _, key, _, _ in Formatter().parse(expression):
-                    if key is not None:
-                        expression_nodes.append(key)
-                
-                # Check that terminal nodes contain all expression nodes
-                missing_nodes = []
-                for node in expression_nodes:
-                    if node not in terminal_nodes:
-                        missing_nodes.append(node)
-                
-                if missing_nodes:
-                    raise ValidationError(f"Terminal nodes missing placeholders from expression: {', '.join(missing_nodes)}")
-                
-                # Check that all terminal nodes are in expression
-                extra_nodes = []
-                for node in terminal_nodes:
-                    if node not in expression_nodes:
-                        extra_nodes.append(node)
-                
-                if extra_nodes:
-                    raise ValidationError(f"Terminal nodes contain placeholders not found in expression: {', '.join(extra_nodes)}")
-            
-            for u, v in map(tuple, value.split(',')):
-                pass
+            # Check each node has the right format (e.g., "0s", "1o")
+            for node in terminal_nodes:
+                if not re.match(r'^\d+[spo]$', node):
+                    raise ValidationError(f"Invalid node format: {node}. Should be a number followed by 's', 'p', or 'o'.")
                 
         except ValidationError:
             raise
         except Exception as E:
-            raise ValidationError('Invalid terminal nodes')
+            raise ValidationError('Invalid terminal nodes format')
             
         return value
     
     def clean(self):
         """
-        Cross-field validation to ensure expression and terminal nodes are synchronized.
+        No cross-field validation between terminal_nodes and expression anymore.
+        Terminal nodes and expression are now independent.
         """
         cleaned_data = super(RelationTemplateForm, self).clean()
         
-        # If both expression and terminal_nodes exist, they should be synchronized
-        # This is handled in clean_terminal_nodes, but we'll double-check here
+        # Still validate the individual fields if they exist
         expression = cleaned_data.get('expression')
-        terminal_nodes = cleaned_data.get('terminal_nodes')
-        
-        if expression and terminal_nodes:
+        if expression:
             try:
-                # Extract placeholders from expression
-                formatter = Formatter()
-                placeholders = [key for _, key, _, _ in formatter.parse(expression) if key is not None]
-                
-                # Parse terminal nodes
-                node_list = [node.strip() for node in terminal_nodes.split(',')]
-                
-                # Check that all placeholders are in node_list
-                missing = [p for p in placeholders if p not in node_list]
-                if missing:
-                    self.add_error('terminal_nodes', f"Terminal nodes must include all placeholders from expression. Missing: {', '.join(missing)}")
+                # Just check that the expression has valid placeholder format
+                for _, field, _, _ in Formatter().parse(expression):
+                    if field and not re.match(r'^\d+[spo]$', field):
+                        self.add_error('expression', f"Invalid placeholder format: {{{field}}}. Should be a number followed by 's', 'p', or 'o'.")
             except Exception as e:
-                # If there was an error in parsing, it should be caught in individual field validations
-                pass
+                self.add_error('expression', "Invalid expression format")
         
         return cleaned_data
 
@@ -383,6 +346,15 @@ class RelationTemplateForm(forms.ModelForm):
         
         # If we're editing an existing instance with a structured_mapping
         if self.instance and self.instance.pk and self.instance.structured_mapping:
+            # Set the queryset to include only the current structured_mapping
+            # This avoids loading all mappings, but ensures the current one is available
+            self.fields['structured_mapping'].queryset = DefaultMapping.objects.filter(
+                id=self.instance.structured_mapping.id
+            )
+            
+            # Set the structured_mapping field
+            self.initial['structured_mapping'] = self.instance.structured_mapping
+            
             # Populate the relation node fields from the structured mapping
             mapping = self.instance.structured_mapping
             self.initial['first_node_type'] = mapping.subject_type
@@ -393,12 +365,10 @@ class RelationTemplateForm(forms.ModelForm):
             self.initial['third_node_value'] = mapping.object_value
 
     def save(self, commit=True):
-        # Call parent's save method but don't commit to database yet, this gives us the instance to work with before final saving
+        # Call parent's save method but don't commit to database yet
         instance = super(RelationTemplateForm, self).save(commit=False)
         
         # Extract node configuration values from the form data
-        # These values define how the triple (subject-predicate-object) should be structured
-        # Each node can be either a reference to another node or a direct URI
         first_node_type = self.cleaned_data.get('first_node_type')    # Subject type (Node or URI)
         first_node_value = self.cleaned_data.get('first_node_value')  # Subject value
         second_node_type = self.cleaned_data.get('second_node_type')  # Predicate type (Node or URI) 
@@ -406,9 +376,12 @@ class RelationTemplateForm(forms.ModelForm):
         third_node_type = self.cleaned_data.get('third_node_type')    # Object type (Node or URI)
         third_node_value = self.cleaned_data.get('third_node_value')  # Object value
         
-        # DefaultMapping stores the structured representation of the relation with its three components: subject, predicate, and object
+        # Get the structured_mapping from the form data
+        form_mapping = self.cleaned_data.get('structured_mapping')
+        
+        # DefaultMapping stores the structured representation of the relation
         if instance.structured_mapping:
-            # If the instance already has a mapping, update its values which happens when editing an existing template
+            # Always update the existing mapping when editing a template
             mapping = instance.structured_mapping
             mapping.subject_type = first_node_type
             mapping.subject_value = first_node_value
@@ -417,8 +390,11 @@ class RelationTemplateForm(forms.ModelForm):
             mapping.object_type = third_node_type
             mapping.object_value = third_node_value
             mapping.save()
+        elif form_mapping:
+            # If the form has a mapping but instance doesn't, use the form's mapping
+            instance.structured_mapping = form_mapping
         else:
-            # If no mapping exists, create a new DefaultMapping which happens when creating a new template
+            # If no mapping exists, create a new DefaultMapping
             mapping = DefaultMapping.objects.create(
                 subject_type=first_node_type,
                 subject_value=first_node_value,

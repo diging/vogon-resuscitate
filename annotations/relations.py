@@ -156,78 +156,103 @@ def build_dependency_graph(template_data, part_data, **kwargs):
 
 def validate_terminal_nodes(template_data, part_data, **kwargs):
     """
-    The terminal nodes expression should be a comma-separate list of relation
+    Basic validation for terminal nodes format.
+    Terminal nodes should be a comma-separated list of relation
     template part internal IDs and their relation part flags. For example:
     ``0s,1o`` refers to the subject of the first part and object of the second
     part.
-    """
-    from string import Formatter
     
-    N_parts = len(part_data)
+    No longer validates against expression.
+    """
+    
     terminal_nodes = template_data.get('terminal_nodes', '')
-    expression = template_data.get('expression', '')
     
     try:
         # Parse terminal nodes
-        terminal_node_list = []
         for node in terminal_nodes.split(','):
             node = node.strip()
             if not node:
                 continue
-            terminal_node_list.append(node)
-            part_id, pred_flag = node
-            if not int(part_id) <= N_parts:
-                raise InvalidTemplate("Part ID in terminal nodes is invalid.")
-            if not pred_flag in ['s', 'p', 'o']:
-                raise InvalidTemplate("Node ID in terminal nodes is invalid.")
                 
-        # If we have an expression, check that terminal nodes match expression nodes
-        if expression:
-            # Extract nodes from expression
-            expression_nodes = []
-            for _, key, _, _ in Formatter().parse(expression):
-                if key is not None:
-                    expression_nodes.append(key)
-            
-            # Check for missing expression nodes in terminal nodes
-            missing_nodes = [node for node in expression_nodes if node not in terminal_node_list]
-            if missing_nodes:
-                raise InvalidTemplate(f"Terminal nodes missing placeholders from expression: {', '.join(missing_nodes)}")
-            
-            # Check for extra terminal nodes not in expression
-            extra_nodes = [node for node in terminal_node_list if node not in expression_nodes]
-            if extra_nodes:
-                raise InvalidTemplate(f"Terminal nodes contain placeholders not found in expression: {', '.join(extra_nodes)}")
+            # Validate basic format
+            if len(node) < 2 or not node[0].isdigit() or node[-1] not in ['s', 'p', 'o']:
+                raise InvalidTemplate(f"Invalid node format: {node}. Expected format is a number followed by 's', 'p', or 'o'.")
                 
     except InvalidTemplate:
         raise
-    except Exception as E:
+    except Exception:
         raise InvalidTemplate("Invalid pattern for terminal nodes")
 
 
 def validate_expression(template_data, part_data, **kwargs):
-    N_parts = len(part_data)
-
+    """
+    Validate the basic format of the expression.
+    Each key in the expression should be two characters: 
+    a digit representing part ID followed by a character 
+    representing field (s, p, or o).
+    
+    No longer validates against terminal nodes.
+    """
+    
     try:
-        keys = list(zip(*list(Formatter().parse(template_data.get('expression')))))[1]
-        for part_id, pred_flag in map(tuple, keys):
-            if not int(part_id) <= N_parts:
-                raise InvalidTemplate("Part ID in expression is invalid.")
-            if not pred_flag in ['s', 'p', 'o']:
-                raise InvalidTemplate("Node ID in expression is invalid.")
-    except ValueError as E:
-        # Raised if there are not precisely two characters in each key.
-        raise InvalidTemplate("Each key in the expression must be precisely"
-                              " two characters long")
+        formatter = Formatter()
+        # Check that keys in the expression have valid syntax
+        for _, key, _, _ in formatter.parse(template_data.get('expression', '')):
+            if key is not None:
+                if len(key) < 2:
+                    raise InvalidTemplate("Each key in the expression must be at least two characters long")
+                
+                try:
+                    # Check first character is a digit
+                    int(key[0]) 
+                    # Check last character is s, p, or o
+                    if key[-1] not in ['s', 'p', 'o']:
+                        raise InvalidTemplate(f"Invalid field identifier in expression key: {key}")
+                except ValueError:
+                    raise InvalidTemplate(f"Invalid format in expression key: {key}")
+                
+    except InvalidTemplate:
+        raise
     except Exception as E:
         raise InvalidTemplate("Invalid expression pattern")
 
 
 def validate_template_data(template_data, part_data, **kwargs):
-    validate_terminal_nodes(template_data, part_data)
-    validate_expression(template_data, part_data)
+    
+    # Validate terminal nodes
+    if 'terminal_nodes' in template_data and template_data['terminal_nodes']:
+        try:
+            # Basic format validation - don't check against expression
+            node_list = template_data['terminal_nodes'].split(',')
+            for node in node_list:
+                node = node.strip()
+                if not node:
+                    continue
+                if len(node) < 2 or not node[0].isdigit() or node[-1] not in ['s', 'p', 'o']:
+                    raise InvalidTemplate(f"Invalid node format in terminal_nodes: {node}")
+        except Exception as E:
+            raise InvalidTemplate("Invalid terminal nodes format")
+    
+    # Validate expression
+    if 'expression' in template_data and template_data['expression']:
+        try:
+            # Just check that expression formatting is valid, no cross-checking
+            formatter = Formatter()
+            # Check that keys in the expression have valid syntax
+            for _, key, _, _ in formatter.parse(template_data['expression']):
+                if key is not None and len(key) >= 2:
+                    # At minimum, verify the key has an index and a field identifier
+                    try:
+                        part_id = int(key[0])
+                        field_id = key[-1]
+                        if field_id not in ['s', 'p', 'o']:
+                            raise ValueError()
+                    except (ValueError, IndexError):
+                        raise InvalidTemplate(f"Invalid key format in expression: {{{key}}}")
+        except Exception as E:
+            raise InvalidTemplate("Invalid expression format")
 
-
+    # Continue with dependency graph validation
     dependencies = build_dependency_graph(template_data, part_data)
     if not dependencies.number_of_selfloops() == 0:
         raise InvalidTemplate('Relation structure contains self-loops')
@@ -332,21 +357,7 @@ def create_template(template_data, part_data):
             template.structured_mapping = mapping
             template.save()
             
-            # Update terminal nodes based on node values
-            # Terminal nodes are only created for Node types (not URIs)
-            terminal_nodes = []
-            
-            # Add nodes to terminal_nodes based on type
-            if str(first_node_type) == str(DefaultMapping.NODE):
-                terminal_nodes.append(first_node_value)
-            if str(second_node_type) == str(DefaultMapping.NODE):
-                terminal_nodes.append(second_node_value)
-            if str(third_node_type) == str(DefaultMapping.NODE):
-                terminal_nodes.append(third_node_value)
-            
-            if terminal_nodes:
-                template.terminal_nodes = ','.join(terminal_nodes)
-                template.save()
+        # Terminal nodes and expression are now independent - no auto-generation needed
         
         for datum in creation_data:
             datum['part_of_id'] = template.id
@@ -662,34 +673,6 @@ def update_template(template, template_data, part_data_list):
             template.structured_mapping = mapping
             template.save()
             
-        # Update terminal nodes to ensure it includes node values from both 
-        # expression and relation nodes fields
-        calculated_terminal_nodes = []
-        
-        # First add nodes from relation fields
-        if first_node_type and str(first_node_type) == str(DefaultMapping.NODE):
-            calculated_terminal_nodes.append(first_node_value)
-        if second_node_type and str(second_node_type) == str(DefaultMapping.NODE):
-            calculated_terminal_nodes.append(second_node_value)
-        if third_node_type and str(third_node_type) == str(DefaultMapping.NODE):
-            calculated_terminal_nodes.append(third_node_value)
-        
-        # Also add nodes from expression if present
-        if expression:
-            # Extract node references from expression
-            formatter = Formatter()
-            refs = [key for _, key, _, _ in formatter.parse(expression) if key is not None]
-            for ref in refs:
-                if '{' + ref + '}' in expression and ref not in calculated_terminal_nodes:
-                    calculated_terminal_nodes.append(ref)
-        
-        # If we have calculated nodes and they differ from provided ones, update
-        if calculated_terminal_nodes:
-            # Check if they're already in the template.terminal_nodes
-            existing_nodes = template.terminal_nodes.split(',') if template.terminal_nodes else []
-            if set(calculated_terminal_nodes) != set(existing_nodes):
-                template.terminal_nodes = ','.join(calculated_terminal_nodes)
-                template.save()
 
         # Get the list of valid field names from the RelationTemplatePart model
         field_names = [field.name for field in RelationTemplatePart._meta.get_fields()]
@@ -750,46 +733,17 @@ def clean_terminal_nodes(self):
         # Parse the terminal nodes, validating format
         parsed_nodes = [node.strip() for node in value.split(',')]
         
-        # Get relation node values for validation
-        first_node_type = self.cleaned_data.get('first_node_type')
-        first_node_value = self.cleaned_data.get('first_node_value')
-        second_node_type = self.cleaned_data.get('second_node_type')
-        second_node_value = self.cleaned_data.get('second_node_value')
-        third_node_type = self.cleaned_data.get('third_node_type')
-        third_node_value = self.cleaned_data.get('third_node_value')
-        
-        # Check if using relation nodes
-        using_relation_nodes = first_node_type and first_node_value and \
-                              second_node_type and second_node_value and \
-                              third_node_type and third_node_value
-        
-        # If using relation nodes, ensure terminal nodes correspond to the Node values
-        if using_relation_nodes:
-            expected_nodes = []
-            if str(first_node_type) == str(DefaultMapping.NODE):
-                expected_nodes.append(first_node_value)
-            if str(second_node_type) == str(DefaultMapping.NODE):
-                expected_nodes.append(second_node_value)
-            if str(third_node_type) == str(DefaultMapping.NODE):
-                expected_nodes.append(third_node_value)
+        # Just validate the basic format, no cross-checking with expression
+        for node in parsed_nodes:
+            if not node:
+                continue
             
-            # Check that all expected nodes are in the terminal nodes list
-            for node in expected_nodes:
-                if node not in parsed_nodes:
-                    raise ValidationError(f"Terminal nodes must include all Node values. Missing: {node}")
-        
-        # Also validate against expression field if present
-        expression = self.cleaned_data.get('expression')
-        if expression:
-            # Extract node references from expression
-            formatter = Formatter()
-            refs = [key for _, key, _, _ in formatter.parse(expression) if key is not None]
-            
-            # Ensure refs from expression match terminal nodes
-            for ref in refs:
-                if '{' + ref + '}' in expression and ref not in parsed_nodes:
-                    raise ValidationError(f"Terminal nodes must include all nodes referenced in the expression. Missing: {ref}")
+            # Check that node format follows expected pattern (e.g., "0s", "1p", "2o")
+            if len(node) < 2 or not node[0].isdigit() or node[-1] not in ['s', 'p', 'o']:
+                raise ValidationError(f"Invalid node format: {node}. Expected format is a number followed by 's', 'p', or 'o'.")
         
         return value
-    except Exception as E:
+    except ValidationError:
+        raise
+    except Exception:
         raise ValidationError('Invalid terminal nodes format or values')
