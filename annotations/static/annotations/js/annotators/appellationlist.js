@@ -42,12 +42,44 @@ var AppellationListItem = {
         }
     },
     mounted: function () {
+
+        const id = this.appellation ? this.appellation.id : 'UNKNOWN_MOUNTING';
+        console.log(`[AppellationListItem ID: ${id}] MOUNTED. Registering event listeners.`);
+        // ... rest of mounted, including EventBus.$on ...
+    },
+    beforeDestroy() {
+        const id = this.appellation ? this.appellation.id : 'UNKNOWN_DESTROYING';
+        console.log(`[AppellationListItem ID: ${id}] BEFOREDESTROY. Cleaning up event listeners.`);
+
+
         this.watchUncheckStore();
         this.watchCheckStore();
         this.$root.$on('appellationClicked', data => {
             if (data === this.appellation) {
                 this.checked = !this.checked;
             }
+
+     
+
+        this.onStartEditHandler = () => {
+            console.log(`[AppellationListItem ID: ${this.appellation ? this.appellation.id : 'N/A'} event=startEdit RECEIVED] Setting this.isEditMode from ${this.isEditMode} to true`);
+            this.isEditMode = true;
+        };
+        EventBus.$on('startEdit', this.onStartEditHandler);
+
+        this.onCancelEditHandler = () => {
+            console.log(`[AppellationListItem ID: ${this.appellation ? this.appellation.id : 'N/A'} event=cancelEdit RECEIVED] Setting this.isEditMode from ${this.isEditMode} to false`);
+            this.isEditMode = false;
+        };
+        EventBus.$on('cancelEdit', this.onCancelEditHandler);
+
+        this.onResetEditStateHandler = () => {
+            console.log(`[AppellationListItem ID: ${this.appellation ? this.appellation.id : 'N/A'} event=resetEditState RECEIVED] Setting this.isEditMode from ${this.isEditMode} to false and clearing localStorage`);
+            this.isEditMode = false;
+            localStorage.removeItem('editingAppellation');
+        };
+        
+EventBus.$on('resetEditState', this.onResetEditStateHandler);
         });
         
         // Listen for edit mode changes
@@ -157,43 +189,92 @@ var AppellationListItem = {
         },
         deleteAppellation: function() {
             this.deleteError = null;
-            Appellation.delete({id: this.appellation.id}).then(response => {
-                // Emit event to parent to remove from list and text display
-                this.$emit('removeappellation', this.appellation);
+            const deletedAppId = this.appellation.id; 
 
-                // Reset edit state
-                EventBus.$emit('resetEditState');
-                EventBus.$emit('cancelEdit');
-                this.isEditMode = false;
+            Appellation.delete({id: deletedAppId}).then(response => {
+                this.$emit('removeappellation', this.appellation); 
 
+                const editingAppData = localStorage.getItem('editingAppellation');
+                let isDeletingTheEditedItem = false;
+                if (editingAppData) {
+                    try {
+                        const editingApp = JSON.parse(editingAppData);
+                        if (editingApp && editingApp.id === deletedAppId) {
+                            isDeletingTheEditedItem = true;
+                        }
+                    } catch (e) {
+                        console.error("Error parsing editingAppellation from localStorage:", e);
+                        isDeletingTheEditedItem = true; // Be safe, assume reset if data corrupted
+                    }
+                }
+
+                if (isDeletingTheEditedItem) {
+
+                    EventBus.$emit('resetEditState');
+                } else {
+
+                    // 'cancelEdit' resets isEditMode without clearing localStorage for the other edit.
+                    EventBus.$emit('cancelEdit');
+                }
                 
             }).catch(error => {
                 if (error.status === 400) {
                     this.deleteError = "This annotation is used in a relation and cannot be deleted.";
                 } else {
-                    this.deleteError = "Error deleting annotation, Please try again later.";
+                    this.deleteError = "Error deleting annotation. Please try again later.";
                 }
             });
         },
-        editAppellation() {
-            if (this.isEditMode) return;
-            
-            // Store the appellation to edit
-            localStorage.setItem('editingAppellation', JSON.stringify(this.appellation));
-            
-            // Deselect current appellation
-            this.appellation.selected = false;
-            
-            // Enter edit mode
-            this.isEditMode = true;
-            EventBus.$emit('startEdit');
-            
-            // Show message to user
-            EventBus.$emit('showMessage', {
-                text: 'Please select the new text position. Press ESC to cancel.',
-                type: 'info'
-            });
+
+    editAppellation() {
+        console.log(`[AppellationListItem ID: ${this.appellation.id}] editAppellation CALLED. Current isEditMode: ${this.isEditMode}. localStorage:`, localStorage.getItem('editingAppellation'));
+
+
+        /*
+        if (this.isEditMode) {
+            const editingAppData = localStorage.getItem('editingAppellation');
+            let currentEditingAppIdInStorage = null;
+            if (editingAppData) {
+                try {
+                    currentEditingAppIdInStorage = JSON.parse(editingAppData).id;
+                } catch (e) { console.error("Error parsing localStorage in editAppellation guard:", e); }
+            }
+
+            if (currentEditingAppIdInStorage === this.appellation.id) {
+                console.log(`[AppellationListItem ID: ${this.appellation.id}] GUARD: isEditMode is true, localStorage matches. Re-showing message.`);
+                EventBus.$emit('showMessage', {
+                    text: 'Please select the new text position. Press ESC to cancel.',
+                    type: 'info'
+                });
+            } else {
+                console.log(`[AppellationListItem ID: ${this.appellation.id}] GUARD: isEditMode is true, but localStorage is for item ${currentEditingAppIdInStorage} or empty. Aborting edit.`);
+                EventBus.$emit('showMessage', {
+                    text: 'Another annotation is currently being edited. Please complete or cancel that edit first.',
+                    type: 'warning',
+                    duration: 3000
+                });
+            }
+            return; 
         }
+        */
+        
+        console.log(`[AppellationListItem ID: ${this.appellation.id}] editAppellation: Proceeding PAST initial guard (or guard is commented out).`);
+        localStorage.setItem('editingAppellation', JSON.stringify(this.appellation));
+        console.log(`[AppellationListItem ID: ${this.appellation.id}] editAppellation: localStorage.editingAppellation set to:`, JSON.parse(localStorage.getItem('editingAppellation')));
+        
+        this.appellation.selected = false; 
+
+        
+        EventBus.$emit('startEdit'); 
+        console.log(`[AppellationListItem ID: ${this.appellation.id}] editAppellation: Emitted startEdit.`);
+        
+        EventBus.$emit('showMessage', {
+            text: 'Please select the new text position. Press ESC to cancel.',
+            type: 'info'
+        });
+        console.log(`[AppellationListItem ID: ${this.appellation.id}] editAppellation: Emitted showMessage.`);
+    }
+
     }
 }
 
@@ -244,6 +325,7 @@ AppellationList = {
                                     v-on:addAppellation="addAppellation($event)"
 									v-on:removeappellation="removeAppellation"
 									v-for="(appellation, index) in current_appellations"
+                                    :key="appellation.id"
 									v-bind:appellation=appellation
 									v-if="appellation != null"
 									v-bind:index="index">
