@@ -14,6 +14,12 @@ from unidecode import unidecode
 from urllib.parse import urlencode
 from annotations.decorators import vogon_admin_or_staff_required
 from django.contrib import messages
+import requests
+from django.conf import settings
+import logging
+from annotations.views.rest_views import parse_concept, _relabel
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -210,3 +216,112 @@ def sandbox(request, text_id):
     from annotations.models import RelationTemplate
 
     return render(request, "annotations/relationtemplate_creator.html", {})
+
+@login_required
+def concept_search(request):
+    """
+    Search for concepts in Conceptpower and display results.
+    """
+    search_query = request.GET.get('search', '')
+    page = int(request.GET.get('page', 1))
+    per_page = int(request.GET.get('per_page', 10))
+    next_page = request.GET.get('next', reverse('concepts'))
+    concept_id = request.GET.get('concept_id')
+    
+    context = {
+        'search_results': [],
+        'has_more': False,
+        'next_page': next_page,
+        'search_query': search_query,
+        'page': page
+    }
+    
+    if concept_id:
+        try:
+            source = Concept.objects.get(pk=concept_id)
+            concept = ConceptLifecycle(source)
+            context.update({
+                'concept': concept,
+                'candidates': concept.get_similar(),
+                'matches': concept.get_matching()
+            })
+        except Concept.DoesNotExist:
+            pass
+    
+    if not search_query:
+        return render(request, 'annotations/concept_add.html', context)
+    
+    words = search_query.split()
+    filtered_words = [w for w in words if len(w) > 3]
+    
+    search_terms = []
+    
+    search_terms.append(search_query)
+    
+    if filtered_words:
+        search_terms.append(' '.join(filtered_words))
+    
+    search_terms.extend(filtered_words)
+    
+    search_terms = list(dict.fromkeys(search_terms))
+    
+    url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
+    headers = {
+        'Accept': 'application/json',
+    }
+    
+    all_concepts = []
+    seen_uris = set()
+    
+    try:
+        for term in search_terms:
+            parameters = {
+                'word': term,
+                'pos': None,
+            }
+            
+            response = requests.get(url, headers=headers, params=parameters)
+            
+            if response.status_code == 200:
+                data = response.json()
+                for concept_entry in data.get('conceptEntries', []):
+                    concept = parse_concept(concept_entry)
+                    concept = _relabel(concept)
+                    
+                    if concept.get('uri') not in seen_uris:
+                        seen_uris.add(concept.get('uri'))
+                        all_concepts.append(concept)
+                        
+                        if len(all_concepts) >= per_page * 2:
+                            break
+            
+            if len(all_concepts) >= per_page * 2:
+                break
+        
+        def get_relevance_score(concept):
+            label = concept.get('label', '').lower()
+            if label == search_query.lower():
+                return 3
+            elif all(word.lower() in label for word in filtered_words):
+                return 2
+            else:
+                return 1
+        
+        all_concepts.sort(key=get_relevance_score, reverse=True)
+        
+        start = (page - 1) * per_page
+        end = start + per_page
+        paginated_concepts = all_concepts[start:end]
+        
+        context.update({
+            'search_results': paginated_concepts,
+            'has_more': len(all_concepts) > end
+        })
+        print(paginated_concepts)
+    except Exception as e:
+        logger.error(f'Error searching concepts: {str(e)}')
+        context.update({
+            'error': str(e)
+        })
+    
+    return render(request, 'annotations/concept_add.html', context)

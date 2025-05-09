@@ -4,7 +4,7 @@
 {% load addcss %}
 
 {% block breadcrumbs %}
-<a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "concepts" %}" class="btn btn-xs">Concepts</a>&raquo;<a href="{% url "concept" concept.instance.id %}" class="btn btn-xs">{{ concept.instance.label }}</a>&raquo;<a href="" class="btn btn-xs">Add</a>
+<a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "concepts" %}" class="btn btn-xs">Concepts</a>{% if concept.instance.id %}&raquo;<a href="{% url "concept" concept.instance.id %}" class="btn btn-xs">{{ concept.instance.label }}</a>{% endif %}&raquo;<a href="" class="btn btn-xs">Add</a>
 {% endblock %}
 
 
@@ -84,23 +84,61 @@
                 {% if not concept.is_external %}
                     <div class="panel panel-default" id="search-panel" style="transition: all 0.3s ease;">
                         <div class="panel-heading">
-                            <h4 class="panel-title">Search Conceptpower for a matching concept.</h4>
+                            <h4 class="panel-title">Search Conceptpower for a matching concept</h4>
                         </div>
                         <div class="panel-body">
-                            <div class="form-group">
+                            <form method="get" action="{% url 'concept_search' %}" class="form-inline">
+                                <input type="hidden" name="next" value="{{ next_page }}">
+                                {% if concept.instance.id %}
+                                <input type="hidden" name="concept_id" value="{{ concept.instance.id }}">
+                                {% endif %}
                                 <div class="input-group">
-                                    <input type="text" 
-                                            class="form-control" 
-                                            id="concept-search-input"
-                                            placeholder="Search for a concept in Conceptpower..."
-                                            data-target="concept-search-results"
-                                            data-status-target="concept-search-status">
-                                    <span class="input-group-addon">
-                                        <span class="glyphicon glyphicon-search" id="concept-search-status"></span>
-                                    </span>
+                                    <input type="text" name="search" class="form-control" placeholder="Search concepts..." value="{{ search_query }}">
+                                    <div class="input-group-btn">
+                                        <button type="submit" class="btn btn-default">Search</button>
+                                    </div>
                                 </div>
+                            </form>
+                            
+                            {% if search_results %}
+                            <div class="list-group list-group-compact" id="concept-search-results">
+                                {% for concept in search_results %}
+                                <a class="list-group-item concept-item">
+                                    <div class="pull-right btn-group">
+                                        {% if concept.instance.id %}
+                                        <a class="btn btn-success" href="{% url 'merge_concepts' concept.instance.id %}?target={{ concept.uri }}&next={{ next_page }}">Merge</a>
+                                        {% endif %}
+                                    </div>
+                                    <strong>{{ concept.label }}</strong>
+                                    {% if concept.concept_type %}
+                                    <div class="pull-right">
+                                        <label class="label label-primary">
+                                            {{ concept.concept_type.type_name|default:concept.concept_type.type_uri }}
+                                        </label>
+                                    </div>
+                                    {% endif %}
+                                    <div class="text-warning">
+                                        {{ concept.authority.name }}: {{ concept.uri }}
+                                    </div>
+                                    {% if concept.description %}
+                                    <p><span class="text text-muted">{{ concept.description }}</span></p>
+                                    {% endif %}
+                                </a>
+                                {% endfor %}
+                                
+                                {% if has_more %}
+                                <form method="get" action="{% url 'concept_search' %}" class="form-inline">
+                                    <input type="hidden" name="search" value="{{ search_query }}">
+                                    <input type="hidden" name="page" value="{{ page|add:1 }}">
+                                    <input type="hidden" name="next" value="{{ next_page }}">
+                                    {% if concept.instance.id %}
+                                    <input type="hidden" name="concept_id" value="{{ concept.instance.id }}">
+                                    {% endif %}
+                                    <button type="submit" class="btn btn-default btn-block">Load More</button>
+                                </form>
+                                {% endif %}
                             </div>
-                            <div class="list-group list-group-compact" id="concept-search-results"></div>
+                            {% endif %}
                         </div>
                     </div>
                 {% endif %}
@@ -156,71 +194,4 @@
         </div>
     </div>
 </div>
-
-<script>
-$(document).ready(function() {
-    var searchInput = $('#concept-search-input');
-    var resultsContainer = $('#concept-search-results');
-    var statusIcon = $('#concept-search-status');
-    
-    
-    searchInput.on('input', function() {
-        var query = $(this).val();
-        statusIcon.removeClass('glyphicon-search glyphicon-ok').addClass('glyphicon-hourglass');
-        
-        $.ajax({
-            url: BASE_URL + '/rest/concept/search',
-            data: { search: query },
-            success: function(data) {
-                resultsContainer.empty();
-                if (data.results && data.results.length > 0) {
-                    data.results.forEach(function(concept) {
-                        var item = $('<a class="list-group-item concept-item"></a>');
-                        
-                        var mergeButton = $('<div class="pull-right btn-group"></div>');
-                        var mergeLink = $('<a class="btn btn-success"></a>')
-                            .text('Merge')
-                            .attr('href', '{% url "merge_concepts" concept.instance.id %}?target=' + concept.uri + '&next={{ next_page }}');
-                        mergeButton.append(mergeLink);
-                        item.append(mergeButton);
-                        
-                        item.append($('<strong></strong>').text(concept.label));
-                        
-                        var typeLabel = $('<div class="pull-right"></div>');
-                        if (concept.concept_type && concept.concept_type.name) {
-                            typeLabel.append($('<label class="label label-primary"></label>').text(concept.concept_type.name));
-                        } else if (concept.concept_type && concept.concept_type.identifier) {
-                            typeLabel.append($('<label class="label label-primary"></label>').text(concept.concept_type.identifier));
-                        }
-                        item.append(typeLabel);
-                        
-                        var uriDiv = $('<div class="text-warning"></div>');
-                        uriDiv.text(concept.authority.name + ': ' + concept.uri);
-                        item.append(uriDiv);
-                        
-                        if (concept.description) {
-                            item.append($('<p><span class="text text-muted"></span></p>').text(concept.description));
-                        }
-                        
-                        item.click(function() {
-                            searchInput.val(concept.label);
-                            statusIcon.removeClass('glyphicon-hourglass glyphicon-search').addClass('glyphicon-ok');
-                        });
-                        
-                        resultsContainer.append(item);
-                    });
-                    statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-search');
-                } else {
-                    statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-search');
-                    resultsContainer.append($('<div class="list-group-item">No results found</div>'));
-                }
-            },
-            error: function(xhr, status, error) {
-                statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-search');
-                resultsContainer.empty().append($('<div class="list-group-item alert alert-danger">Error searching concepts: ' + error + '</div>'));
-            }
-        });
-    });
-});
-</script>
 {% endblock %}

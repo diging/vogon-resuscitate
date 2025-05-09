@@ -244,7 +244,7 @@ class ConceptLifecycle(object):
             
         # Create search terms: full name first, then individual parts
         search_terms = [q]
-        search_terms.extend(q.split())
+        search_terms.extend([word for word in q.split() if len(word) > 3])
         
         all_concepts = []
         try:
