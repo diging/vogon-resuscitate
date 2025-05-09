@@ -328,7 +328,8 @@ class RelationTemplateForm(forms.ModelForm):
         if node_type == 'Node':
             # If type is NODE, value must match pattern Number[spo]
             if not re.match(r'^\d+[spo]$', node_value):
-                self.add_error(field_name, f"Node reference must be in format: Number followed by 's', 'p', or 'o'")
+                print("Node reference must be in format: Number followed by 's', 'p', or 'o'")
+                self.add_error(field_name, "Node reference must be in format: Number followed by 's', 'p', or 'o'")
                 return False
         elif node_type == 'URI':
             # If type is URI, value must start with http:// or https://
@@ -357,16 +358,19 @@ class RelationTemplateForm(forms.ModelForm):
         # Validate Node/URI field pairs
         first_node_type = cleaned_data.get('first_node_type')
         first_node_value = cleaned_data.get('first_node_value')
+        print(first_node_type, first_node_value)
         if first_node_type and first_node_value:
             self.validate_node_uri_field(first_node_type, first_node_value, 'first_node_value')
             
         second_node_type = cleaned_data.get('second_node_type')
         second_node_value = cleaned_data.get('second_node_value')
+        print(second_node_type, second_node_value)
         if second_node_type and second_node_value:
             self.validate_node_uri_field(second_node_type, second_node_value, 'second_node_value')
             
         third_node_type = cleaned_data.get('third_node_type')
         third_node_value = cleaned_data.get('third_node_value')
+        print(third_node_type, third_node_value)
         if third_node_type and third_node_value:
             self.validate_node_uri_field(third_node_type, third_node_value, 'third_node_value')
         

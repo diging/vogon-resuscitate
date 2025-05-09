@@ -275,11 +275,6 @@ $(document).ready(function() {
                 }
             });
             
-            // Validate node/URI values
-            validateNodeUriField('#first_node_type', '#first_node_value', validationErrors);
-            validateNodeUriField('#second_node_type', '#second_node_value', validationErrors);
-            validateNodeUriField('#third_node_type', '#third_node_value', validationErrors);
-            
             // Terminal nodes validation - check format
             var terminalNodes = $('#id_terminal_nodes').val();
             if (terminalNodes) {
@@ -318,31 +313,7 @@ $(document).ready(function() {
             return true; // Let server-side validation handle errors
         }
     });
-    
-    // Helper function to validate node/URI fields
-    function validateNodeUriField(typeField, valueField, errors) {
-        var type = $(typeField).val();
-        var value = $(valueField).val();
-        
-        if (!value) return; // Empty validation is handled separately
-        
-        $(valueField).removeClass('is-invalid');
-        
-        if (type === 'Node') {
-            // Node value should be in format Number[spo]
-            if (!/^\d+[spo]$/.test(value)) {
-                errors.push("Node reference value must be in format: Number followed by 's', 'p', or 'o'");
-                $(valueField).addClass('is-invalid');
-            }
-        } else if (type === 'URI') {
-            // URI value should start with http:// or https://
-            if (!/^https?:\/\//.test(value)) {
-                errors.push("URI value must start with 'http://' or 'https://'");
-                $(valueField).addClass('is-invalid');
-            }
-        }
-    }
-});
+
 
 
 // source: function( request, response ) {
