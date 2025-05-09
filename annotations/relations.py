@@ -330,7 +330,6 @@ def create_template(template_data, part_data):
     
     # Save terminal_nodes separately to ensure it's not lost
     terminal_nodes = template_data.get('terminal_nodes', '')
-    logger.info(f"Terminal nodes in create_template: {terminal_nodes}")
     
     # Filter out structured mapping fields from template_data
     # Since these are handled separately through the DefaultMapping model
@@ -340,7 +339,6 @@ def create_template(template_data, part_data):
     if 'terminal_nodes' not in template_data_filtered and terminal_nodes:
         template_data_filtered['terminal_nodes'] = terminal_nodes
     
-    logger.info(f"Template data for creation: {template_data_filtered}")
     creation_data = list(map(parse_template_part_data, part_data))
 
     with transaction.atomic():
@@ -384,8 +382,6 @@ def create_template(template_data, part_data):
                     setattr(part, '%s_relationtemplate' % pred, parts[internal])
                     part.save()
                     
-        # Log the final state of the template
-        logger.info(f"Created template with terminal_nodes: {template.terminal_nodes}")
     return template
 
 
@@ -648,8 +644,6 @@ def update_template(template, template_data, part_data_list):
         expression = template_data.get('expression')
         terminal_nodes = template_data.get('terminal_nodes')
         
-        # Log terminal nodes to debug
-        logger.info(f"Terminal nodes in update_template: {terminal_nodes}")
         
         # Filter out structured mapping fields from template_data
         template_data_filtered = {k: v for k, v in template_data.items() if k not in structured_mapping_fields}
@@ -667,8 +661,7 @@ def update_template(template, template_data, part_data_list):
             template.terminal_nodes = terminal_nodes
             
         template.save()
-        logger.info(f"Updated template with terminal_nodes: {template.terminal_nodes}")
-        
+
         # Update or create the DefaultMapping
         if template.structured_mapping:
             # Update existing mapping

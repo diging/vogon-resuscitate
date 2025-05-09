@@ -313,7 +313,8 @@ $(document).ready(function() {
             return true; // Let server-side validation handle errors
         }
     });
-
+    
+});
 
 
 // source: function( request, response ) {
