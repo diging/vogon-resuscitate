@@ -44,7 +44,6 @@ INSTALLED_APPS = (
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
-    'django_inlinecss',
     'concepts',
     'annotations',
     'external_accounts',
@@ -52,6 +51,8 @@ INSTALLED_APPS = (
     'corsheaders',
     'repository',
     'oauth2_provider',
+    'dal',
+    'dal_select2',
 )
 
 MIDDLEWARE = (
@@ -63,6 +64,7 @@ MIDDLEWARE = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 )
 
 ROOT_URLCONF = 'vogon.urls'
@@ -108,6 +110,9 @@ DATABASES = {
         'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
         'HOST': 'db',
         'PORT': '5432',
+        'OPTIONS': {
+            'options': '-c timezone=UTC',
+        },
     }
 }
 
@@ -139,7 +144,6 @@ USE_I18N = True
 
 USE_L10N = True
 
-USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.8/howto/static-files/
@@ -251,7 +255,7 @@ LOGIN_URL = f'/{APP_ROOT}login/'
 LOGOUT_URL = f'/{APP_ROOT}logout/'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'home'
-ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
 ACCOUNT_UNIQUE_EMAIL = True
 
 BASE_URL = os.path.join(os.getenv('BASE_URL', '/'), APP_ROOT)
@@ -262,3 +266,6 @@ CITESPHERE_ITEM_PAGE = 50
 VOGON_ADMIN_PAGE_SIZE = 15
 REPOSITORY_TEXT_PAGINATION_PAGE_SIZE = 20
 PROJECT_TEXT_PAGINATION_PAGE_SIZE = 20
+
+# Django 3.2+ requires to explicitly define the type of default auto-created primary keys.
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
