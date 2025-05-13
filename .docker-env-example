@@ -1,4 +1,4 @@
-export POSTGRES_DB=postgres
-export POSTGRES_NAME=postgres
-export POSTGRES_USER=postgres
-export POSTGRES_PASSWORD=postgres
+POSTGRES_DB=postgres
+POSTGRES_NAME=postgres
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
