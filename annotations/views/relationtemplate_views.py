@@ -17,7 +17,8 @@ from annotations.forms import (RelationTemplatePartFormSet,
                              RelationTemplateForm,
                              RelationTemplatePartForm,)
 from annotations.models import (RelationTemplate, RelationTemplatePart, 
-                              Appellation, DefaultMapping, TextCollection, Text)
+                              Appellation, DefaultMapping, TextCollection, Text,
+                              RelationSet)
 from annotations import relations
 from annotations.decorators import vogon_admin_or_staff_required
 import copy
