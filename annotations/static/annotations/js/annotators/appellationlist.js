@@ -35,23 +35,17 @@ var AppellationListItem = {
     data: function () {
         return {
             checked: true,
-
             deleteError: null,
-            isEditMode: false 
+            isEditMode: false
         };
     },
     mounted: function () {
-        const id = this.appellation ? this.appellation.id : 'UNKNOWN_MOUNTING';
-        console.log(`[AppellationListItem ID: ${id}] MOUNTED. Registering event listeners.`);
-
-        // Keep your original store watchers if they are still used and `store` is defined
         if (typeof store !== 'undefined' && store.watch && typeof this.watchUncheckStore === 'function') {
             this.watchUncheckStore(); 
             this.watchCheckStore();
-        } else {
-            // console.warn(`[AppellationListItem ID: ${id}] MOUNTED: 'store' or watch methods not fully defined. Store watchers might be skipped.`);
         }
         
+        // Handler for $root event, specific to this component instance
         this.appellationClickedHandler = data => {
             if (data === this.appellation) {
                 this.checked = !this.checked;
@@ -59,34 +53,30 @@ var AppellationListItem = {
         };
         this.$root.$on('appellationClicked', this.appellationClickedHandler);
         
+        // EventBus Listeners - defined as properties for correct removal in beforeDestroy
         this.onStartEditHandler = () => {
-            console.log(`[AppellationListItem ID: ${this.appellation ? this.appellation.id : 'N/A'}, event=startEdit RECEIVED] Setting this.isEditMode from ${this.isEditMode} to true`);
             this.isEditMode = true;
         };
         EventBus.$on('startEdit', this.onStartEditHandler);
         
         this.onCancelEditHandler = () => {
-            console.log(`[AppellationListItem ID: ${this.appellation ? this.appellation.id : 'N/A'}, event=cancelEdit RECEIVED] Setting this.isEditMode from ${this.isEditMode} to false`);
             this.isEditMode = false;
+            // Note: cancelEdit itself does not clear localStorage.
+            // It's for resetting button states. A full cancellation of an edit
+            // ESC or explicit cancel action should trigger 'resetEditState'.
         };
         EventBus.$on('cancelEdit', this.onCancelEditHandler);
 
         this.onResetEditStateHandler = () => {
-            console.log(`[AppellationListItem ID: ${this.appellation ? this.appellation.id : 'N/A'}, event=resetEditState RECEIVED] Setting this.isEditMode from ${this.isEditMode} to false and clearing localStorage`);
             this.isEditMode = false;
             localStorage.removeItem('editingAppellation');
-            // EventBus.$emit('hideMessage'); 
         };
         EventBus.$on('resetEditState', this.onResetEditStateHandler);
     },
     beforeDestroy() {
-        const id = this.appellation ? this.appellation.id : 'UNKNOWN_DESTROYING';
-        console.log(`[AppellationListItem ID: ${id}] BEFOREDESTROY. Cleaning up event listeners.`);
-
         if (this.appellationClickedHandler) {
             this.$root.$off('appellationClicked', this.appellationClickedHandler);
         }
-        // handlers were defined before trying to $off
         if (this.onStartEditHandler) EventBus.$off('startEdit', this.onStartEditHandler);
         if (this.onCancelEditHandler) EventBus.$off('cancelEdit', this.onCancelEditHandler);
         if (this.onResetEditStateHandler) EventBus.$off('resetEditState', this.onResetEditStateHandler);
@@ -103,17 +93,17 @@ var AppellationListItem = {
     },
     methods: {
         watchUncheckStore: function () {
-            if (typeof store !== 'undefined' && store.watch) { // Check if store is defined
+            if (typeof store !== 'undefined' && store.watch) {
                 store.watch(
-                    (state) => { return store.getters.getDeselect; }, // Added return
-                    (val) => { if (val) { this.uncheckAll(); /* this.canCheckAll = true; */ } } // canCheckAll is local data
+                    (state) => { return store.getters.getDeselect; },
+                    (val) => { if (val) { this.uncheckAll();} }
                 );
             }
         },
         watchCheckStore: function () {
-            if (typeof store !== 'undefined' && store.watch) { // probably issue is here
+            if (typeof store !== 'undefined' && store.watch) {
                 store.watch(
-                    (state) => { return store.getters.getSelect; }, 
+                    (state) => { return store.getters.getSelect; },
                     (val) => { if (val) { this.checkAll(); } }
                 );
             }
@@ -153,16 +143,13 @@ var AppellationListItem = {
         deleteAppellation: function() {
             this.deleteError = null;
             const deletedAppId = this.appellation.id; 
-            console.log(`[AppellationListItem ID: ${deletedAppId}] deleteAppellation: CALLED.`);
 
             if (typeof Appellation === 'undefined' || !Appellation.delete) {
-                console.error("Appellation resource is not defined for deletion.");
                 this.deleteError = "Cannot delete: Appellation resource unavailable.";
                 return;
             }
 
             Appellation.delete({id: deletedAppId}).then(response => {
-                console.log(`[AppellationListItem ID: ${deletedAppId}] deleteAppellation: API Success. Emitting removeappellation.`);
                 this.$emit('removeappellation', this.appellation); 
 
                 const editingAppData = localStorage.getItem('editingAppellation');
@@ -170,24 +157,28 @@ var AppellationListItem = {
                 if (editingAppData) {
                     try {
                         const editingApp = JSON.parse(editingAppData);
+                        // Check if the parsed data has an id and it matches the deleted item's id
                         if (editingApp && typeof editingApp.id !== 'undefined' && editingApp.id === deletedAppId) {
                             isDeletingTheCurrentlyEditedItem = true;
                         }
                     } catch (e) {
-                        console.error(`[AppellationListItem ID: ${deletedAppId}] deleteAppellation: Error parsing localStorage.editingAppellation:`, e);
+                        // If localStorage data is corrupted, we should reset.
                         isDeletingTheCurrentlyEditedItem = true; 
                     }
                 }
 
                 if (isDeletingTheCurrentlyEditedItem) {
-                    console.log(`[AppellationListItem ID: ${deletedAppId}] deleteAppellation: DELETED THE ITEM THAT WAS IN localStorage. Emitting resetEditState.`);
+                    // The item being deleted was the one actively being edited (or localStorage was corrupt).
+                    // A global reset is needed. The resetEditState listener will clear localStorage.
                     EventBus.$emit('resetEditState');
                 } else {
-                    console.log(`[AppellationListItem ID: ${deletedAppId}] deleteAppellation: Deleted an item NOT in localStorage for edit, or localStorage was empty. Emitting cancelEdit to reset button states only.`);
+                    // An unrelated item was deleted, or localStorage was empty.
+                    // If an edit was ongoing for a different item, its state should persist.
+                    // We emit 'cancelEdit' to ensure buttons on other items reset their 'isEditMode' to false,
+                    // in case they were globally disabled by an edit that's now implicitly no longer the focus
                     EventBus.$emit('cancelEdit'); 
                 }
             }).catch(error => {
-                console.error(`[AppellationListItem ID: ${deletedAppId}] deleteAppellation: API Error:`, error);
                 if (error.status === 400) {
                     this.deleteError = "This annotation is used in a relation and cannot be deleted.";
                 } else {
@@ -198,34 +189,28 @@ var AppellationListItem = {
 
         editAppellation() {
             const currentAppId = this.appellation.id;
-            console.log(`[AppellationListItem ID: ${currentAppId}] editAppellation: CALLED. Current this.isEditMode: ${this.isEditMode}`);
             
-            // Before starting a new edit, ensure no other edit is "stuck" in localStorage.
-            // If there is, and it's for a *different* item, we should clear it and reset global state,
-            // then proceed with *this* item's edit.
-            // Or, more conservatively, block if another item is "active".
-
             let currentEditingAppIdInStorage = null;
             const editingAppData = localStorage.getItem('editingAppellation');
+
             if (editingAppData) {
                 try {
                     const parsedData = JSON.parse(editingAppData);
                     if (parsedData && typeof parsedData.id !== 'undefined') {
                         currentEditingAppIdInStorage = parsedData.id;
-                    } else { // Data is there but malformed (no id)
-                        console.warn(`[AppellationListItem ID: ${currentAppId}] editAppellation: localStorage.editingAppellation is malformed (no id). Clearing it.`);
+                    } else { 
+                        // Data is in localStorage but malformed. Clear it.
                         localStorage.removeItem('editingAppellation');
                     }
-                } catch (e) { // Corrupted JSON
-                    console.error(`[AppellationListItem ID: ${currentAppId}] editAppellation: Corrupted localStorage.editingAppellation. Clearing it. Error:`, e);
+                } catch (e) { 
+                    // Corrupted JSON in localStorage. Clear it.
                     localStorage.removeItem('editingAppellation');
                 }
             }
-            console.log(`[AppellationListItem ID: ${currentAppId}] editAppellation: localStorage.editingAppellation ID (after initial check/clear): ${currentEditingAppIdInStorage}`);
 
-            // Guard 1: If another distinct item is *still* in localStorage (after potential clear due to corruption), block this edit.
+            // Check 1: If another distinct item is currently marked as being edited in localStorage,
+            // prevent this new edit from starting and inform the user.
             if (currentEditingAppIdInStorage && currentEditingAppIdInStorage !== currentAppId) {
-                console.log(`[AppellationListItem ID: ${currentAppId}] editAppellation: GUARD 1 HIT - Another item (ID: ${currentEditingAppIdInStorage}) is in localStorage. ABORTING edit.`);
                 EventBus.$emit('showMessage', {
                     text: 'Another annotation (ID: ' + currentEditingAppIdInStorage + ') is currently being edited. Please complete or cancel that edit (e.g., with ESC).',
                     type: 'warning',
@@ -234,55 +219,44 @@ var AppellationListItem = {
                 return;
             }
 
-            // Guard 2: If this item's isEditMode flag is already true.
+            // Check 2: If this item's isEditMode flag is already true.
+            // This means a 'startEdit' event was likely received for this item.
             if (this.isEditMode) {
-                // If isEditMode is true, it means 'startEdit' was received for this item.
-                // It should ideally also be the item in localStorage.
+                // If it's already this item that's in localStorage, it's a re-click on an active edit.
                 if (currentEditingAppIdInStorage === currentAppId) {
-                     console.log(`[AppellationListItem ID: ${currentAppId}] editAppellation: GUARD 2 HIT - this.isEditMode is true AND this item is in localStorage. Re-showing message (assuming re-click).`);
                      EventBus.$emit('showMessage', {
                         text: 'Please select the new text position. Press ESC to cancel.',
                         type: 'info'
                     });
                 } else if (!currentEditingAppIdInStorage) {
-                     // isEditMode true, but nothing in localStorage. This is odd.
-                     // Means startEdit was emitted, this item reacted, but localStorage was cleared by something else.
-                     // Or, this item started an edit, localStorage was set, then cleared, but isEditMode wasn't reset.
-                     // Let's assume we should allow it to try and become the active editor again.
-                     console.warn(`[AppellationListItem ID: ${currentAppId}] editAppellation: GUARD 2 HIT - this.isEditMode is true, but NO item in localStorage. This is an inconsistent state. Will proceed to set localStorage for THIS item.`);
-                     // No 'return' here, let it fall through to set localStorage for currentAppId.
+                     // isEditMode is true, but nothing in localStorage. This is an inconsistent state.
+                     // This might happen if localStorage was cleared (e.g. by ESC) but isEditMode wasn't reset,
+                     // or if startEdit fired but localStorage setting failed.
+                     // Attempt to self-correct by allowing this item to become the active editor.
+                     // No explicit return here; it will fall through to start the edit.
                 } else {
-                    // isEditMode true, localStorage has different item. Should have been caught by Guard 1.
-                    console.error(`[AppellationListItem ID: ${currentAppId}] editAppellation: GUARD 2 HIT - INCONSISTENT STATE. this.isEditMode is true, but localStorage has different item ${currentEditingAppIdInStorage}. Aborting.`);
-                     EventBus.$emit('showMessage', { text: 'Inconsistent edit state. Please try cancelling other edits (ESC) or refreshing.', type: 'danger', duration: 3000 });
+                    // isEditMode true, but localStorage has a different item.
+                    // This should have been caught by check 1, should not happe
+                    EventBus.$emit('showMessage', { text: 'Inconsistent edit state. Please try cancelling other edits (ESC) or refreshing.', type: 'danger', duration: 3000 });
                     return;
                 }
-                // If we only re-showed message because it's already editing this item, then return.
+                // If it was a re-click on an already active edit for this item.
                 if (currentEditingAppIdInStorage === currentAppId) return;
             }
-            
-            // If we reach here:
-            // - No *other* item is in localStorage.
-            // - this.isEditMode for this item is currently false (or was reset from an inconsistent true state above).
-            console.log(`[AppellationListItem ID: ${currentAppId}] editAppellation: Proceeding to set localStorage and emit events.`);
+
+            // Set this item as the one being edited in localStorage.
             localStorage.setItem('editingAppellation', JSON.stringify(this.appellation));
-            // Log the actual object to be sure
-            try {
-                console.log(`[AppellationListItem ID: ${currentAppId}] editAppellation: localStorage.editingAppellation successfully set for this item:`, JSON.parse(localStorage.getItem('editingAppellation')));
-            } catch(e) { console.error("Error parsing localStorage after setting:", e); }
             
             if (this.appellation && typeof this.appellation.selected !== 'undefined') {
-                this.appellation.selected = false; 
+                this.appellation.selected = false; // Deselect from list
             }
             
-            EventBus.$emit('startEdit'); // This should make all items (including this one) set isEditMode = true
-            console.log(`[AppellationListItem ID: ${currentAppId}] editAppellation: Emitted startEdit.`);
+            EventBus.$emit('startEdit'); 
             
             EventBus.$emit('showMessage', {
                 text: 'Please select the new text position. Press ESC to cancel.',
                 type: 'info'
             });
-            console.log(`[AppellationListItem ID: ${currentAppId}] editAppellation: Emitted showMessage.`);
         }
     }
 };
