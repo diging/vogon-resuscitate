@@ -11,13 +11,7 @@ echo "Starting $NAME as `whoami`"
 # Activate the virtual environment
 cd $DJANGODIR
 source .env_app
-
-if [ -f .docker-env ]; then
-    set -a
-    source .docker-env
-    set +a
-fi
-
+source .docker-env
 export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
 export PYTHONPATH=$DJANGODIR:$PYTHONPATH
 mkdir -p /vogon/logs
