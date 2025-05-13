@@ -9,7 +9,7 @@
 
 
 {% block main %}
-<div class="container-fluid">
+<div id="main" class="container">
     <div class="col-md-12">
         <div class="panel panel-default">
             <div class="panel-body">
@@ -103,7 +103,7 @@
                             {% if search_results %}
                             <div class="list-group list-group-compact" id="concept-search-results">
                                 {% for concept in search_results %}
-                                <a class="list-group-item concept-item">
+                                <a class="list-group-item concept-item" data-match-type="{{ concept.match_type }}">
                                     <div class="pull-right btn-group">
                                         {% if concept.instance.id %}
                                         <a class="btn btn-success" href="{% url 'merge_concepts' concept.instance.id %}?target={{ concept.uri }}&next={{ next_page }}">Merge</a>
@@ -126,16 +126,8 @@
                                 </a>
                                 {% endfor %}
                                 
-                                {% if has_more %}
-                                <form method="get" action="{% url 'concept_search' %}" class="form-inline">
-                                    <input type="hidden" name="search" value="{{ search_query }}">
-                                    <input type="hidden" name="page" value="{{ page|add:1 }}">
-                                    <input type="hidden" name="next" value="{{ next_page }}">
-                                    {% if concept.instance.id %}
-                                    <input type="hidden" name="concept_id" value="{{ concept.instance.id }}">
-                                    {% endif %}
-                                    <button type="submit" class="btn btn-default btn-block">Load More</button>
-                                </form>
+                                {% if total_results > 10 %}
+                                <button id="load-more-btn" class="btn btn-default btn-block">Load More</button>
                                 {% endif %}
                             </div>
                             {% endif %}
@@ -194,4 +186,9 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script src="{% static 'annotations/js/concept-search.js' %}"></script>
 {% endblock %}

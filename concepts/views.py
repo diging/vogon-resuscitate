@@ -220,20 +220,17 @@ def sandbox(request, text_id):
 @login_required
 def concept_search(request):
     """
-    Search for concepts in Conceptpower and display results.
+    Search for concepts in Conceptpower and return all possible matches.
+    Frontend will handle the progressive display logic.
     """
     search_query = request.GET.get('search', '')
-    page = int(request.GET.get('page', 1))
-    per_page = int(request.GET.get('per_page', 10))
     next_page = request.GET.get('next', reverse('concepts'))
     concept_id = request.GET.get('concept_id')
     
     context = {
         'search_results': [],
-        'has_more': False,
         'next_page': next_page,
         'search_query': search_query,
-        'page': page
     }
     
     if concept_id:
@@ -251,29 +248,34 @@ def concept_search(request):
     if not search_query:
         return render(request, 'annotations/concept_add.html', context)
     
-    words = search_query.split()
-    filtered_words = [w for w in words if len(w) > 3]
-    
-    search_terms = []
-    
-    search_terms.append(search_query)
-    
-    if filtered_words:
-        search_terms.append(' '.join(filtered_words))
-    
-    search_terms.extend(filtered_words)
-    
-    search_terms = list(dict.fromkeys(search_terms))
-    
-    url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
-    headers = {
-        'Accept': 'application/json',
-    }
-    
-    all_concepts = []
-    seen_uris = set()
-    
     try:
+        # Clean and normalize the search query
+        from unidecode import unidecode
+        import re, string
+        q = re.sub("[0-9]", "", unidecode(search_query).translate(str.maketrans('', '', string.punctuation)).lower())
+        if not q:
+            return render(request, 'annotations/concept_add.html', context)
+            
+        # Create search terms in order of specificity
+        search_terms = [q]  # Full query first
+        words = q.split()
+        filtered_words = [word for word in words if len(word) > 3]
+        if filtered_words:
+            search_terms.append(' '.join(filtered_words))  # Without words <= 3 chars
+            search_terms.extend(filtered_words)  # Individual filtered words
+        
+        # Remove duplicates while preserving order
+        search_terms = list(dict.fromkeys(search_terms))
+        
+        url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
+        headers = {
+            'Accept': 'application/json',
+        }
+        
+        all_concepts = []
+        seen_uris = set()
+        
+        # Get all possible matches
         for term in search_terms:
             parameters = {
                 'word': term,
@@ -290,34 +292,25 @@ def concept_search(request):
                     
                     if concept.get('uri') not in seen_uris:
                         seen_uris.add(concept.get('uri'))
+                        # Add match type to help frontend with display logic
+                        label = concept.get('label', '').lower()
+                        if label == q:
+                            concept['match_type'] = 'exact'
+                        elif filtered_words and all(word in label for word in filtered_words):
+                            concept['match_type'] = 'filtered'
+                        else:
+                            concept['match_type'] = 'partial'
                         all_concepts.append(concept)
-                        
-                        if len(all_concepts) >= per_page * 2:
-                            break
-            
-            if len(all_concepts) >= per_page * 2:
-                break
         
-        def get_relevance_score(concept):
-            label = concept.get('label', '').lower()
-            if label == search_query.lower():
-                return 3
-            elif all(word.lower() in label for word in filtered_words):
-                return 2
-            else:
-                return 1
-        
-        all_concepts.sort(key=get_relevance_score, reverse=True)
-        
-        start = (page - 1) * per_page
-        end = start + per_page
-        paginated_concepts = all_concepts[start:end]
+        # Sort by match type (exact > filtered > partial)
+        match_type_order = {'exact': 0, 'filtered': 1, 'partial': 2}
+        all_concepts.sort(key=lambda x: match_type_order[x['match_type']])
         
         context.update({
-            'search_results': paginated_concepts,
-            'has_more': len(all_concepts) > end
+            'search_results': all_concepts,
+            'total_results': len(all_concepts)
         })
-        print(paginated_concepts)
+        
     except Exception as e:
         logger.error(f'Error searching concepts: {str(e)}')
         context.update({
