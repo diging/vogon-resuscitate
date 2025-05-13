@@ -120,7 +120,7 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 
 class AnnotationFilterMixin(object):
-    """
+    r"""
     Mixin for :class:`viewsets.ModelViewSet` that provides filtering by
     :class:`.Text` and :class:`.User`\.
     """
@@ -489,7 +489,7 @@ class RelationViewSet(viewsets.ModelViewSet):
     permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
 
     def get_queryset(self, *args, **kwargs):
-        """
+        r"""
         Supports filtering by :class:`.Text`\, :class:`.User`\, node concept
         type, and predicate concept type.
         """
@@ -542,7 +542,7 @@ class TextViewSet(viewsets.ModelViewSet):
     # pagination_class = StandardResultsSetPagination
 
     def get_queryset(self, *args, **kwargs):
-        """
+        r"""
         A user can see only their own :class:`.TextCollection`\s.
         """
 
