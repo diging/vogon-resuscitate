@@ -107,7 +107,11 @@ class Concept(HeritableObject):
     def authority_dict(self):
         # parse the string value into a dictionary
         if self.authority:
-            return ast.literal_eval(self.authority)
+            try:
+                return ast.literal_eval(self.authority) # This function in Python 3.12 is more strict for invalid data
+            except (ValueError, SyntaxError):
+                # If the authority string is invalid, return an empty dict
+                return {}
         return {}
 
     @property

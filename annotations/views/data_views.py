@@ -13,7 +13,7 @@ from itertools import groupby
 
 
 def relation_details(request, source_concept_id, target_concept_id):
-    """
+    r"""
     Information about :class:`.RelationSet`\s involving a particular pair of
     :class:`.Concept`\s.
 

@@ -1,12 +1,16 @@
-from annotations.models import (VogonUser, TextCollection, RelationTemplate, RelationTemplatePart, DefaultMapping,
-    VogonGroup)
-from django.utils.translation import ugettext_lazy as _
+from django.contrib.auth.forms import UserChangeForm
+from annotations.models import *
+from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from django import forms
 from django.forms import widgets, BaseFormSet
 
 from django.conf import settings
 
+from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.forms import ReadOnlyPasswordHashField
+
+import dal
 from django.utils.html import format_html
 from django.forms.utils import flatatt
 from django.utils.encoding import force_str
@@ -161,7 +165,7 @@ class ConceptField(forms.CharField):
     queryset = Concept.objects.all()
 
     def label_from_instance(self, obj):
-        """
+        r"""
         The ``_concept`` field should be populated with the :class:`.Concept`\s
         id.
         """
@@ -195,7 +199,7 @@ class ConceptField(forms.CharField):
     
 class TemplateChoiceField(forms.ChoiceField):
     def label_from_instance(self, obj):
-        """
+        r"""
         The ``_concept`` field should be populated with the :class:`.Concept`\s
         id.
         """

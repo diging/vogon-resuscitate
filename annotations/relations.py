@@ -1,4 +1,4 @@
-"""
+r"""
 Business logic for building and using :class:`.RelationTemplate`\s.
 """
 
@@ -36,7 +36,7 @@ datum_as_key = lambda datum: (datum['part_id'], datum['part_field'])
 
 
 def get_fields(template):
-    """
+    r"""
     Retrieve the set of fields that are required to generate a new
     :class:`.RelationSet` from a :class:`.RelationTemplate`\. These fields can
     be used to generate :class:`.Appellation`\s that will be used in the
@@ -253,7 +253,7 @@ def validate_template_data(template_data, part_data, **kwargs):
 
     # Continue with dependency graph validation
     dependencies = build_dependency_graph(template_data, part_data)
-    if not dependencies.number_of_selfloops() == 0:
+    if not nx.number_of_selfloops(dependencies) == 0:
         raise InvalidTemplate('Relation structure contains self-loops')
 
     if not nx.algorithms.is_directed_acyclic_graph(dependencies):
