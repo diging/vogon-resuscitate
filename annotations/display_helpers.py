@@ -109,7 +109,7 @@ def get_snippet_relation(relationset):
 
 
 def get_snippet(appellation):
-    """
+    r"""
     Extract the text content surrounding (and including) an
     :class:`.Appellation` instance.
 
