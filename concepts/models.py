@@ -3,7 +3,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
 
 optional = { 'blank': True, 'null': True }
-
+import ast
 
 class HeritableObject(models.Model):
     """
@@ -36,31 +36,47 @@ class HeritableObject(models.Model):
         abstract = True
 
 
+class Comment(models.Model):
+    """
+    A comment on a concept. This allows for multiple comments per concept.
+    """
+    concept = models.ForeignKey('Concept', related_name='comments', on_delete=models.CASCADE)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey('annotations.VogonUser', on_delete=models.CASCADE, null=True, blank=True)
+    
+    def __str__(self):
+        return f"Comment on {self.concept} by {self.created_by}"
+
+
 class Concept(HeritableObject):
     uri = models.CharField(max_length=255, unique=True)
     resolved = models.BooleanField(default=False)
     typed = models.ForeignKey('Type', related_name='instances', **optional, on_delete=models.CASCADE)
     description = models.TextField(**optional)
+    # authority is a string that contains a dictionary in the format: {'name': 'ConceptPower'}
     authority = models.CharField(max_length=255, blank=True, null=True)
     pos = models.CharField(max_length=255, **optional)
 
     PENDING = 'Pending'
     REJECTED = 'Rejected'
-    APPROVED = 'Approved'
     RESOLVED = 'Resolved'
     MERGED = 'Merged'
+    FLAGGED = 'Flagged'
     concept_state_choices=  (
         (PENDING, 'Pending'),
         (REJECTED, 'Rejected'),
-        (APPROVED, 'Approved'),
         (RESOLVED, 'Resolved'),
         (MERGED, 'Merged'),
+        (FLAGGED, 'Flagged'),
     )
     concept_state=models.CharField(max_length=10, choices=concept_state_choices,
                                    default='Pending')
     merged_with = models.ForeignKey('Concept', related_name='merged_concepts',
                                     **optional, on_delete=models.CASCADE)
 
+    createdBy = models.ForeignKey('annotations.VogonUser', on_delete=models.CASCADE, null=True, blank=True)
+    
     @property
     def typed_label(self):
         if self.typed:
@@ -86,6 +102,22 @@ class Concept(HeritableObject):
                     id_list += traverse_mergers(child)
             return id_list
         return traverse_mergers(self)
+    
+    @property
+    def authority_dict(self):
+        # parse the string value into a dictionary
+        if self.authority:
+            try:
+                return ast.literal_eval(self.authority) # This function in Python 3.12 is more strict for invalid data
+            except (ValueError, SyntaxError):
+                # If the authority string is invalid, return an empty dict
+                return {}
+        return {}
+
+    @property
+    def authority_name(self):
+        """Returns just the name from the authority dict, or empty string if name doesn't exist."""
+        return self.authority_dict.get('name', '')
 
     def get_absolute_url(self):
         return reverse('concept', args=(self.id,))

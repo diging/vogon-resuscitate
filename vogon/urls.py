@@ -28,7 +28,7 @@ from external_accounts import views as externalAccountViews
 
 router = routers.DefaultRouter(trailing_slash=False)
 router.register(r'appellation', views.rest_views.AppellationViewSet)
-router.register(r'predicate', views.rest_views.PredicateViewSet)
+router.register(r'predicate', views.rest_views.PredicateViewSet, basename='predicate')
 router.register(r'relation', views.rest_views.RelationViewSet)
 router.register(r'relationset', views.rest_views.RelationSetViewSet)
 router.register(r'text', views.rest_views.TextViewSet)
@@ -120,8 +120,8 @@ urlpatterns = [
     re_path(r'^concept/(?P<concept_id>[0-9]+)/$', conceptViews.concept, name='concept'),
     re_path(r'^concept/(?P<concept_id>[0-9]+)/add/$', conceptViews.add_concept, name='add_concept'),
     re_path(r'^concept/(?P<concept_id>[0-9]+)/edit/$', conceptViews.edit_concept, name='edit_concept'),
-    re_path(r'^concept/(?P<concept_id>[0-9]+)/approve/$', conceptViews.approve_concept, name="approve_concept"),
     re_path(r'^concept/(?P<source_concept_id>[0-9]+)/merge/$', conceptViews.merge_concepts, name='merge_concepts'),
+    re_path(r'^concept/(?P<source_concept_id>[0-9]+)/flag/$', conceptViews.flag_concept, name='flag_concept'),
 
     # url(r'^concept_autocomplete/', views.search_views.concept_autocomplete, name='concept_autocomplete'),
 

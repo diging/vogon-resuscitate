@@ -109,7 +109,7 @@ def get_snippet_relation(relationset):
 
 
 def get_snippet(appellation):
-    """
+    r"""
     Extract the text content surrounding (and including) an
     :class:`.Appellation` instance.
 
@@ -310,7 +310,7 @@ def get_relations_summaries(relationset_qs):
 
 
 def user_recent_texts(user):
-    """
+    r"""
     Return a list of :class:`.Text`\s recently annotated by a
     :class:`.VogonUser`\.
 

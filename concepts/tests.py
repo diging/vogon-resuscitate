@@ -27,7 +27,7 @@ def reconnect_signal(signal, receiver, sender):
 
 
 class TestConceptLifeCycle(TestCase):
-    """
+    r"""
     The :class:`.ConceptLifecycle` guides :class:`.Concept`\s through their
     various trials and tribulations.
     """
