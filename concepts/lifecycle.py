@@ -104,10 +104,10 @@ class ConceptLifecycle(object):
         resolve = params.pop('resolve', True)
         if 'pos' not in params:
             params['pos'] = 'noun'
-        manager = ConceptLifecycle(Concept(**params))
-        manager.instance.concept_state = manager.default_state
-        manager.instance.save()
-        return manager
+        concept = ConceptLifecycle(Concept(**params))
+        concept.instance.concept_state = concept.default_state
+        concept.instance.save()
+        return concept
 
     @staticmethod
     def get_or_create(**params):
@@ -131,7 +131,7 @@ class ConceptLifecycle(object):
             _typed, _ = Type.objects.get_or_create(uri=_type_uri)
         else:
             _typed = None
-        manager = ConceptLifecycle.create(
+        concept = ConceptLifecycle.create(
             uri = data.get('uri').strip() if data.get('uri') else data.get('concept_uri'),
             label = data.get('word').strip() if data.get('word') else data.get('lemma'),
             description = data.get('description').strip(),
@@ -139,7 +139,7 @@ class ConceptLifecycle(object):
             typed = _typed,
             authority = 'Conceptpower',
         )
-        return manager
+        return concept
 
     def merge_with(self, uri):
         """
@@ -260,7 +260,7 @@ class ConceptLifecycle(object):
         return concepts if not equals else equals
 
     def get_equal(self):
-        """
+        r"""
         Retrieve data about Conceptpower entries that are "equal to" the
         managed :class:`.Concept`\.
 
@@ -282,7 +282,7 @@ class ConceptLifecycle(object):
         return list(concepts)   
     
     def get_matching(self):
-        """
+        r"""
         Retrieve data about Conceptpower entries that are "equal to" the
         managed :class:`.Concept`\.
 

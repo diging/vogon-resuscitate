@@ -112,7 +112,7 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 
 class AnnotationFilterMixin(object):
-    """
+    r"""
     Mixin for :class:`viewsets.ModelViewSet` that provides filtering by
     :class:`.Text` and :class:`.User`\.
     """
@@ -214,6 +214,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
+        user_id = data.get('createdBy')
         position = data.get('position')
         pos = data.get('pos')
         label = data.get('label')
@@ -249,6 +250,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                         description=concept_data.get('description'),
                         typed=type_instance,
                         authority=concept_data.get('authority', {}),
+                        createdBy=VogonUser.objects.get(id=user_id)
                     ).instance
 
                 data['interpretation'] = concept.id
@@ -261,6 +263,7 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                     description=concept_data.get('description'),
                     typed=type_instance,
                     authority=concept_data.get('authority', {}),
+                    createdBy=VogonUser.objects.get(id=user_id)
                 ).instance
 
                 # Set the interpretation to the concept ID
@@ -382,7 +385,7 @@ class RelationViewSet(viewsets.ModelViewSet):
     permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
 
     def get_queryset(self, *args, **kwargs):
-        """
+        r"""
         Supports filtering by :class:`.Text`\, :class:`.User`\, node concept
         type, and predicate concept type.
         """
@@ -435,7 +438,7 @@ class TextViewSet(viewsets.ModelViewSet):
     # pagination_class = StandardResultsSetPagination
 
     def get_queryset(self, *args, **kwargs):
-        """
+        r"""
         A user can see only their own :class:`.TextCollection`\s.
         """
 
@@ -559,11 +562,11 @@ class ConceptViewSet(viewsets.ModelViewSet):
                     concepts.append(concept)
                 return Response({'results': concepts})
             else:
-                # Return empty results
-                return Response({'results': []})
+                error_msg = 'ConceptPower service is currently unavailable. Please try again later.'
+                return Response({'error': error_msg}, status=response.status_code)
         except Exception as e:
             logger.error(f'Error searching concepts: {str(e)}')
-            return Response({'error': str(e), 'results': []}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
     def get_queryset(self, *args, **kwargs):
