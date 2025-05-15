@@ -6,6 +6,7 @@ class ConceptSearch {
         this.displayedResults = new Set();
         this.searchQuery = '';
         this.filteredWords = [];
+        this.isLoading = false;
     }
 
     initialize(searchQuery) {
@@ -35,6 +36,13 @@ class ConceptSearch {
         const resultsContainer = document.getElementById('concept-search-results');
         const loadMoreBtn = document.getElementById('load-more-btn');
         
+        // Show loading state
+        this.isLoading = true;
+        if (loadMoreBtn) {
+            loadMoreBtn.textContent = 'Loading...';
+            loadMoreBtn.disabled = true;
+        }
+        
         // Hide all results first
         this.allResults.forEach(result => result.style.display = 'none');
         
@@ -62,15 +70,34 @@ class ConceptSearch {
             }
         }
         
-        // Show/hide load more button
+        // Update load more button
         if (this.displayedResults.size < this.allResults.length) {
             loadMoreBtn.style.display = 'block';
+            loadMoreBtn.textContent = `Load More (${this.allResults.length - this.displayedResults.size} remaining)`;
+            loadMoreBtn.disabled = false;
         } else {
             loadMoreBtn.style.display = 'none';
         }
+
+        // Add a message showing total results
+        const resultsCount = document.createElement('div');
+        resultsCount.className = 'results-count';
+        resultsCount.textContent = `Showing ${this.displayedResults.size} of ${this.allResults.length} results`;
+        
+        // Remove any existing count message
+        const existingCount = resultsContainer.querySelector('.results-count');
+        if (existingCount) {
+            existingCount.remove();
+        }
+        
+        // Add the new count message
+        resultsContainer.insertBefore(resultsCount, resultsContainer.firstChild);
+        
+        this.isLoading = false;
     }
 
     loadMore() {
+        if (this.isLoading) return;
         this.currentPage++;
         this.displayResults();
     }
