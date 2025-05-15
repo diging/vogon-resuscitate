@@ -5,12 +5,14 @@ Business logic for building and using :class:`.RelationTemplate`\s.
 from django.db import transaction
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 
-from annotations.models import *
+from annotations.models import RelationTemplate, RelationTemplatePart, RelationSet, Relation, Appellation, DateAppellation, DocumentPosition, DefaultMapping
 from concepts.models import Concept
 
 import networkx as nx
 from string import Formatter
+import logging
 
 
 PRED_MAP = {    # Used in expression and terminal node templates.
@@ -18,6 +20,8 @@ PRED_MAP = {    # Used in expression and terminal node templates.
     'p': 'predicate',
     'o': 'object_content_object'
 }
+
+logger = logging.getLogger(__name__)
 
 
 class InvalidTemplate(RuntimeError):
@@ -152,46 +156,102 @@ def build_dependency_graph(template_data, part_data, **kwargs):
 
 def validate_terminal_nodes(template_data, part_data, **kwargs):
     """
-    The terminal nodes expression should be a comma-separate list of relation
+    Basic validation for terminal nodes format.
+    Terminal nodes should be a comma-separated list of relation
     template part internal IDs and their relation part flags. For example:
     ``0s,1o`` refers to the subject of the first part and object of the second
     part.
+    
+    No longer validates against expression.
     """
-    N_parts = len(part_data)
+    
     terminal_nodes = template_data.get('terminal_nodes', '')
+    
     try:
-        for part_id, pred_flag in map(tuple, terminal_nodes.split(',')):
-            if not int(part_id) <= N_parts:
-                raise InvalidTemplate("Part ID in terminal nodes is invalid.")
-            if not pred_flag in ['s', 'p', 'o']:
-                raise InvalidTemplate("Node ID in terminal nodes is invalid.")
-    except Exception as E:
+        # Parse terminal nodes
+        for node in terminal_nodes.split(','):
+            node = node.strip()
+            if not node:
+                continue
+                
+            # Validate format eg 0s, 1o, 2p
+            if len(node) < 2 or not node[0].isdigit() or node[-1] not in ['s', 'p', 'o']:
+                raise InvalidTemplate(f"Invalid node format: {node}. Expected format is a number followed by 's', 'p', or 'o'.")
+                
+    except InvalidTemplate:
+        raise
+    except Exception:
         raise InvalidTemplate("Invalid pattern for terminal nodes")
 
 
 def validate_expression(template_data, part_data, **kwargs):
-    N_parts = len(part_data)
-
+    """
+    Validate the format of the expression.
+    Each key in the expression should be two characters: 
+    a digit representing part ID followed by a character 
+    representing field (s, p, or o).
+    
+    No longer validates against terminal nodes.
+    """
+    
     try:
-        keys = list(zip(*list(Formatter().parse(template_data.get('expression')))))[1]
-        for part_id, pred_flag in map(tuple, keys):
-            if not int(part_id) <= N_parts:
-                raise InvalidTemplate("Part ID in expression is invalid.")
-            if not pred_flag in ['s', 'p', 'o']:
-                raise InvalidTemplate("Node ID in expression is invalid.")
-    except ValueError as E:
-        # Raised if there are not precisely two characters in each key.
-        raise InvalidTemplate("Each key in the expression must be precisely"
-                              " two characters long")
+        formatter = Formatter()
+        # Check that keys in the expression have valid syntax
+        for _, key, _, _ in formatter.parse(template_data.get('expression', '')):
+            if key is not None:
+                if len(key) < 2:
+                    raise InvalidTemplate("Each key in the expression must be at least two characters long")
+                
+                try:
+                    # Check first character is a digit
+                    int(key[0]) 
+                    # Check last character is s, p, or o
+                    if key[-1] not in ['s', 'p', 'o']:
+                        raise InvalidTemplate(f"Invalid field identifier in expression key: {key}")
+                except ValueError:
+                    raise InvalidTemplate(f"Invalid format in expression key: {key}")
+                
+    except InvalidTemplate:
+        raise
     except Exception as E:
         raise InvalidTemplate("Invalid expression pattern")
 
 
 def validate_template_data(template_data, part_data, **kwargs):
-    validate_terminal_nodes(template_data, part_data)
-    validate_expression(template_data, part_data)
+    
+    # Validate terminal nodes
+    if 'terminal_nodes' in template_data and template_data['terminal_nodes']:
+        try:
+            node_list = template_data['terminal_nodes'].split(',')
+            for node in node_list:
+                node = node.strip()
+                if not node:
+                    continue
+                if len(node) < 2 or not node[0].isdigit() or node[-1] not in ['s', 'p', 'o']:
+                    raise InvalidTemplate(f"Invalid node format in terminal_nodes: {node}")
+        except Exception as E:
+            raise InvalidTemplate("Invalid terminal nodes format")
+    
+    # Validate expression
+    if 'expression' in template_data and template_data['expression']:
+        try:
+            # check that expression formatting is valid
+            formatter = Formatter()
+            # Check that keys in the expression have valid syntax
+            for _, key, _, _ in formatter.parse(template_data['expression']):
+                if key is not None and len(key) >= 2:
+                    # verify the key has an index and a field identifier
+                    try:
+                        part_id = int(key[0])
+                        field_id = key[-1]
+                        if field_id not in ['s', 'p', 'o']:
+                            raise ValueError()
+                    except (ValueError, IndexError):
+                        raise InvalidTemplate(f"Invalid key format in expression: {{{key}}}")
+        except Exception as E:
+            raise InvalidTemplate("Invalid expression format")
 
-
+    # Continue with dependency graph validation
     dependencies = build_dependency_graph(template_data, part_data)
     if not nx.number_of_selfloops(dependencies) == 0:
         raise InvalidTemplate('Relation structure contains self-loops')
@@ -221,21 +281,24 @@ def parse_template_part_data(part_data, **kwargs):
 
 
 def create_template(template_data, part_data):
-    r"""
-    Create a new :class:`.RelationTemplate` and constituent
-    :class:`.RelationTemplatePart`\s from form/formset data.
+    """
+    Create a new :class:`annotations.models.RelationTemplate` and its
+    constituent :class:`annotations.models.RelationTemplatePart`\s.
+
+    This happens inside of an atomic transaction: either everything is created
+    successfully, or nothing is created.
 
     Parameters
     ----------
     template_data : dict
-        Cleaned data from a :class:`annotations.forms.RelationTemplateForm`\.
-    part_data : list
-        Each element should be a ``dict`` with data from a
-        :class:`annotations.forms.RelationTemplatePartForm`\.
+        Data for :class:`annotations.models.RelationTemplate`
+    part_data : list of dict
+        Each item corresponds to a :class:`annotations.models.RelationTemplatePart`
 
     Returns
     -------
     :class:`annotations.models.RelationTemplate`
+        The newly-created :class:`annotations.models.RelationTemplate` instance.
     """
     validate_template_data(template_data, part_data)
 
@@ -243,11 +306,68 @@ def create_template(template_data, part_data):
     #  might be another RelationTemplatePart.
     dependencies = dict(build_dependency_graph(template_data, part_data).edges())
     part_ids = {}    # Internal IDs to PK ids for RelationTemplatePart.
-
+    
+    # Extract structured mapping fields before filtering them out
+    # These fields represent the three components of a relation mapping:
+    # - first_node_* represents the subject
+    # - second_node_* represents the predicate
+    # - third_node_* represents the object
+    # Each component can be either a Node (reference to another node) or URI (direct URI reference)
+    structured_mapping_fields = [
+        'use_relation_nodes', 
+        'first_node_type', 'first_node_value',
+        'second_node_type', 'second_node_value',
+        'third_node_type', 'third_node_value'
+    ]
+    
+    # Extract the structured mapping values
+    first_node_type = template_data.get('first_node_type')
+    first_node_value = template_data.get('first_node_value')
+    second_node_type = template_data.get('second_node_type')
+    second_node_value = template_data.get('second_node_value')
+    third_node_type = template_data.get('third_node_type')
+    third_node_value = template_data.get('third_node_value')
+    
+    # Save terminal_nodes separately to ensure it's not lost
+    terminal_nodes = template_data.get('terminal_nodes', '')
+    
+    # Filter out structured mapping fields from template_data
+    # Since these are handled separately through the DefaultMapping model
+    template_data_filtered = {k: v for k, v in template_data.items() if k not in structured_mapping_fields}
+    
+    # Ensure terminal_nodes is explicitly included in filtered data
+    if 'terminal_nodes' not in template_data_filtered and terminal_nodes:
+        template_data_filtered['terminal_nodes'] = terminal_nodes
+    
     creation_data = list(map(parse_template_part_data, part_data))
 
     with transaction.atomic():
-        template = RelationTemplate.objects.create(**template_data)
+        # Create the template
+        template = RelationTemplate.objects.create(**template_data_filtered)
+        
+        # Explicitly set terminal_nodes if it exists in original data
+        if terminal_nodes and not template.terminal_nodes:
+            template.terminal_nodes = terminal_nodes
+            template.save()
+        
+        # Create DefaultMapping if we have valid data
+        # The DefaultMapping stores the structured representation of the relation
+        # with three components: subject, predicate, and object
+        if (first_node_type and first_node_value and 
+            second_node_type and second_node_value and 
+            third_node_type and third_node_value):
+            # Create new mapping
+            mapping = DefaultMapping.objects.create(
+                subject_type=str(first_node_type),
+                subject_value=first_node_value,
+                predicate_type=str(second_node_type),
+                predicate_value=second_node_value,
+                object_type=str(third_node_type),
+                object_value=third_node_value
+            )
+            template.structured_mapping = mapping
+            template.save()
+            
         for datum in creation_data:
             datum['part_of_id'] = template.id
 
@@ -261,6 +381,7 @@ def create_template(template_data, part_data):
                 if internal > -1:
                     setattr(part, '%s_relationtemplate' % pred, parts[internal])
                     part.save()
+                    
     return template
 
 
@@ -503,10 +624,75 @@ def create_relationset(template, raw_data, creator, text, project_id=None):
 
 def update_template(template, template_data, part_data_list):
     with transaction.atomic():
-        # Update the template fields
-        for field, value in template_data.items():
+        # Extract structured mapping fields
+        structured_mapping_fields = [
+            'use_relation_nodes', 
+            'first_node_type', 'first_node_value',
+            'second_node_type', 'second_node_value',
+            'third_node_type', 'third_node_value'
+        ]
+        
+        # Extract the structured mapping values
+        first_node_type = template_data.get('first_node_type')
+        first_node_value = template_data.get('first_node_value')
+        second_node_type = template_data.get('second_node_type')
+        second_node_value = template_data.get('second_node_value')
+        third_node_type = template_data.get('third_node_type')
+        third_node_value = template_data.get('third_node_value')
+        
+        # Get the expression and terminal nodes from template data
+        expression = template_data.get('expression')
+        terminal_nodes = template_data.get('terminal_nodes')
+        
+        
+        # Filter out structured mapping fields from template_data
+        template_data_filtered = {k: v for k, v in template_data.items() if k not in structured_mapping_fields}
+        
+        # Make sure terminal_nodes is explicitly included
+        if terminal_nodes and 'terminal_nodes' not in template_data_filtered:
+            template_data_filtered['terminal_nodes'] = terminal_nodes
+        
+        # Update the template fields first
+        for field, value in template_data_filtered.items():
             setattr(template, field, value)
+        
+        # Explicitly set terminal_nodes to ensure it's saved
+        if terminal_nodes:
+            template.terminal_nodes = terminal_nodes
+            
         template.save()
+
+        # Update or create the DefaultMapping
+        if template.structured_mapping:
+            # Update existing mapping
+            mapping = template.structured_mapping
+            
+            # Only update if values are provided
+            if first_node_type and first_node_value:
+                mapping.subject_type = str(first_node_type)
+                mapping.subject_value = first_node_value
+            if second_node_type and second_node_value:
+                mapping.predicate_type = str(second_node_type)
+                mapping.predicate_value = second_node_value
+            if third_node_type and third_node_value:
+                mapping.object_type = str(third_node_type)
+                mapping.object_value = third_node_value
+            mapping.save()
+        elif (first_node_type and first_node_value and 
+              second_node_type and second_node_value and 
+              third_node_type and third_node_value):
+            # Create new mapping if none exists
+            mapping = DefaultMapping.objects.create(
+                subject_type=str(first_node_type),
+                subject_value=first_node_value,
+                predicate_type=str(second_node_type),
+                predicate_value=second_node_value,
+                object_type=str(third_node_type),
+                object_value=third_node_value
+            )
+            template.structured_mapping = mapping
+            template.save()
+            
 
         # Get the list of valid field names from the RelationTemplatePart model
         field_names = [field.name for field in RelationTemplatePart._meta.get_fields()]
@@ -556,3 +742,28 @@ def update_template(template, template_data, part_data_list):
             part.save()
 
     return template
+
+
+def clean_terminal_nodes(self):
+    value = self.cleaned_data.get('terminal_nodes')
+    if not value:
+        return value
+    
+    try:
+        # Parse the terminal nodes, validating format
+        parsed_nodes = [node.strip() for node in value.split(',')]
+        
+        # Just validate the basic format, no cross-checking with expression
+        for node in parsed_nodes:
+            if not node:
+                continue
+            
+            # Check that node format follows expected pattern (e.g., "0s", "1p", "2o")
+            if len(node) < 2 or not node[0].isdigit() or node[-1] not in ['s', 'p', 'o']:
+                raise ValidationError(f"Invalid node format: {node}. Expected format is a number followed by 's', 'p', or 'o'.")
+        
+        return value
+    except ValidationError:
+        raise
+    except Exception:
+        raise ValidationError('Invalid terminal nodes format or values')

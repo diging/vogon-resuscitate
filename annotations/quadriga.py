@@ -1,17 +1,25 @@
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 from django.utils import timezone
-
-from annotations.models import Relation, Appellation, DateAppellation, DocumentPosition, RelationTemplate
-from external_accounts.models import CitesphereAccount
-
+import logging
+import json
+import urllib.request
+import lxml.etree as ET
+import requests
 import xml.etree.ElementTree as ET
 import datetime
-import requests
 import re
 
 from rest_framework.response import Response
 from rest_framework import status
+
+from annotations.models import (
+    Relation, Appellation, DateAppellation, DocumentPosition, 
+    RelationTemplate, RelationTemplatePart, DefaultMapping
+)
+from external_accounts.models import CitesphereAccount
+
+logger = logging.getLogger(__name__)
 
 def _created_element(element, annotation):
     ET.SubElement(element, 'id')
@@ -278,17 +286,15 @@ def build_concept_node(appellation, user, creation_time, source_uri):
     
     # concept's label for the interpretation.
     interpretation_label = appellation.interpretation.label
-    # concept source URL from the master attribute if available.
-    if hasattr(appellation.interpretation, 'master') and hasattr(appellation.interpretation.master, 'uri'):
-        concept_source_url = appellation.interpretation.master.uri
-    else:
-        concept_source_url = source_uri
+    
+    # concept's source URI
+    concept_source_uri = appellation.interpretation.uri
 
     return {
         "label": interpretation_label,
         "metadata": {
             "type": "appellation_event",
-            "interpretation": concept_source_url,
+            "interpretation": concept_source_uri,
             "termParts": term_parts
         },
         "context": {
@@ -304,33 +310,101 @@ def build_concept_node(appellation, user, creation_time, source_uri):
         }
     }
 
-def generate_graph_data(relationset, user):
+def create_default_mapping(relationset, node_mapping):
     """
-    JSON-serializable graph structure with unique nodes for each
-    appellation event and separate relation event nodes.
+    Create the default mapping structure for a RelationSet based on its template structure.
     
-    Processes nested relations recursively so that each event gets a unique node.
-    This function calls the updated build_concept_node so that:
-      - metadata.interpretation is the concept label, and
-      - context.sourceUri is the URL of the concept source.
+    Args:
+        relationset: The RelationSet instance to create a mapping for
+        node_mapping: Dictionary mapping appellation/relation IDs to their node IDs
+    
+    Returns:
+        default_mapping: A dictionary containing subject, predicate, and object mappings
+    """
+    top_relation = relationset.root
+    # Get the template part from the relationset's template
+    template_part = relationset.template.template_parts.first()
+    
+    # Get the subject, predicate, and object nodes
+    subject_node = top_relation.source_content_object
+    predicate_node = top_relation.predicate
+    object_node = top_relation.object_content_object
+    
+    # Create keys for looking up node IDs
+    subj_key = f"rel-{subject_node.id}-{subject_node.created.isoformat()}" if subject_node and hasattr(subject_node, 'source_content_type_id') else f"app-{subject_node.id}-{subject_node.created.isoformat()}" if subject_node else None
+    obj_key = f"rel-{object_node.id}-{object_node.created.isoformat()}" if object_node and hasattr(object_node, 'source_content_type_id') else f"app-{object_node.id}-{object_node.created.isoformat()}" if object_node else None
+    
+    # Get the structured mapping (guaranteed to be present now)
+    structured_mapping = relationset.template.structured_mapping
+    
+    # Build the defaultMapping structure using the structured_mapping
+    default_mapping = {}
+    
+    # Map source to subject based on structured_mapping.subject_type
+    if structured_mapping.subject_type == DefaultMapping.NODE:
+        default_mapping['subject'] = {
+            'type': 'REF',
+            'reference': node_mapping.get(subj_key, "0")
+        }
+    else:  # URI
+        default_mapping['subject'] = {
+            'type': 'URI',
+            'uri': structured_mapping.subject_value
+        }
+    
+    # Map predicate based on structured_mapping.predicate_type
+    if structured_mapping.predicate_type == DefaultMapping.NODE:
+        default_mapping['predicate'] = {
+            'type': 'REF',
+            'reference': node_mapping.get(f"app-{predicate_node.id}-{predicate_node.created.isoformat()}", "0")
+        }
+    else:  # URI
+        default_mapping['predicate'] = {
+            'type': 'URI',
+            'uri': structured_mapping.predicate_value
+        }
+    
+    # Map object based on structured_mapping.object_type
+    if structured_mapping.object_type == DefaultMapping.NODE:
+        default_mapping['object'] = {
+            'type': 'REF',
+            'reference': node_mapping.get(obj_key, "0")
+        }
+    else:  # URI
+        default_mapping['object'] = {
+            'type': 'URI',
+            'uri': structured_mapping.object_value
+        }
+    
+    return default_mapping
+
+
+def process_relationset(relationset, user):
+    """
+    Process a RelationSet by traversing its relations and appellations to create nodes and edges.
+    
+    Args:
+        relationset: The RelationSet instance to process
+        user: The user instance for context information
+    
+    Returns:
+        tuple: (nodes, edges, node_mapping) - dictionaries of nodes and edges, and a mapping of IDs to node IDs
     """
     nodes = {}
     edges = []
     node_counter = 0
-
+    node_mapping = {}  # This mapping tracks appellation/relation IDs to their node IDs
+    
     def get_node_id():
         nonlocal node_counter
         node_id = str(node_counter)
         node_counter += 1
         return node_id
-
-    # This mapping tracks appellation/relation IDs to their node IDs
-    node_mapping = {}
     
     # Recursive function to process relations
     def process_relation(relation):
         from django.contrib.contenttypes.models import ContentType
-        from annotations.models import Relation, Appellation, DateAppellation
+        from annotations.models import Relation, Appellation
         
         appellation_type = ContentType.objects.get_for_model(Appellation)
         relation_type = ContentType.objects.get_for_model(Relation)
@@ -345,6 +419,7 @@ def generate_graph_data(relationset, user):
             # Source is an appellation
             source_appellation = Appellation.objects.get(pk=relation.source_object_id)
             source_node_id = process_appellation(source_appellation)
+        
         # Process predicate
         predicate_node_id = process_appellation(relation.predicate)
         
@@ -409,99 +484,55 @@ def generate_graph_data(relationset, user):
     
     # Process the top-level relation
     top_relation = relationset.root
-    # Process the root relation, which will recursively process all nested relations
     process_relation(top_relation)
     
-    #############################################################################
-    # DEFAULT MAPPING SECTION
-    # 
-    # The default mapping is based on the relation template structure.
-    #############################################################################
+    return nodes, edges, node_mapping
+
+
+def create_graph_context(relationset, user):
+    """
+    Create the context metadata for a graph.
     
-    # Initialize an empty default mapping dictionary
-    default_mapping = {}
-    
-    # Get the template part from the relationset's template
-    template_part = relationset.template.template_parts.first()
-    
-    # Get the subject node from the relation
-    subject_node = None
-    if template_part.source_node_type == 'CO':  # Specific concept
-        subject_node = top_relation.source_content_object
-    elif template_part.source_node_type == 'TP':  # Open concept
-        subject_node = top_relation.source_content_object
-    elif template_part.source_node_type == 'DT':  # Date
-        subject_node = top_relation.source_content_object
-    elif template_part.source_node_type == 'RE':  # Relation
-        subject_node = top_relation.source_content_object
-    
-    # Get the predicate node
-    predicate_node = top_relation.predicate
-    
-    # Get the object node from the relation
-    object_node = None
-    if template_part.object_node_type == 'CO':  # Specific concept
-        object_node = top_relation.object_content_object
-    elif template_part.object_node_type == 'TP':  # Open concept
-        object_node = top_relation.object_content_object
-    elif template_part.object_node_type == 'DT':  # Date
-        object_node = top_relation.object_content_object
-    elif template_part.object_node_type == 'RE':  # Relation
-        object_node = top_relation.object_content_object
-    
-    # Create keys for looking up node IDs
-    subj_key = None
-    obj_key = None
-    
-    if subject_node:
-        if hasattr(subject_node, 'source_content_type_id'):
-            subj_key = f"rel-{subject_node.id}-{subject_node.created.isoformat()}"
-        else:
-            subj_key = f"app-{subject_node.id}-{subject_node.created.isoformat()}"
-    
-    if object_node:
-        if hasattr(object_node, 'source_content_type_id'):
-            obj_key = f"rel-{object_node.id}-{object_node.created.isoformat()}"
-        else:
-            obj_key = f"app-{object_node.id}-{object_node.created.isoformat()}"
-    
-    # Check if using alternative expression format (node1 behavior:uri node2)
-    expression = relationset.template.expression
-    is_alternative_format = expression and ':' in expression and any(c.isalpha() for c in expression.split(':')[0])
-    
-    # Extract URI from alternative format if present
-    alt_format_uri = None
-    if is_alternative_format:
-        # Split on colon and get the URI part, strip any whitespace
-        alt_format_uri = expression.split(':')[1].strip()
-    
-    # Construct the default mapping based on template
-    default_mapping = {
-        "subject": {
-            "type": "REF",
-            "reference": node_mapping.get(subj_key, "0"),
-        },
-        "predicate": {
-            "type": "REF" if is_alternative_format else "URI",
-            "uri": alt_format_uri if is_alternative_format else predicate_node.interpretation.master.uri,
-        },
-        "object": {
-            "type": "REF",
-            "reference": node_mapping.get(obj_key, "0"),
-        }
+    Args:
+        relationset: The RelationSet instance 
+        user: The user instance
+        
+    Returns:
+        dict: Context metadata dictionary
+    """
+    return {
+        "creator": user.username,
+        "creationTime": relationset.occursIn.created.strftime('%Y-%m-%d'),
+        "creationPlace": settings.QUADRIGA_CREATION_PLACE,
+        "sourceUri": relationset.occursIn.uri if hasattr(relationset.occursIn, 'uri') else ""
     }
+
+
+def generate_graph_data(relationset, user):
+    """
+    JSON-serializable graph structure with unique nodes for each
+    appellation event and separate relation event nodes.
     
-    # Finally, return the complete graph data structure
+    Processes nested relations recursively so that each event gets a unique node.
+    This function calls the updated build_concept_node so that:
+      - metadata.interpretation is the concept label, and
+      - context.sourceUri is the URL of the concept source.
+    """
+    # Process the relationset to generate nodes and edges
+    nodes, edges, node_mapping = process_relationset(relationset, user)
+    
+    # Create the default mapping
+    default_mapping = create_default_mapping(relationset, node_mapping)
+    
+    # Create the context metadata
+    context = create_graph_context(relationset, user)
+    
+    # Build and return the complete graph data structure
     return {
         "graph": {
             "metadata": {
                 "defaultMapping": default_mapping,
-                "context": {
-                    "creator": user.username,
-                    "creationTime": relationset.occursIn.created.strftime('%Y-%m-%d'),
-                    "creationPlace": settings.QUADRIGA_CREATION_PLACE,
-                    "sourceUri": relationset.occursIn.uri if hasattr(relationset.occursIn, 'uri') else ""
-                }
+                "context": context
             },
             "nodes": nodes,
             "edges": edges

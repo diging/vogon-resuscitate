@@ -249,7 +249,26 @@ $('.autocomplete').each(function() {
 
 var searchPromise = null;
 
-// var conceptSearch =
+// Initialize fields when the page loads
+$(document).ready(function() {
+    // Always show both sets of fields
+    $('#expression_container').show();
+    $('#relation_nodes_container').show();
+    
+    // Enable all fields
+    $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').prop('disabled', false);
+    $('#expression_field_container textarea').prop('disabled', false);
+    
+    // Add a heading above terminal nodes field
+    if ($('#id_terminal_nodes').parent().find('.terminal-nodes-heading').length === 0) {
+        $('#id_terminal_nodes').parent().prepend('<h4 class="terminal-nodes-heading">Terminal Nodes</h4>');
+    }
+    
+    // Add a help note for terminal nodes field - completely manual now
+    if ($('#id_terminal_nodes').parent().find('.terminal-nodes-note').length === 0) {
+        $('#id_terminal_nodes').after('<small class="form-text text-muted terminal-nodes-note">Enter terminal nodes in comma separated format, This represents the nodes that will be used to create the relation Graph.</small>');
+    }
+});
 
 
 // source: function( request, response ) {
