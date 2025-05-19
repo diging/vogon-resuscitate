@@ -211,7 +211,9 @@ class ConceptLifecycle(object):
                                             self.DEFAULT_LIST,
                                             self.instance.description,
                                             concept_type,
-                                            equal_to=equal_uri)
+                                            equal_to=equal_uri
+                                            )
+            
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
                                            " concept to Conceptpower:"
@@ -221,6 +223,9 @@ class ConceptLifecycle(object):
             self.instance.merged_with = target
             self.instance.concept_state = Concept.MERGED
         else:
+            # Update the concept with the new URI and authority from Conceptpower
+            self.instance.uri = data['uri']
+            self.instance.authority = {'name': 'Conceptpower'}
             self.instance.concept_state = Concept.RESOLVED
         self.instance.save()
 
