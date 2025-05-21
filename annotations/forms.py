@@ -227,10 +227,10 @@ class ChoiceIntegerField(forms.IntegerField):
 # TODO: widget details (e.g. CSS classes) should be in the template.
 class RelationTemplateForm(forms.ModelForm):
     # Field to handle the DefaultMapping for this RelationTemplate
-    structured_mapping = forms.ModelChoiceField(
+    default_mapping = forms.ModelChoiceField(
         queryset=DefaultMapping.objects.none(),  # Empty queryset by default, will be set in __init__
         required=False,
-        widget=forms.HiddenInput(attrs={'id': 'id_structured_mapping'})
+        widget=forms.HiddenInput(attrs={'id': 'id_default_mapping'})
     )
     
     name = forms.CharField(widget=forms.TextInput(attrs={
@@ -261,7 +261,7 @@ class RelationTemplateForm(forms.ModelForm):
                            " ``0s,1o``."
         }))
     
-    # This is not directly a part of the RelationTemplate, this is used to populate DefaultMapping model which is connect through structured_mapping field using a ForeignKey
+    # This is not directly a part of the RelationTemplate, this is used to populate DefaultMapping model which is connect through default_mapping field using a ForeignKey
     first_node_type = forms.ChoiceField(required=True, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
             'class': 'form-control input-sm node-type-dropdown',
             'id': 'first_node_type'
@@ -292,7 +292,7 @@ class RelationTemplateForm(forms.ModelForm):
     
     class Meta:
         model = RelationTemplate
-        fields = ['name', 'description', 'expression', 'terminal_nodes', 'structured_mapping',
+        fields = ['name', 'description', 'expression', 'terminal_nodes', 'default_mapping',
                  'first_node_type', 'first_node_value', 
                  'second_node_type', 'second_node_value', 
                  'third_node_type', 'third_node_value']
@@ -332,7 +332,6 @@ class RelationTemplateForm(forms.ModelForm):
         if node_type == 'Node':
             # If type is NODE, value must match pattern Number[spo]
             if not re.match(r'^\d+[spo]$', node_value):
-                print("Node reference must be in format: Number followed by 's', 'p', or 'o'")
                 self.add_error(field_name, "Node reference must be in format: Number followed by 's', 'p', or 'o'")
                 return False
         elif node_type == 'URI':
@@ -362,19 +361,16 @@ class RelationTemplateForm(forms.ModelForm):
         # Validate Node/URI field pairs
         first_node_type = cleaned_data.get('first_node_type')
         first_node_value = cleaned_data.get('first_node_value')
-        print(first_node_type, first_node_value)
         if first_node_type and first_node_value:
             self.validate_node_uri_field(first_node_type, first_node_value, 'first_node_value')
             
         second_node_type = cleaned_data.get('second_node_type')
         second_node_value = cleaned_data.get('second_node_value')
-        print(second_node_type, second_node_value)
         if second_node_type and second_node_value:
             self.validate_node_uri_field(second_node_type, second_node_value, 'second_node_value')
             
         third_node_type = cleaned_data.get('third_node_type')
         third_node_value = cleaned_data.get('third_node_value')
-        print(third_node_type, third_node_value)
         if third_node_type and third_node_value:
             self.validate_node_uri_field(third_node_type, third_node_value, 'third_node_value')
         
@@ -383,19 +379,19 @@ class RelationTemplateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(RelationTemplateForm, self).__init__(*args, **kwargs)
         
-        # If we're editing an existing instance with a structured_mapping
-        if self.instance and self.instance.pk and self.instance.structured_mapping:
-            # Set the queryset to include only the current structured_mapping
+        # If we're editing an existing instance with a default_mapping
+        if self.instance and self.instance.pk and self.instance.default_mapping:
+            # Set the queryset to include only the current default_mapping
             # This avoids loading all mappings, but ensures the current one is available
-            self.fields['structured_mapping'].queryset = DefaultMapping.objects.filter(
-                id=self.instance.structured_mapping.id
+            self.fields['default_mapping'].queryset = DefaultMapping.objects.filter(
+                id=self.instance.default_mapping.id
             )
             
-            # Set the structured_mapping field
-            self.initial['structured_mapping'] = self.instance.structured_mapping
+            # Set the default_mapping field
+            self.initial['default_mapping'] = self.instance.default_mapping
             
-            # Populate the relation node fields from the structured mapping
-            mapping = self.instance.structured_mapping
+            # Populate the relation node fields from the default mapping
+            mapping = self.instance.default_mapping
             self.initial['first_node_type'] = mapping.subject_type
             self.initial['first_node_value'] = mapping.subject_value
             self.initial['second_node_type'] = mapping.predicate_type
@@ -420,9 +416,9 @@ class RelationTemplateForm(forms.ModelForm):
         third_node_value = self.cleaned_data.get('third_node_value')  # Object value
         
         # DefaultMapping stores the structured representation of the relation
-        if instance.structured_mapping:
+        if instance.default_mapping:
             # Always update the existing mapping when editing a template
-            mapping = instance.structured_mapping
+            mapping = instance.default_mapping
             mapping.subject_type = first_node_type
             mapping.subject_value = first_node_value
             mapping.predicate_type = second_node_type
@@ -441,7 +437,7 @@ class RelationTemplateForm(forms.ModelForm):
                 object_value=third_node_value
             )
             # Link the new mapping to the template
-            instance.structured_mapping = mapping
+            instance.default_mapping = mapping
         
         if commit:
             instance.save()

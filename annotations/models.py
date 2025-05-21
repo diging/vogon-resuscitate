@@ -1065,7 +1065,7 @@ class RelationTemplate(models.Model):
     """Pattern for representing the relation in normal language."""
 
     
-    structured_mapping = models.ForeignKey(DefaultMapping, blank=True, null=True, 
+    default_mapping = models.ForeignKey(DefaultMapping, blank=True, null=True, 
                                           on_delete=models.SET_NULL, related_name='templates')
     """Structured representation of default mapping relationship configuration."""
 

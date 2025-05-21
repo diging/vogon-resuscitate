@@ -335,13 +335,13 @@ def create_default_mapping(relationset, node_mapping):
     obj_key = f"rel-{object_node.id}-{object_node.created.isoformat()}" if object_node and hasattr(object_node, 'source_content_type_id') else f"app-{object_node.id}-{object_node.created.isoformat()}" if object_node else None
     
     # Get the structured mapping (guaranteed to be present now)
-    structured_mapping = relationset.template.structured_mapping
+    default_mapping_instance = relationset.template.default_mapping
     
-    # Build the defaultMapping structure using the structured_mapping
+    # Build the defaultMapping structure using the default_mapping_instance
     default_mapping = {}
     
-    # Map source to subject based on structured_mapping.subject_type
-    if structured_mapping.subject_type == DefaultMapping.NODE:
+    # Map source to subject based on default_mapping_instance.subject_type
+    if default_mapping_instance.subject_type == DefaultMapping.NODE:
         default_mapping['subject'] = {
             'type': 'REF',
             'reference': node_mapping.get(subj_key, "0")
@@ -349,11 +349,11 @@ def create_default_mapping(relationset, node_mapping):
     else:  # URI
         default_mapping['subject'] = {
             'type': 'URI',
-            'uri': structured_mapping.subject_value
+            'uri': default_mapping_instance.subject_value
         }
     
-    # Map predicate based on structured_mapping.predicate_type
-    if structured_mapping.predicate_type == DefaultMapping.NODE:
+    # Map predicate based on default_mapping_instance.predicate_type
+    if default_mapping_instance.predicate_type == DefaultMapping.NODE:
         default_mapping['predicate'] = {
             'type': 'REF',
             'reference': node_mapping.get(f"app-{predicate_node.id}-{predicate_node.created.isoformat()}", "0")
@@ -361,11 +361,11 @@ def create_default_mapping(relationset, node_mapping):
     else:  # URI
         default_mapping['predicate'] = {
             'type': 'URI',
-            'uri': structured_mapping.predicate_value
+            'uri': default_mapping_instance.predicate_value
         }
     
-    # Map object based on structured_mapping.object_type
-    if structured_mapping.object_type == DefaultMapping.NODE:
+    # Map object based on default_mapping_instance.object_type
+    if default_mapping_instance.object_type == DefaultMapping.NODE:
         default_mapping['object'] = {
             'type': 'REF',
             'reference': node_mapping.get(obj_key, "0")
@@ -373,7 +373,7 @@ def create_default_mapping(relationset, node_mapping):
     else:  # URI
         default_mapping['object'] = {
             'type': 'URI',
-            'uri': structured_mapping.object_value
+            'uri': default_mapping_instance.object_value
         }
     
     return default_mapping
