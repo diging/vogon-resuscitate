@@ -77,6 +77,7 @@ var AppellationListItem = {
         if (this.appellationClickedHandler) {
             this.$root.$off('appellationClicked', this.appellationClickedHandler);
         }
+        // Clean up EventBus listeners using the stored handlers
         if (this.onStartEditHandler) EventBus.$off('startEdit', this.onStartEditHandler);
         if (this.onCancelEditHandler) EventBus.$off('cancelEdit', this.onCancelEditHandler);
         if (this.onResetEditStateHandler) EventBus.$off('resetEditState', this.onResetEditStateHandler);
@@ -96,7 +97,7 @@ var AppellationListItem = {
             if (typeof store !== 'undefined' && store.watch) {
                 store.watch(
                     (state) => { return store.getters.getDeselect; },
-                    (val) => { if (val) { this.uncheckAll();} }
+                    (val) => { if (val) { this.uncheckAll(); /* this.canCheckAll = true; */ } }
                 );
             }
         },
@@ -134,10 +135,7 @@ var AppellationListItem = {
             return 'Unknown';
         },
         getFormattedDate: function (isodate) {
-            if (typeof moment !== 'undefined') {
                 return moment(isodate).format('dddd LL [at] LT');
-            }
-            return isodate;
         },
 
         deleteAppellation: function() {
@@ -145,7 +143,7 @@ var AppellationListItem = {
             const deletedAppId = this.appellation.id; 
 
             if (typeof Appellation === 'undefined' || !Appellation.delete) {
-                this.deleteError = "Cannot delete: Appellation resource unavailable.";
+                this.deleteError = "The annotation could not be deleted due to an unexpected application error. Please refresh and try again.";
                 return;
             }
 
@@ -169,20 +167,21 @@ var AppellationListItem = {
 
                 if (isDeletingTheCurrentlyEditedItem) {
                     // The item being deleted was the one actively being edited (or localStorage was corrupt).
-                    // A global reset is needed. The resetEditState listener will clear localStorage.
+                    // Global reset is needed. The 'resetEditState' listener clears localStorage.
                     EventBus.$emit('resetEditState');
                 } else {
-                    // An unrelated item was deleted, or localStorage was empty.
-                    // If an edit was ongoing for a different item, its state should persist.
-                    // We emit 'cancelEdit' to ensure buttons on other items reset their 'isEditMode' to false,
-                    // in case they were globally disabled by an edit that's now implicitly no longer the focus
+                    // An unrelated item was deleted OR localStorage was empty.
+                    // If an edit was ongoing for a *different* item, its 'isEditMode' should already be true.
+                    // Emitting 'cancelEdit' here ensures that if for some reason isEditMode was stuck true on
+                    // other items due to a previous state, they now reset their buttons.
+                    // This does NOT clear localStorage if an unrelated edit is active.
                     EventBus.$emit('cancelEdit'); 
                 }
             }).catch(error => {
                 if (error.status === 400) {
                     this.deleteError = "This annotation is used in a relation and cannot be deleted.";
                 } else {
-                    this.deleteError = "Error deleting annotation. Please try again later.";
+                    this.deleteError = "An error occurred while trying to delete the annotation. Please try again.";
                 }
             });
         },
@@ -199,12 +198,10 @@ var AppellationListItem = {
                     if (parsedData && typeof parsedData.id !== 'undefined') {
                         currentEditingAppIdInStorage = parsedData.id;
                     } else { 
-                        // Data is in localStorage but malformed. Clear it.
-                        localStorage.removeItem('editingAppellation');
+                        localStorage.removeItem('editingAppellation'); // Clear malformed data
                     }
                 } catch (e) { 
-                    // Corrupted JSON in localStorage. Clear it.
-                    localStorage.removeItem('editingAppellation');
+                    localStorage.removeItem('editingAppellation'); // Clear corrupted data
                 }
             }
 
@@ -224,23 +221,21 @@ var AppellationListItem = {
             if (this.isEditMode) {
                 // If it's already this item that's in localStorage, it's a re-click on an active edit.
                 if (currentEditingAppIdInStorage === currentAppId) {
+                     // This item is already the active edit target. Re-show the instruction.
                      EventBus.$emit('showMessage', {
                         text: 'Please select the new text position. Press ESC to cancel.',
                         type: 'info'
                     });
                 } else if (!currentEditingAppIdInStorage) {
-                     // isEditMode is true, but nothing in localStorage. This is an inconsistent state.
-                     // This might happen if localStorage was cleared (e.g. by ESC) but isEditMode wasn't reset,
-                     // or if startEdit fired but localStorage setting failed.
-                     // Attempt to self-correct by allowing this item to become the active editor.
-                     // No explicit return here; it will fall through to start the edit.
+                     // isEditMode is true, but nothing in localStorage. This indicates an inconsistent state.
+                     // For example, startEdit was received, but localStorage was cleared externally (e.g. by ESC).
+                     // Allow this item to attempt to become the editor by falling through.
+                     // it will proceed to set localStorage.
                 } else {
-                    // isEditMode true, but localStorage has a different item.
-                    // This should have been caught by check 1, should not happe
-                    EventBus.$emit('showMessage', { text: 'Inconsistent edit state. Please try cancelling other edits (ESC) or refreshing.', type: 'danger', duration: 3000 });
+                    // This state should have been caught by Check 1. If reached, it's an anomaly.
+                    EventBus.$emit('showMessage', { text: 'Inconsistent edit state. Please try refreshing.', type: 'danger', duration: 3000 });
                     return;
                 }
-                // If it was a re-click on an already active edit for this item.
                 if (currentEditingAppIdInStorage === currentAppId) return;
             }
 
@@ -248,7 +243,7 @@ var AppellationListItem = {
             localStorage.setItem('editingAppellation', JSON.stringify(this.appellation));
             
             if (this.appellation && typeof this.appellation.selected !== 'undefined') {
-                this.appellation.selected = false; // Deselect from list
+                this.appellation.selected = false;
             }
             
             EventBus.$emit('startEdit'); 
