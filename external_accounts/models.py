@@ -5,8 +5,13 @@ from requests.exceptions import RequestException
 from django.db.models.signals import post_save
 from repository.models import Repository
 from django.dispatch import receiver
+from django.conf import settings
+from hashlib import sha256
+from cryptography.fernet import Fernet
 import requests
 import json
+import base64
+import os
 
 class CitesphereAccount(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='citesphere_account')
@@ -57,7 +62,54 @@ def fetch_citesphere_user_id(sender, instance, created, **kwargs):
 class ConceptpowerAccount(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conceptpower_account')
     username = models.CharField(max_length=255, unique=True)
-    password = models.CharField(max_length=255)
+    _password = models.CharField(max_length=255, db_column='password')
     
     def __str__(self):
         return self.username
+        
+    @property
+    def password(self):
+        """Get the decrypted password"""
+
+        if not self._password:
+            return None
+        try:
+            salt, encrypted = self._password.split('$', 1)
+            salt = base64.b64decode(salt.encode())
+            encrypted = base64.b64decode(encrypted.encode())
+            key = self._derive_key(salt)
+            return self._decrypt(encrypted, key)
+        except Exception:
+            return None
+            
+    @password.setter
+    def password(self, value):
+        """Encrypt and store the password"""
+
+        if not value:
+            self._password = ''
+            return
+        salt = os.urandom(16)
+        key = self._derive_key(salt)
+        encrypted = self._encrypt(value, key)
+        self._password = f"{base64.b64encode(salt).decode()}${base64.b64encode(encrypted).decode()}"
+    
+    def _derive_key(self, salt):
+        """Derive an encryption key from the salt using Django's SECRET_KEY"""
+
+        key = sha256(settings.SECRET_KEY.encode() + salt).digest()
+        return key
+    
+    def _encrypt(self, value, key):
+        """Encrypt a value using the given key"""
+
+        fernet_key = base64.urlsafe_b64encode(key[:32])
+        f = Fernet(fernet_key)
+        return f.encrypt(value.encode())
+    
+    def _decrypt(self, encrypted, key):
+        """Decrypt a value using the given key"""
+
+        fernet_key = base64.urlsafe_b64encode(key[:32])
+        f = Fernet(fernet_key)
+        return f.decrypt(encrypted).decode()

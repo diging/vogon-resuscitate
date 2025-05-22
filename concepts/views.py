@@ -5,7 +5,7 @@ from django.urls import reverse
 from concepts.models import Concept, Type, Comment
 from concepts.filters import *
 from concepts.lifecycle import *
-from concepts.conceptpower import ConceptPowerCredentialsMissingException
+from concepts.conceptpower import ConceptpowerCredentialsMissingException
 from annotations.models import RelationSet, Appellation, TextCollection, VogonUserDefaultProject
 from django.shortcuts import render, get_object_or_404, redirect
 from concepts.authorities import ConceptpowerAuthority, update_instance
@@ -169,17 +169,13 @@ def add_concept(request, concept_id):
         if request.method == 'POST':
             try:
                 concept.add()
-            except ConceptPowerCredentialsMissingException:
-                messages.error(request, "Your ConceptPower credentials are invalid. Please update them.")
+            except ConceptpowerCredentialsMissingException as e:
+                messages.error(request, str(e))
                 return redirect(f"{reverse('conceptpower_login')}?next={request.path}")
-            except ConceptUpstreamException as E:
-                messages.error(
-                    request,
-                    'ERROR: There was an error while communicating with Conceptpower.'
-                )
+            except Exception as e:
+                messages.error(request, str(e))
                 return HttpResponseRedirect(reverse('concepts'))
             return HttpResponseRedirect(next_page)
-
 
         candidates = concept.get_similar()
         matches = concept.get_matching()

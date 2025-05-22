@@ -2,7 +2,7 @@ import requests,json
 from requests.auth import HTTPBasicAuth
 from external_accounts.models import ConceptpowerAccount
 
-class ConceptPowerCredentialsMissingException(Exception):
+class ConceptpowerCredentialsMissingException(Exception):
     """Raised when ConceptPower credentials for a user are missing."""
         
 class Conceptpower:
@@ -58,7 +58,7 @@ class Conceptpower:
         try:
             conceptpower_account = ConceptpowerAccount.objects.get(user=user)
         except ConceptpowerAccount.DoesNotExist:
-            raise ConceptPowerCredentialsMissingException(
+            raise ConceptpowerCredentialsMissingException(
                 f"User {user.username} has not added ConceptPower credentials."
             )
         username = conceptpower_account.username
@@ -79,8 +79,12 @@ class Conceptpower:
 
         r = requests.post(url=rest_url, data=json.dumps(concept_data), auth=auth)
 
-        if r.status_code != requests.codes.ok:
-            raise RuntimeError(r.status_code, r.text)
+        if r.status_code == requests.codes.unauthorized:
+            raise ConceptpowerCredentialsMissingException(
+                f"Invalid ConceptPower credentials for user {user.username}. Please check your username and password."
+            )
+        elif r.status_code != requests.codes.ok:
+            raise RuntimeError(f"ConceptPower API error (HTTP {r.status_code}): {r.text}")
 
         # Returned data after successful response
         return r.json()
