@@ -572,25 +572,20 @@ class ConceptViewSet(viewsets.ModelViewSet):
     def search_paginated(self, request, **kwargs):
         """
         A paginated version of the concept search endpoint.
-        Returns results in pages with metadata about pagination.
         First tries the full query, then individual parts if less than 10 results.
         """
         q = request.GET.get('search', None)
         if not q:
             return Response({'results': []})
             
-        # Get pagination parameters
         page = int(request.GET.get('page', 1))
         per_page = int(request.GET.get('per_page', 10))
-        
         pos = request.GET.get('pos', None)
         
-        # Split the search query into words
-        words = q.split()
+        filtered_words = [word for word in q.split() if len(word) > 3]
         all_concepts = []
-        seen_uris = set()  # To track unique concepts by URI
+        seen_uris = set()
         
-        # First try the full query
         url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
         parameters = {
             'word': q,
@@ -611,19 +606,17 @@ class ConceptViewSet(viewsets.ModelViewSet):
                     if concept['uri'] not in seen_uris:
                         seen_uris.add(concept['uri'])
                         all_concepts.append(concept)
+            else:
+                error_msg = 'ConceptPower service is currently unavailable. Please try again later.'
+                return Response({'error': error_msg}, status=response.status_code)
         except Exception as e:
-            logger.error(f'Error searching concepts for full query "{q}": {str(e)}')
+            logger.error(f'Error searching concepts: {str(e)}')
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        # If we have less than per_page results and multiple words, try individual parts
-        if len(all_concepts) < per_page and len(words) > 1:
-            # Remove words with <= 3 characters
-            filtered_words = [word for word in words if len(word) > 3]
-            
-            # Try the query without short words
-            if filtered_words:
-                filtered_query = ' '.join(filtered_words)
+        if len(all_concepts) < per_page:
+            for word in filtered_words:
                 try:
-                    parameters['word'] = filtered_query
+                    parameters['word'] = word
                     response = requests.get(url, headers=headers, params=parameters)
                     
                     if response.status_code == 200:
@@ -634,40 +627,17 @@ class ConceptViewSet(viewsets.ModelViewSet):
                             if concept['uri'] not in seen_uris:
                                 seen_uris.add(concept['uri'])
                                 all_concepts.append(concept)
-                                if len(all_concepts) >= per_page:
-                                    break
+                    else:
+                        error_msg = 'ConceptPower service is currently unavailable. Please try again later.'
+                        return Response({'error': error_msg}, status=response.status_code)
                 except Exception as e:
-                    logger.error(f'Error searching concepts for filtered query "{filtered_query}": {str(e)}')
-            
-            # If still less than per_page results, try individual words
-            if len(all_concepts) < per_page:
-                for word in filtered_words:
-                    try:
-                        parameters['word'] = word
-                        response = requests.get(url, headers=headers, params=parameters)
-                        
-                        if response.status_code == 200:
-                            data = response.json()
-                            for concept_entry in data.get('conceptEntries', []):
-                                concept = parse_concept(concept_entry)
-                                concept = _relabel(concept)
-                                if concept['uri'] not in seen_uris:
-                                    seen_uris.add(concept['uri'])
-                                    all_concepts.append(concept)
-                                    if len(all_concepts) >= per_page:
-                                        break
-                    except Exception as e:
-                        logger.error(f'Error searching concepts for word "{word}": {str(e)}')
-                    
-                    if len(all_concepts) >= per_page:
-                        break
+                    logger.error(f'Error searching concepts for word "{word}": {str(e)}')
+                    return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        # Calculate pagination
         total_concepts = len(all_concepts)
         start_idx = (page - 1) * per_page
         end_idx = start_idx + per_page
         
-        # Get paginated results
         paginated_concepts = all_concepts[start_idx:end_idx]
         
         return Response({

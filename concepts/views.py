@@ -14,12 +14,6 @@ from unidecode import unidecode
 from urllib.parse import urlencode
 from annotations.decorators import vogon_admin_or_staff_required
 from django.contrib import messages
-import requests
-from django.conf import settings
-import logging
-from annotations.views.rest_views import parse_concept, _relabel
-
-logger = logging.getLogger(__name__)
 
 
 
