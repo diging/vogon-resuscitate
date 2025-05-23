@@ -568,6 +568,85 @@ class ConceptViewSet(viewsets.ModelViewSet):
             logger.error(f'Error searching concepts: {str(e)}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=False)
+    def search_paginated(self, request, **kwargs):
+        """
+        A paginated version of the concept search endpoint.
+        First tries the full query, then individual parts if less than 10 results.
+        """
+        q = request.GET.get('search', None)
+        if not q:
+            return Response({'results': []})
+            
+        page = int(request.GET.get('page', 1))
+        per_page = int(request.GET.get('per_page', 10))
+        pos = request.GET.get('pos', None)
+        
+        filtered_words = [word for word in q.split() if len(word) > 3]
+        all_concepts = []
+        seen_uris = set()
+        
+        url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
+        parameters = {
+            'word': q,
+            'pos': pos if pos else None,
+        }
+        headers = {
+            'Accept': 'application/json',
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, params=parameters)
+            
+            if response.status_code == 200:
+                data = response.json()
+                for concept_entry in data.get('conceptEntries', []):
+                    concept = parse_concept(concept_entry)
+                    concept = _relabel(concept)
+                    if concept['uri'] not in seen_uris:
+                        seen_uris.add(concept['uri'])
+                        all_concepts.append(concept)
+            else:
+                error_msg = 'ConceptPower service is currently unavailable. Please try again later.'
+                return Response({'error': error_msg}, status=response.status_code)
+        except Exception as e:
+            logger.error(f'Error searching concepts: {str(e)}')
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        if len(all_concepts) < per_page:
+            for word in filtered_words:
+                try:
+                    parameters['word'] = word
+                    response = requests.get(url, headers=headers, params=parameters)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        for concept_entry in data.get('conceptEntries', []):
+                            concept = parse_concept(concept_entry)
+                            concept = _relabel(concept)
+                            if concept['uri'] not in seen_uris:
+                                seen_uris.add(concept['uri'])
+                                all_concepts.append(concept)
+                    else:
+                        error_msg = 'ConceptPower service is currently unavailable. Please try again later.'
+                        return Response({'error': error_msg}, status=response.status_code)
+                except Exception as e:
+                    logger.error(f'Error searching concepts for word "{word}": {str(e)}')
+                    return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        total_concepts = len(all_concepts)
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        
+        paginated_concepts = all_concepts[start_idx:end_idx]
+        
+        return Response({
+            'results': paginated_concepts,
+            'has_more': end_idx < total_concepts,
+            'total': total_concepts,
+            'page': page,
+            'per_page': per_page
+        })
 
     def get_queryset(self, *args, **kwargs):
         """
