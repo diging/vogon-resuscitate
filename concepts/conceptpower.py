@@ -3,7 +3,7 @@ from requests.auth import HTTPBasicAuth
 from external_accounts.models import ConceptpowerAccount
 
 class ConceptpowerCredentialsMissingException(Exception):
-    """Raised when ConceptPower credentials for a user are missing."""
+    """Raised when Conceptpower credentials for a user are missing."""
         
 class Conceptpower:
 
@@ -59,7 +59,7 @@ class Conceptpower:
             conceptpower_account = ConceptpowerAccount.objects.get(user=user)
         except ConceptpowerAccount.DoesNotExist:
             raise ConceptpowerCredentialsMissingException(
-                f"User {user.username} has not added ConceptPower credentials."
+                f"User {user.username} has not added Conceptpower credentials."
             )
         username = conceptpower_account.username
         password = conceptpower_account.password
@@ -81,10 +81,10 @@ class Conceptpower:
 
         if r.status_code == requests.codes.unauthorized:
             raise ConceptpowerCredentialsMissingException(
-                f"Invalid ConceptPower credentials for user {user.username}. Please check your username and password."
+                f"Invalid Conceptpower credentials for user {user.username}. Please check your username and password."
             )
         elif r.status_code != requests.codes.ok:
-            raise RuntimeError(f"ConceptPower API error (HTTP {r.status_code}): {r.text}")
+            raise RuntimeError(f"Conceptpower API error (HTTP {r.status_code}): {r.text}")
 
         # Returned data after successful response
         return r.json()
@@ -94,7 +94,7 @@ class Conceptpower:
         Parse a concept and return a dictionary with the required fields.
 
         Args:
-            concept_entry (dict): A dictionary representing a concept entry from the ConceptPower API. 
+            concept_entry (dict): A dictionary representing a concept entry from the Conceptpower API. 
             Example:
             {
                 "id": "CONcQyweoHkr156",

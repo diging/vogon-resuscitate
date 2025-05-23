@@ -212,9 +212,7 @@ class ConceptLifecycle(object):
                                             concept_type,
                                             equal_to=equal_uri)
         except Exception as E:
-            raise ConceptUpstreamException("There was an error adding the"
-                                           " concept to Conceptpower:"
-                                           " %s" % str(E))
+            raise ConceptUpstreamException("Whoops: %s" % str(E))
         if not self.is_created:
             target = ConceptLifecycle.create_from_raw(data).instance
             self.instance.merged_with = target

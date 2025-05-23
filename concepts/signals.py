@@ -29,7 +29,7 @@ def concept_post_save_receiver(sender, **kwargs):
 # def concept_post_save_approve_receiver(sender, **kwargs):
 #     """
 #     When a :class:`.Concept` is saved, attempt to add it using one of the
-#     registered :class:`.AuthorityManager` classes to ConceptPower if the
+#     registered :class:`.AuthorityManager` classes to Conceptpower if the
 #     :class:`.Concept` is :prop:`.approved`\.
 #     """
 #     instance = kwargs.get('instance', None)

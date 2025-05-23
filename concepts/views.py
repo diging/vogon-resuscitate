@@ -161,7 +161,7 @@ def add_concept(request, concept_id):
     try:
         ConceptpowerAccount.objects.get(user=request.user)
     except ConceptpowerAccount.DoesNotExist:
-        messages.warning(request, "You need to connect your ConceptPower account before adding concepts.")
+        messages.warning(request, "You need to connect your Conceptpower account before adding concepts.")
         return redirect(f"{reverse('conceptpower_login')}?next={request.path}")
 
     # Process only if the concept is still in a resolvable state (e.g., PENDING or FLAGGED)

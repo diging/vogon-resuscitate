@@ -176,7 +176,7 @@ def conceptpower_login(request):
         account.username = username
         account.password = password
         account.save()
-        messages.success(request, "Successfully connected to ConceptPower!")
+        messages.success(request, "Successfully connected to Conceptpower!")
         return redirect(next_url)
     return render(request, 'login/login.html')
     
@@ -194,7 +194,7 @@ def conceptpower_update_password(request):
             messages.error(request, "No Conceptpower account found.")
         except Exception as e:
             messages.error(request, "Something went wrong! Please try again.")
-            print(f"Error updating ConceptPower password: {e}")
+            print(f"Error updating Conceptpower password: {e}")
 
     return redirect(reverse('dashboard'))
 
