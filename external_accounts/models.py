@@ -63,53 +63,31 @@ class ConceptpowerAccount(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conceptpower_account')
     username = models.CharField(max_length=255, unique=True)
     _password = models.CharField(max_length=255, db_column='password')
+    _encryption_key = models.CharField(max_length=255, null=True, blank=True)
     
     def __str__(self):
         return self.username
         
+    def _get_fernet(self):
+        """Get or create a Fernet instance with a key"""
+        if not self._encryption_key:
+            self._encryption_key = Fernet.generate_key().decode()
+            self.save(update_fields=['_encryption_key'])
+        return Fernet(self._encryption_key.encode())
+        
     @property
     def password(self):
         """Get the decrypted password"""
-
         if not self._password:
             return None
-        try:
-            salt, encrypted = self._password.split('$', 1)
-            salt = base64.b64decode(salt.encode())
-            encrypted = base64.b64decode(encrypted.encode())
-            key = self._derive_key(salt)
-            return self._decrypt(encrypted, key)
-        except Exception:
-            return None
-            
+        fernet = self._get_fernet()
+        return fernet.decrypt(self._password.encode()).decode()
+  
     @password.setter
     def password(self, value):
         """Encrypt and store the password"""
-
         if not value:
             self._password = ''
             return
-        salt = os.urandom(16)
-        key = self._derive_key(salt)
-        encrypted = self._encrypt(value, key)
-        self._password = f"{base64.b64encode(salt).decode()}${base64.b64encode(encrypted).decode()}"
-    
-    def _derive_key(self, salt):
-        """Derive an encryption key from the salt using Django's SECRET_KEY"""
-
-        key = sha256(settings.SECRET_KEY.encode() + salt).digest()
-        return key
-    
-    def _encrypt(self, value, key):
-        """Encrypt a value using the given key"""
-
-        fernet_key = base64.urlsafe_b64encode(key[:32])
-        f = Fernet(fernet_key)
-        return f.encrypt(value.encode())
-    
-    def _decrypt(self, encrypted, key):
-        """Decrypt a value using the given key"""
-
-        fernet_key = base64.urlsafe_b64encode(key[:32])
-        f = Fernet(fernet_key)
-        return f.decrypt(encrypted).decode()
+        fernet = self._get_fernet()
+        self._password = fernet.encrypt(value.encode()).decode()
