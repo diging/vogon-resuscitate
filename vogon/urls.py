@@ -28,7 +28,7 @@ from external_accounts import views as externalAccountViews
 
 router = routers.DefaultRouter(trailing_slash=False)
 router.register(r'appellation', views.rest_views.AppellationViewSet)
-router.register(r'predicate', views.rest_views.PredicateViewSet)
+router.register(r'predicate', views.rest_views.PredicateViewSet, basename='predicate')
 router.register(r'relation', views.rest_views.RelationViewSet)
 router.register(r'relationset', views.rest_views.RelationSetViewSet)
 router.register(r'text', views.rest_views.TextViewSet)

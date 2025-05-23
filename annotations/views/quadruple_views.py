@@ -11,7 +11,7 @@ from annotations.models import (RelationSet, Appellation, Relation, VogonUser,
 
 
 def appellation_xml(request, appellation_id):
-    """
+    r"""
     Return partial quad-xml for an :class:`.Appellation`\.
 
     Parameters
@@ -30,7 +30,7 @@ def appellation_xml(request, appellation_id):
 
 
 def relation_xml(request, relation_id):
-    """
+    r"""
     Return partial quad-xml for an :class:`.Appellation`\.
 
     Parameters
@@ -49,7 +49,7 @@ def relation_xml(request, relation_id):
 
 
 def relationset_xml(request, relationset_id):
-    """
+    r"""
     Return partial quad-xml for an :class:`.Appellation`\.
 
     Parameters
@@ -68,7 +68,7 @@ def relationset_xml(request, relationset_id):
 
 
 def text_xml(request, text_id, user_id):
-    """
+    r"""
     Return complete quad-xml for the annotations in a :class:`.Text`\.
 
     Parameters

@@ -132,7 +132,7 @@ def concepts(request):
 
 
 def concept(request, concept_id):
-    """
+    r"""
     Details about a :class:`.Concept`\, including its associated annotations.
     """
 
@@ -153,7 +153,7 @@ def add_concept(request, concept_id):
     next_page = request.GET.get('next', reverse('concepts'))
     back_to_page = request.GET.get('next')
     context = {
-        'concept': source,
+        'concept': concept,
         'next_page': urllib.parse.quote_plus(next_page),
         'back_to_page': back_to_page
     }
