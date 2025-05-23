@@ -19,24 +19,38 @@ import re
 class TEIProcessor:
     """Handler for converting TEI elements to HTML with mapping information."""
     
-    def __init__(self):
+    def __init__(self, namespaces):
+        self.namespaces = namespaces
         self.html_parts = []
         self.element_map = []
     
-    def process_element(self, element, path=''):
-        """
-        Process a TEI element and convert to HTML representation.
-        Dispatches to specialized handlers based on tag name.
-        """
-        # Get local tag name without namespace
+    def _add_position_predicates_ns(self, element, parent_xpath_str):
+            local_tag_name = _local_name(element.tag)
+            prefixed_tag = local_tag_name 
+
+            if element.tag.startswith('{http://www.tei-c.org/ns/1.0}'):
+                prefixed_tag = f"tei:{local_tag_name}"
+
+            parent = element.getparent()
+            if parent is None:
+                xpath_str = f"/{prefixed_tag}[1]" 
+            else:
+                index = 1
+                for sibling in parent.iterchildren(tag=element.tag): # lxml specific: iterates over same-tag siblings
+                    if sibling is element:
+                        break
+                    index += 1
+                xpath_str = f"{parent_xpath_str}/{prefixed_tag}[{index}]"
+            return xpath_str
+
+    def process_element(self, element, parent_xpath_str=''): # CHANGED path to parent_xpath_str
         tag = _local_name(element.tag)
-        xpath = add_position_predicates(element, path)
-        
-        # Dynamically dispatch to handler method if it exists
+        current_element_xpath = self._add_position_predicates_ns(element, parent_xpath_str) # new method
+
         handler_name = f"_process_{tag}"
         handler = getattr(self, handler_name, self._process_default)
-        
-        return handler(element, tag, xpath, path)
+
+        return handler(element, tag, current_element_xpath) # PASS current_element_xpath
     
     def _process_body(self, element, tag, xpath, path):
         """Process body and text container elements."""
@@ -62,23 +76,22 @@ class TEIProcessor:
         """Process text element (same as body)."""
         return self._process_body(element, tag, xpath, path)
     
-    def _process_p(self, element, tag, xpath, path):
-        """Process paragraph elements."""
-        self.html_parts.append(f'<p class="tei-p" data-xpath="{xpath}">')
+    def _process_p(self, element, tag, current_element_xpath): # NEW SIGNATURE
+        self.html_parts.append(f'<p class="tei-p" data-xpath="{current_element_xpath}">') # USE current_element_xpath
         self.element_map.append({
-            'xpath': xpath, 
+            'xpath': current_element_xpath, # USE current_element_xpath
             'element_type': 'paragraph',
             'start_pos': len("".join(self.html_parts))
         })
-        
+
         if element.text:
             self.html_parts.append(_escape_html(element.text))
-            
+
         for child_element in element:
-            self.process_element(child_element, xpath)
+            # PASS current_element_xpath as parent_xpath_str for children
+            self.process_element(child_element, current_element_xpath)
             if child_element.tail:
                 self.html_parts.append(_escape_html(child_element.tail))
-                
         self.html_parts.append('</p>')
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
     
@@ -359,8 +372,8 @@ def parse_tei_document(xml_content):
         - facsimile_data: info about facsimile images
     """
     try:
-        # Use a parser that removes processing instructions (XML declarations, etc.)
-        # This prevents issues with <?xml ...?> and <?xml-model ...?> tags 
+        # Initialize an XML parser that strips comments and processing instructions.
+        # This prevents potential parsing errors or interference from declarations (e.g., <?xml...?>, <?xml-model...?>)
         parser = etree.XMLParser(remove_comments=True, remove_pis=True)
         root = etree.fromstring(xml_content.encode('utf-8'), parser)
         
