@@ -10,8 +10,6 @@ from hashlib import sha256
 from cryptography.fernet import Fernet
 import requests
 import json
-import base64
-import os
 
 class CitesphereAccount(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='citesphere_account')
