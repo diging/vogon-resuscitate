@@ -154,39 +154,75 @@ def build_dependency_graph(template_data, part_data, **kwargs):
     return dependencies
 
 
+def validate_terminal_nodes(template_data, part_data, **kwargs):
+    """
+    Basic validation for terminal nodes format.
+    Terminal nodes should be a comma-separated list of relation
+    template part internal IDs and their relation part flags. For example:
+    ``0s,1o`` refers to the subject of the first part and object of the second
+    part.
+    
+    """
+    
+    terminal_nodes = template_data.get('terminal_nodes', '')
+    
+    try:
+        # Parse terminal nodes
+        for node in terminal_nodes.split(','):
+            node = node.strip()
+            if not node:
+                continue
+                
+            # Validate format eg 0s, 1o, 2p
+            if len(node) < 2 or not node[0].isdigit() or node[-1] not in ['s', 'p', 'o']:
+                raise InvalidTemplate(f"Invalid node format: {node}. Expected format is a number followed by 's', 'p', or 'o'.")
+                
+    except InvalidTemplate:
+        raise
+    except Exception:
+        raise InvalidTemplate("Invalid pattern for terminal nodes")
+
+
+def validate_expression(template_data, part_data, **kwargs):
+    """
+    Validate the format of the expression.
+    Each key in the expression should be two characters: 
+    a digit representing part ID followed by a character 
+    representing field (s, p, or o).
+    
+    """
+    
+    try:
+        formatter = Formatter()
+        # Check that keys in the expression have valid syntax
+        for _, key, _, _ in formatter.parse(template_data.get('expression', '')):
+            if key is not None:
+                if len(key) != 2:  # Ensure key is exactly two characters
+                    raise InvalidTemplate(f"Invalid key format in expression: {{{key}}}. Key must be two characters: a digit followed by 's', 'p', or 'o'.")
+                
+                try:
+                    # Check first character is a digit
+                    int(key[0]) 
+                    # Check second character is s, p, or o
+                    if key[1] not in ['s', 'p', 'o']:
+                        raise InvalidTemplate(f"Invalid field identifier in expression key: {{{key}}}. Second character must be 's', 'p', or 'o'.")
+                except ValueError:
+                    # This catches if key[0] is not a digit
+                    raise InvalidTemplate(f"Invalid key format in expression: {{{key}}}. First character must be a digit.")
+                
+    except InvalidTemplate:
+        raise
+    except Exception as E:
+        raise InvalidTemplate("Invalid expression pattern")
+
+
 def validate_template_data(template_data, part_data, **kwargs):
     
     # Validate terminal nodes
-    if 'terminal_nodes' in template_data and template_data['terminal_nodes']:
-        try:
-            node_list = template_data['terminal_nodes'].split(',')
-            for node in node_list:
-                node = node.strip()
-                if not node:
-                    continue
-                if len(node) < 2 or not node[0].isdigit() or node[-1] not in ['s', 'p', 'o']:
-                    raise InvalidTemplate(f"Invalid node format in terminal_nodes: {node}")
-        except Exception as E:
-            raise InvalidTemplate("Invalid terminal nodes format")
-    
+    validate_terminal_nodes(template_data, part_data, **kwargs)
+
     # Validate expression
-    if 'expression' in template_data and template_data['expression']:
-        try:
-            # check that expression formatting is valid
-            formatter = Formatter()
-            # Check that keys in the expression have valid syntax
-            for _, key, _, _ in formatter.parse(template_data['expression']):
-                if key is not None and len(key) >= 2:
-                    # verify the key has an index and a field identifier
-                    try:
-                        part_id = int(key[0])
-                        field_id = key[-1]
-                        if field_id not in ['s', 'p', 'o']:
-                            raise ValueError()
-                    except (ValueError, IndexError):
-                        raise InvalidTemplate(f"Invalid key format in expression: {{{key}}}")
-        except Exception as E:
-            raise InvalidTemplate("Invalid expression format")
+    validate_expression(template_data, part_data, **kwargs)
 
     # Continue with dependency graph validation
     dependencies = build_dependency_graph(template_data, part_data)
