@@ -189,7 +189,6 @@ class RepositoryManager:
         headers = auth.citesphere_auth(self.user, self.repository)
         url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"
         response = requests.get(url, headers=headers)
-        print(response.json())
         if response.status_code == 200:
             item_data = response.json()
 
@@ -200,11 +199,9 @@ class RepositoryManager:
             giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
             
             if giles_uploads:
-                # print("in giles_uploads", giles_uploads)
                 for giles_upload in giles_uploads:
                     extracted_text = giles_upload.get('extractedText', {})
-                    if extracted_text and extracted_text.get('content-type') == 'text/plain': # TODO: Update this condition (for XML, JSON etc...)
-                        print("in extracted_text", extracted_text)
+                    if extracted_text and extracted_text.get('content-type') == 'text/plain':
                         files.append({
                             'id': extracted_text.get('id'),
                             'filename': extracted_text.get('filename'),
