@@ -98,13 +98,19 @@ class TEIProcessor:
 
     def _process_default_ns(self, element, tag, current_element_xpath):
         """Default handler for TEI elements: wraps in a span with TEI class and processes children."""
-        self.html_parts.append(f'<span class="tei-{tag}" data-xpath="{current_element_xpath}">')
+        print(f"DEBUG: Processing unhandled TEI element: {tag}")
+        
+        # Determine appropriate HTML container based on element characteristics
+        is_block_level = tag in ['div', 'section', 'article', 'chapter', 'part', 'volume', 'book', 'lg', 'sp', 'stage']
+        container_tag = "div" if is_block_level else "span"
+        
+        self.html_parts.append(f'<{container_tag} class="tei-{tag}" data-xpath="{current_element_xpath}">')
         self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'start_pos': len("".join(self.html_parts))})
         if element.text: self.html_parts.append(_escape_html(element.text))
         for child_element in element:
             self.process_element(child_element, current_element_xpath)
             if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
-        self.html_parts.append(f'</span>')
+        self.html_parts.append(f'</{container_tag}>')
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
 
     def _process_tei_passthrough(self, element, tag, current_element_xpath):
@@ -132,8 +138,9 @@ class TEIProcessor:
         self.html_parts.append(f'<div class="tei-text" data-xpath="{current_element_xpath}">')
         self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'start_pos': len("".join(self.html_parts))})
         if element.text: self.html_parts.append(_escape_html(element.text))
-        for child_element in element: self.process_element(child_element, current_element_xpath)
-        if element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        for child_element in element: 
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
         self.html_parts.append(f'</div>')
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
 
@@ -142,19 +149,304 @@ class TEIProcessor:
         self.html_parts.append(f'<div class="{div_class}" data-xpath="{current_element_xpath}">')
         self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'start_pos': len("".join(self.html_parts))})
         if element.text: self.html_parts.append(_escape_html(element.text))
-        for child_element in element: self.process_element(child_element, current_element_xpath)
-        if element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        for child_element in element: 
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
         self.html_parts.append(f'</div>')
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
 
-
+    # Add handlers for common TEI elements that were missing
+    def _process_div(self, element, tag, current_element_xpath):
+        return self._process_div_common(element, tag, current_element_xpath)
     
+    def _process_seg(self, element, tag, current_element_xpath):
+        """Handler for seg (arbitrary segments) - use inline span"""
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_hi(self, element, tag, current_element_xpath):
+        """Handler for hi (highlighted/emphasized text)"""
+        rend = element.get('rend', '')
+        style_class = f"tei-hi tei-hi-{rend}" if rend else "tei-hi"
+        self.html_parts.append(f'<span class="{style_class}" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'highlight', 'rendition': rend, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</span>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_foreign(self, element, tag, current_element_xpath):
+        """Handler for foreign language text"""
+        lang = element.get('lang', element.get('{http://www.w3.org/XML/1998/namespace}lang', ''))
+        self.html_parts.append(f'<span class="tei-foreign" data-xpath="{current_element_xpath}" lang="{lang}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'foreign', 'language': lang, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</span>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_name(self, element, tag, current_element_xpath):
+        """Handler for names (persons, places, etc.)"""
+        name_type = element.get('type', '')
+        self.html_parts.append(f'<span class="tei-name tei-name-{name_type}" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'name', 'name_type': name_type, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</span>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_persName(self, element, tag, current_element_xpath):
+        """Handler for person names"""
+        return self._process_name(element, tag, current_element_xpath)
+    
+    def _process_placeName(self, element, tag, current_element_xpath):
+        """Handler for place names"""
+        return self._process_name(element, tag, current_element_xpath)
+    
+    def _process_date(self, element, tag, current_element_xpath):
+        """Handler for dates"""
+        when = element.get('when', '')
+        self.html_parts.append(f'<span class="tei-date" data-xpath="{current_element_xpath}" data-when="{when}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'date', 'when': when, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</span>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_ref(self, element, tag, current_element_xpath):
+        """Handler for references/links"""
+        target = element.get('target', '')
+        if target:
+            self.html_parts.append(f'<a class="tei-ref" data-xpath="{current_element_xpath}" href="{target}">')
+        else:
+            self.html_parts.append(f'<span class="tei-ref" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'reference', 'target': target, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        tag_close = '</a>' if target else '</span>'
+        self.html_parts.append(tag_close)
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_quote(self, element, tag, current_element_xpath):
+        """Handler for quotations"""
+        self.html_parts.append(f'<blockquote class="tei-quote" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'quote', 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</blockquote>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_q(self, element, tag, current_element_xpath):
+        """Handler for inline quotes"""
+        self.html_parts.append(f'<q class="tei-q" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'inline_quote', 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</q>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_title(self, element, tag, current_element_xpath):
+        """Handler for titles"""
+        level = element.get('level', '')
+        title_type = element.get('type', '')
+        css_class = f"tei-title tei-title-{level} tei-title-{title_type}".strip()
+        self.html_parts.append(f'<span class="{css_class}" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'title', 'level': level, 'title_type': title_type, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</span>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_author(self, element, tag, current_element_xpath):
+        """Handler for author elements"""
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_editor(self, element, tag, current_element_xpath):
+        """Handler for editor elements"""
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_publisher(self, element, tag, current_element_xpath):
+        """Handler for publisher elements"""
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_pubPlace(self, element, tag, current_element_xpath):
+        """Handler for publication place"""
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_biblScope(self, element, tag, current_element_xpath):
+        """Handler for bibliographic scope (page numbers, etc.)"""
+        scope_type = element.get('type', element.get('unit', ''))
+        self.html_parts.append(f'<span class="tei-biblScope tei-biblScope-{scope_type}" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'biblio_scope', 'scope_type': scope_type, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</span>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_bibl(self, element, tag, current_element_xpath):
+        """Handler for bibliographic entries"""
+        return self._process_div_common(element, tag, current_element_xpath)
+    
+    def _process_listBibl(self, element, tag, current_element_xpath):
+        """Handler for bibliography lists"""
+        return self._process_div_common(element, tag, current_element_xpath)
+    
+    # Handler for structural elements that should be treated as divs
+    def _process_front(self, element, tag, current_element_xpath):
+        return self._process_div_common(element, tag, current_element_xpath)
+    
+    def _process_back(self, element, tag, current_element_xpath):
+        return self._process_div_common(element, tag, current_element_xpath)
+    
+    def _process_byline(self, element, tag, current_element_xpath):
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_dateline(self, element, tag, current_element_xpath):
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_salute(self, element, tag, current_element_xpath):
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_signed(self, element, tag, current_element_xpath):
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_closer(self, element, tag, current_element_xpath):
+        return self._process_div_common(element, tag, current_element_xpath)
+    
+    def _process_opener(self, element, tag, current_element_xpath):
+        return self._process_div_common(element, tag, current_element_xpath)
+    
+    def _process_postscript(self, element, tag, current_element_xpath):
+        return self._process_div_common(element, tag, current_element_xpath)
+    
+    # Additional formatting elements
+    def _process_emph(self, element, tag, current_element_xpath):
+        """Handler for emphasis"""
+        self.html_parts.append(f'<em class="tei-emph" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'emphasis', 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</em>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_unclear(self, element, tag, current_element_xpath):
+        """Handler for unclear text"""
+        reason = element.get('reason', '')
+        cert = element.get('cert', '')
+        self.html_parts.append(f'<span class="tei-unclear" data-xpath="{current_element_xpath}" title="Unclear text (reason: {reason}, certainty: {cert})">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'unclear', 'reason': reason, 'certainty': cert, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</span>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_supplied(self, element, tag, current_element_xpath):
+        """Handler for supplied text (editorial additions)"""
+        reason = element.get('reason', '')
+        source = element.get('source', '')
+        self.html_parts.append(f'<span class="tei-supplied" data-xpath="{current_element_xpath}" title="Supplied text (reason: {reason})">[')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'supplied', 'reason': reason, 'source': source, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append(']</span>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_add(self, element, tag, current_element_xpath):
+        """Handler for added text"""
+        place = element.get('place', '')
+        hand = element.get('hand', '')
+        self.html_parts.append(f'<span class="tei-add" data-xpath="{current_element_xpath}" title="Added text (place: {place})">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'addition', 'place': place, 'hand': hand, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</span>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_del(self, element, tag, current_element_xpath):
+        """Handler for deleted text"""
+        reason = element.get('reason', '')
+        hand = element.get('hand', '')
+        self.html_parts.append(f'<del class="tei-del" data-xpath="{current_element_xpath}" title="Deleted text (reason: {reason})">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'deletion', 'reason': reason, 'hand': hand, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</del>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    # Header elements that should be skipped or minimally processed
+    def _process_teiHeader(self, element, tag, current_element_xpath):
+        """Handler for TEI header - usually skip this in display"""
+        # Just record it exists but don't add to HTML output
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'header', 'start_pos': len("".join(self.html_parts))})
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_fileDesc(self, element, tag, current_element_xpath):
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    def _process_titleStmt(self, element, tag, current_element_xpath):
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    def _process_publicationStmt(self, element, tag, current_element_xpath):
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    def _process_sourceDesc(self, element, tag, current_element_xpath):
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    def _process_encodingDesc(self, element, tag, current_element_xpath):
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    def _process_profileDesc(self, element, tag, current_element_xpath):
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    def _process_revisionDesc(self, element, tag, current_element_xpath):
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    # TEI root element
+    def _process_TEI(self, element, tag, current_element_xpath):
+        """Handler for TEI root element"""
+        self.html_parts.append(f'<div class="tei-document" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'document', 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</div>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+
     def _process_p(self, element, tag, current_element_xpath):
         self.html_parts.append(f'<p class="tei-p" data-xpath="{current_element_xpath}">')
         self.element_map.append({'xpath': current_element_xpath, 'element_type': 'paragraph', 'start_pos': len("".join(self.html_parts))})
         if element.text: self.html_parts.append(_escape_html(element.text))
-        for child_element in element: self.process_element(child_element, current_element_xpath)
-        if element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        for child_element in element: 
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
         self.html_parts.append('</p>')
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
     
@@ -165,9 +457,62 @@ class TEIProcessor:
         self.html_parts.append(f'<{heading_level} class="tei-head" data-xpath="{current_element_xpath}">')
         self.element_map.append({'xpath': current_element_xpath, 'element_type': 'heading', 'start_pos': len("".join(self.html_parts))})
         if element.text: self.html_parts.append(_escape_html(element.text))
-        for child_element in element: self.process_element(child_element, current_element_xpath)
-        if element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        for child_element in element: 
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
         self.html_parts.append(f'</{heading_level}>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+
+    def _process_item(self, element, tag, current_element_xpath):
+        self.html_parts.append(f'<li class="tei-item" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element: 
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</li>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+        
+    def _process_label(self, element, tag, current_element_xpath):
+        self.html_parts.append(f'<span class="tei-label" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element: 
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</span>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_cell(self, element, tag, current_element_xpath):
+        cell_tag = "th" if element.get('role') == 'label' or _local_name(element.getparent().tag if element.getparent() is not None else '') == 'head' else "td"
+        self.html_parts.append(f'<{cell_tag} class="tei-cell" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element: 
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append(f'</{cell_tag}>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+        
+    _process_entry = _process_cell 
+    
+    def _process_note(self, element, tag, current_element_xpath):
+        note_place = element.get('place', 'inline') # Default to inline if no @place
+        note_type = element.get('type', note_place) # Use @type or fallback to @place
+
+        if note_place == 'foot':
+            footnote_count = sum(1 for m in self.element_map if m.get('type') == 'footnote')
+            fn_id = f"fn-{footnote_count + 1}"
+            self.html_parts.append(f'<sup id="ref-{fn_id}" class="tei-fn-ref" data-xpath="{current_element_xpath}">{footnote_count + 1}</sup>')
+            self.element_map.append({'type': 'footnote', 'text': _extract_full_text(element), 'id': fn_id, 'num': footnote_count + 1, 'xpath': current_element_xpath})
+        else: # Inline, margin, or other types of notes
+            self.html_parts.append(f'<span class="tei-note tei-note-{note_type}" data-xpath="{current_element_xpath}" title="Note ({note_type})">')
+            self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'note_type': note_type, 'start_pos': len("".join(self.html_parts))})
+            if element.text: self.html_parts.append(_escape_html(element.text))
+            for child_element in element: 
+                self.process_element(child_element, current_element_xpath)
+                if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+            self.html_parts.append('</span>')
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
 
     def _process_pb(self, element, tag, current_element_xpath):
@@ -229,8 +574,9 @@ class TEIProcessor:
         if not processed: # Generic fallback
             self.html_parts.append(f'<span class="tei-choice tei-choice-generic" data-xpath="{current_element_xpath}">')
             if element.text: self.html_parts.append(_escape_html(element.text))
-            for child_element in element: self.process_element(child_element, current_element_xpath)
-            if element.tail: self.html_parts.append(_escape_html(element.tail))
+            for child_element in element: 
+                self.process_element(child_element, current_element_xpath)
+                if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
             self.html_parts.append('</span>')
             
         self.element_map.append({'xpath': current_element_xpath, 'element_type': 'choice', 'start_pos': len("".join(self.html_parts))})
@@ -240,73 +586,181 @@ class TEIProcessor:
         list_tag = "ol" if element.get("type") in ["ordered", "numbered"] else "ul"
         self.html_parts.append(f'<{list_tag} class="tei-list" data-xpath="{current_element_xpath}">')
         self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'start_pos': len("".join(self.html_parts))})
-        for child_element in element: self.process_element(child_element, current_element_xpath)
+        for child_element in element: 
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
         self.html_parts.append(f'</{list_tag}>')
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
-    
-    def _process_item(self, element, tag, current_element_xpath):
-        self.html_parts.append(f'<li class="tei-item" data-xpath="{current_element_xpath}">')
-        self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'start_pos': len("".join(self.html_parts))})
-        if element.text: self.html_parts.append(_escape_html(element.text))
-        for child_element in element: self.process_element(child_element, current_element_xpath)
-        if element.tail: self.html_parts.append(_escape_html(child_element.tail))
-        self.html_parts.append('</li>')
-        return {'html_parts': self.html_parts, 'element_map': self.element_map}
-        
-    def _process_label(self, element, tag, current_element_xpath):
-        self.html_parts.append(f'<span class="tei-label" data-xpath="{current_element_xpath}">')
-        self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'start_pos': len("".join(self.html_parts))})
-        if element.text: self.html_parts.append(_escape_html(element.text))
-        for child_element in element: self.process_element(child_element, current_element_xpath)
-        if element.tail: self.html_parts.append(_escape_html(child_element.tail))
-        self.html_parts.append('</span>')
-        return {'html_parts': self.html_parts, 'element_map': self.element_map}
-    
+
     def _process_table(self, element, tag, current_element_xpath):
         self.html_parts.append(f'<table class="tei-table" data-xpath="{current_element_xpath}">')
         self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'start_pos': len("".join(self.html_parts))})
-        for child_element in element: self.process_element(child_element, current_element_xpath)
+        for child_element in element: 
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
         self.html_parts.append('</table>')
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
     
     def _process_row(self, element, tag, current_element_xpath):
         self.html_parts.append(f'<tr class="tei-row" data-xpath="{current_element_xpath}">')
         self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'start_pos': len("".join(self.html_parts))})
-        for child_element in element: self.process_element(child_element, current_element_xpath)
+        for child_element in element: 
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
         self.html_parts.append('</tr>')
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
         
     _process_rowGrp = _process_row 
 
-    def _process_cell(self, element, tag, current_element_xpath):
-        cell_tag = "th" if element.get('role') == 'label' or _local_name(element.getparent().tag if element.getparent() is not None else '') == 'head' else "td"
-        self.html_parts.append(f'<{cell_tag} class="tei-cell" data-xpath="{current_element_xpath}">')
-        self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'start_pos': len("".join(self.html_parts))})
+    # Additional common TEI elements
+    def _process_lg(self, element, tag, current_element_xpath):
+        """Handler for line groups (poetry, etc.)"""
+        self.html_parts.append(f'<div class="tei-lg tei-line-group" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'line_group', 'start_pos': len("".join(self.html_parts))})
         if element.text: self.html_parts.append(_escape_html(element.text))
-        for child_element in element: self.process_element(child_element, current_element_xpath)
-        if element.tail: self.html_parts.append(_escape_html(child_element.tail))
-        self.html_parts.append(f'</{cell_tag}>')
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</div>')
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
-        
-    _process_entry = _process_cell 
     
-    def _process_note(self, element, tag, current_element_xpath):
-        note_place = element.get('place', 'inline') # Default to inline if no @place
-        note_type = element.get('type', note_place) # Use @type or fallback to @place
-
-        if note_place == 'foot':
-            footnote_count = sum(1 for m in self.element_map if m.get('type') == 'footnote')
-            fn_id = f"fn-{footnote_count + 1}"
-            self.html_parts.append(f'<sup id="ref-{fn_id}" class="tei-fn-ref" data-xpath="{current_element_xpath}">{footnote_count + 1}</sup>')
-            self.element_map.append({'type': 'footnote', 'text': _extract_full_text(element), 'id': fn_id, 'num': footnote_count + 1, 'xpath': current_element_xpath})
-        else: # Inline, margin, or other types of notes
-            self.html_parts.append(f'<span class="tei-note tei-note-{note_type}" data-xpath="{current_element_xpath}" title="Note ({note_type})">')
-            self.element_map.append({'xpath': current_element_xpath, 'element_type': tag, 'note_type': note_type, 'start_pos': len("".join(self.html_parts))})
-            if element.text: self.html_parts.append(_escape_html(element.text))
-            for child_element in element: self.process_element(child_element, current_element_xpath)
-            if element.tail: self.html_parts.append(_escape_html(child_element.tail))
-            self.html_parts.append('</span>')
+    def _process_l(self, element, tag, current_element_xpath):
+        """Handler for verse lines"""
+        n = element.get('n', '')
+        self.html_parts.append(f'<div class="tei-l tei-verse-line" data-xpath="{current_element_xpath}" data-n="{n}">')
+        if n: self.html_parts.append(f'<span class="tei-line-number">{n}</span>')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'verse_line', 'line_number': n, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</div>')
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_sp(self, element, tag, current_element_xpath):
+        """Handler for speech (drama)"""
+        who = element.get('who', '')
+        self.html_parts.append(f'<div class="tei-sp tei-speech" data-xpath="{current_element_xpath}" data-who="{who}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'speech', 'speaker': who, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</div>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_speaker(self, element, tag, current_element_xpath):
+        """Handler for speaker names"""
+        self.html_parts.append(f'<div class="tei-speaker" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'speaker', 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</div>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_stage(self, element, tag, current_element_xpath):
+        """Handler for stage directions"""
+        self.html_parts.append(f'<div class="tei-stage" data-xpath="{current_element_xpath}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'stage_direction', 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</div>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_w(self, element, tag, current_element_xpath):
+        """Handler for word-level elements"""
+        lemma = element.get('lemma', '')
+        pos = element.get('pos', '')
+        self.html_parts.append(f'<span class="tei-w tei-word" data-xpath="{current_element_xpath}" data-lemma="{lemma}" data-pos="{pos}">')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'word', 'lemma': lemma, 'pos': pos, 'start_pos': len("".join(self.html_parts))})
+        if element.text: self.html_parts.append(_escape_html(element.text))
+        for child_element in element:
+            self.process_element(child_element, current_element_xpath)
+            if child_element.tail: self.html_parts.append(_escape_html(child_element.tail))
+        self.html_parts.append('</span>')
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_pc(self, element, tag, current_element_xpath):
+        """Handler for punctuation characters"""
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_c(self, element, tag, current_element_xpath):
+        """Handler for character elements"""
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_milestone(self, element, tag, current_element_xpath):
+        """Handler for milestone elements"""
+        milestone_type = element.get('type', element.get('unit', ''))
+        n = element.get('n', '')
+        self.html_parts.append(f'<span class="tei-milestone tei-milestone-{milestone_type}" data-xpath="{current_element_xpath}" data-n="{n}" title="Milestone: {milestone_type} {n}"></span>')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'milestone', 'milestone_type': milestone_type, 'n': n, 'start_pos': len("".join(self.html_parts))})
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_anchor(self, element, tag, current_element_xpath):
+        """Handler for anchor elements"""
+        anchor_type = element.get('type', '')
+        xml_id = element.get('{http://www.w3.org/XML/1998/namespace}id', element.get('id', ''))
+        self.html_parts.append(f'<span class="tei-anchor" data-xpath="{current_element_xpath}" id="{xml_id}" data-type="{anchor_type}"></span>')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'anchor', 'anchor_type': anchor_type, 'id': xml_id, 'start_pos': len("".join(self.html_parts))})
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    def _process_ptr(self, element, tag, current_element_xpath):
+        """Handler for pointer elements"""
+        target = element.get('target', '')
+        ptr_type = element.get('type', '')
+        self.html_parts.append(f'<span class="tei-ptr" data-xpath="{current_element_xpath}" data-target="{target}" data-type="{ptr_type}" title="Pointer to: {target}">→</span>')
+        self.element_map.append({'xpath': current_element_xpath, 'element_type': 'pointer', 'target': target, 'ptr_type': ptr_type, 'start_pos': len("".join(self.html_parts))})
+        return {'html_parts': self.html_parts, 'element_map': self.element_map}
+    
+    # Aliases for alternative spellings
+    def _process_rs(self, element, tag, current_element_xpath):
+        """Handler for referring strings"""
+        return self._process_name(element, tag, current_element_xpath)
+    
+    def _process_term(self, element, tag, current_element_xpath):
+        """Handler for technical terms"""
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_gloss(self, element, tag, current_element_xpath):
+        """Handler for glosses"""
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+    
+    def _process_desc(self, element, tag, current_element_xpath):
+        """Handler for descriptions"""
+        return self._process_tei_passthrough(element, tag, current_element_xpath)
+
+    # Helper for manuscript-related elements  
+    def _process_msDesc(self, element, tag, current_element_xpath):
+        """Handler for manuscript descriptions"""
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    def _process_msIdentifier(self, element, tag, current_element_xpath):
+        """Handler for manuscript identifiers"""
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    def _process_repository(self, element, tag, current_element_xpath):
+        """Handler for repository information"""
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    def _process_settlement(self, element, tag, current_element_xpath):
+        """Handler for settlement information"""
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    def _process_institution(self, element, tag, current_element_xpath):
+        """Handler for institution information"""
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    def _process_collection(self, element, tag, current_element_xpath):
+        """Handler for collection information"""
+        return self._process_teiHeader(element, tag, current_element_xpath)
+    
+    def _process_idno(self, element, tag, current_element_xpath):
+        """Handler for identifier numbers"""
+        return self._process_teiHeader(element, tag, current_element_xpath)
 
 # ===== Content Type Detection =====
 def detect_content_type(text_content):
