@@ -189,6 +189,7 @@ class RepositoryManager:
         headers = auth.citesphere_auth(self.user, self.repository)
         url = f"{self.repository.endpoint}/api/v1/groups/{groupId}/items/{itemId}/"
         response = requests.get(url, headers=headers)
+        
         if response.status_code == 200:
             item_data = response.json()
 
@@ -197,7 +198,6 @@ class RepositoryManager:
             
             # Extract Giles upload file details if available
             giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
-            
             if giles_uploads:
                 for giles_upload in giles_uploads:
                     extracted_text = giles_upload.get('extractedText', {})
