@@ -31,11 +31,17 @@
             {% endfor %}
             </tbody>
         </table>
-        <div class="d-flex justify-content-between">
-            <a href="{% url 'list_relationtemplate' %}" class="btn btn-primary">
-                <i class="fa fa-arrow-left"></i>
-                Back
-            </a>
+        <div class="d-flex justify-content-between mt-3">
+            <div>
+                <a href="{% url 'list_relationtemplate' %}" class="btn btn-primary mr-2">
+                    <i class="fa fa-arrow-left"></i>
+                    Back
+                </a>
+                <a href="{% url 'edit_relationtemplate' data.id %}" class="btn btn-warning">
+                    <i class="fa fa-edit"></i>
+                    Edit
+                </a>
+            </div>
         </div>
     </div>
 </div>

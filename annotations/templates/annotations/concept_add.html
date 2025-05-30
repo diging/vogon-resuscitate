@@ -4,127 +4,278 @@
 {% load addcss %}
 
 {% block breadcrumbs %}
-<a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "concepts" %}" class="btn btn-xs">Concepts</a>&raquo;<a href="{% url "concept" concept.id %}" class="btn btn-xs">{{ concept.label }}</a>&raquo;<a href="" class="btn btn-xs">Add</a>
+<a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "concepts" %}" class="btn btn-xs">Concepts</a>&raquo;<a href="{% url "concept" concept.instance.id %}" class="btn btn-xs">{{ concept.instance.label }}</a>&raquo;<a href="" class="btn btn-xs">Add</a>
 {% endblock %}
 
 
 {% block main %}
 <div class="container-fluid">
-    <div class="h3">Are you sure?</div>
-    <p class="text-warning">
-        This will ultimately create a permanent record in the Conceptpower name authority.
-        Creating a new record that duplicates an existing record can lead to all kinds of
-        nasty things in the future.
-        <dl class="dl-horizontal">
-            <dt>Label</dt>
-            <dd>{{ concept.label }}</dd>
-            <dt>URI</dt>
-            <dd>{{ concept.uri }}</dd>
-            <dt>Type</dt>
-            <dd>{{ concept.typed }}</dd>
-            <dt>Description</dt>
-            <dd>{{ concept.description }}</dd>
-        </dl>
-    </p>
-    {% if matches %}
-    <div class="alert alert-danger">
-        <div class="h4">This concept matches an existing entry!</div>
-        <p>
-            Another user (maybe you) has previously indicated that a concept
-            with the same URI is equivalent to the Conceptpower record(s) below.
-            Unless you have some reason to disagree with that equivalence, it is
-            highly recommended that you merge the concept above with (one of)
-            the Conceptpower record(s) below.
-        </p>
-    </div>
+    <div class="col-md-12">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <div class="h3">Are you sure?</div>
+                <p class="text-warning">
+                    This will ultimately create a permanent record in the Conceptpower name authority.
+                    Creating a new record that duplicates an existing record can lead to all kinds of
+                    nasty things in the future.
+                    <dl class="dl-horizontal">
+                        <dt>Label</dt>
+                        <dd>{{ concept.instance.label }}</dd>
+                        <dt>URI</dt>
+                        <dd>{{ concept.instance.uri }}</dd>
+                        <dt>Type</dt>
+                        <dd>{{ concept.instance.typed }}</dd>
+                        <dt>Description</dt>
+                        <dd>{{ concept.instance.description }}</dd>
+                    </dl>
+                </p>
 
-    <ul class="list-group">
-        {% for candidate in matches %}
-        <li class="list-group-item clearfix">
-            <div class="pull-right btn-group">
-                <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
-            </div>
-            <div><strong>{{ candidate.label }}</strong> </div>
-            <div class="text-warning">
-                <span class="glyphicon glyphicon-globe"></span>
-                {{ candidate.uri }}
-            </div>
-            <p>
-                {{ candidate.description }}
-            </p>
-        </li>
-        {% endfor %}
-    </ul>
-    {% endif %}
-    {% if candidates %}
-    <div class="h4">This concept looks a lot like...</div>
-    <ul class="list-group">
-        {% for candidate in candidates %}
-        <li class="list-group-item clearfix">
-            <div class="pull-right btn-group">
-                <a class="btn btn-success" href="{% url "merge_concepts" concept.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
-            </div>
-            <div><strong>{{ candidate.label }}</strong> </div>
-            <div class="text-warning">
-                <span class="glyphicon glyphicon-globe"></span>
-                {{ candidate.uri }}
-            </div>
-            <p>
-                {{ candidate.description }}
-            </p>
-        </li>
-        {% endfor %}
-    </ul>
-    {% endif %}
-
-    <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
-    <form method="POST" style="display: inline;">
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{{ next_page }}">
-        <button type="submit" class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}">
-            {% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}
-        </button>
-    </form>
-    {% if concept.concept_state != concept.FLAGGED %}
-    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#flagModal">
-        Flag concept
-    </button>
-    {% endif %}
-
-    <div class="modal fade" id="flagModal" tabindex="-1" role="dialog" aria-labelledby="flagModalLabel" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <form action="{% url 'flag_concept' concept.id %}" method="post">
-                {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title" id="flagModalLabel">Flag Concept
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            &times;
-                        </button>
-                    </h5>
+                {% if matches %}
+                <div class="alert alert-danger">
+                    <div class="h4">This concept matches an existing entry!</div>
+                    <p>
+                        Another user (maybe you) has previously indicated that a concept
+                        with the same URI is equivalent to the Conceptpower record(s) below.
+                        Unless you have some reason to disagree with that equivalence, it is
+                        highly recommended that you merge the concept above with (one of)
+                        the Conceptpower record(s) below.
+                    </p>
                 </div>
-        
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="flag_comment">Comment:</label>
-                        <textarea 
-                            class="form-control" 
-                            name="flag_comment" 
-                            id="flag_comment" 
-                            placeholder="Please enter comment here..." 
-                        ></textarea>
+
+                <ul class="list-group">
+                    {% for candidate in matches %}
+                    <li class="list-group-item clearfix">
+                        <div class="pull-right btn-group">
+                            <a class="btn btn-success" href="{% url "merge_concepts" concept.instance.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
+                        </div>
+                        <div><strong>{{ candidate.label }}</strong> </div>
+                        <div class="text-warning">
+                            <span class="glyphicon glyphicon-globe"></span>
+                            {{ candidate.uri }}
+                        </div>
+                        <p>
+                            {{ candidate.description }}
+                        </p>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                {% if candidates %}
+                <div class="h4">This concept looks a lot like...</div>
+                <ul class="list-group">
+                    {% for candidate in candidates %}
+                    <li class="list-group-item clearfix">
+                        <div class="pull-right btn-group">
+                            <a class="btn btn-success" href="{% url "merge_concepts" concept.instance.id %}?target={{ candidate.uri }}&next={{ next_page }}">Merge</a>
+                        </div>
+                        <div><strong>{{ candidate.label }}</strong> </div>
+                        <div class="text-warning">
+                            <span class="glyphicon glyphicon-globe"></span>
+                            {{ candidate.uri }}
+                        </div>
+                        <p>
+                            {{ candidate.description }}
+                        </p>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% if not concept.is_external %}
+                    <div class="panel panel-default" id="search-panel" style="transition: all 0.3s ease;">
+                        <div class="panel-heading">
+                            <h4 class="panel-title">Search Conceptpower for a matching concept.</h4>
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <input type="text" 
+                                            class="form-control" 
+                                            id="concept-search-input"
+                                            placeholder="Search for a concept in Conceptpower..."
+                                            data-target="concept-search-results"
+                                            data-status-target="concept-search-status">
+                                    <span class="input-group-btn">
+                                        <button class="btn btn-default" type="button" id="concept-search-button" style="height: 34px;">
+                                            <span class="glyphicon glyphicon-search" id="concept-search-status"></span>
+                                        </button>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="list-group list-group-compact" id="concept-search-results"></div>
+                        </div>
                     </div>
+                {% endif %}
+                <div class="clearfix">
+                    <a class="btn btn-md btn-danger" href="{{ back_to_page }}">Take me back!</a>
+                    <form method="post" style="display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ next_page }}">
+                        <button type="submit" class="btn btn-md btn-{% if matches or candidates %}warning{% else %}success{% endif %}">
+                            {% if matches or candidates %}I accept the risks: add anyway!{% else %}Resolve{% endif %}
+                        </button>
+                    </form>
+                    {% if concept.instance.concept_state != concept.instance.FLAGGED %}
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#flagModal">
+                        Flag concept
+                    </button>
+                    <div class="modal fade" id="flagModal" tabindex="-1" role="dialog" aria-labelledby="flagModalLabel" aria-hidden="true">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                                <form action="{% url 'flag_concept' concept.instance.id %}" method="post">
+                                {% csrf_token %}
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="flagModalLabel">Flag Concept
+                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                            &times;
+                                        </button>
+                                    </h5>
+                                </div>
+                        
+                                <div class="modal-body">
+                                    <div class="form-group">
+                                        <label for="flag_comment">Comment:</label>
+                                        <textarea 
+                                            class="form-control" 
+                                            name="flag_comment" 
+                                            id="flag_comment" 
+                                            placeholder="Please enter comment here..." 
+                                        ></textarea>
+                                    </div>
+                                </div>
+                        
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                                    <button type="submit" class="btn btn-primary">Flag Concept</button>
+                                </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
-        
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Flag Concept</button>
-                </div>
-                </form>
             </div>
         </div>
     </div>
 </div>
 
+<script>
+$(document).ready(function() {
+    var searchInput = $('#concept-search-input');
+    var searchButton = $('#concept-search-button');
+    var resultsContainer = $('#concept-search-results');
+    var statusIcon = $('#concept-search-status');
+    var currentPage = 1;
+    var hasMoreResults = false;
+    var currentQuery = '';
+    
+    function displayResults(results) {
+        if (currentPage === 1) {
+            resultsContainer.empty();
+        }
+        
+        if (results.length === 0 && currentPage === 1) {
+            resultsContainer.append($('<div class="list-group-item">No results found</div>'));
+            return;
+        }
+        
+        results.forEach(function(concept) {
+            var item = $('<a class="list-group-item concept-item"></a>');
+            
+            var mergeButton = $('<div class="pull-right btn-group"></div>');
+            var mergeLink = $('<a class="btn btn-success"></a>')
+                .text('Merge')
+                .attr('href', '{% url "merge_concepts" concept.instance.id %}?target=' + concept.uri + '&next={{ next_page }}');
+            mergeButton.append(mergeLink);
+            item.append(mergeButton);
+            
+            item.append($('<strong></strong>').text(concept.label));
+            
+            var typeLabel = $('<div class="pull-right"></div>');
+            if (concept.concept_type && concept.concept_type.name) {
+                typeLabel.append($('<label class="label label-primary"></label>').text(concept.concept_type.name));
+            } else if (concept.concept_type && concept.concept_type.identifier) {
+                typeLabel.append($('<label class="label label-primary"></label>').text(concept.concept_type.identifier));
+            }
+            item.append(typeLabel);
+            
+            var uriDiv = $('<div class="text-warning"></div>');
+            uriDiv.text(concept.authority.name + ': ' + concept.uri);
+            item.append(uriDiv);
+            
+            if (concept.description) {
+                item.append($('<p><span class="text text-muted"></span></p>').text(concept.description));
+            }
+            
+            item.click(function() {
+                searchInput.val(concept.label);
+                statusIcon.removeClass('glyphicon-hourglass glyphicon-search').addClass('glyphicon-ok');
+            });
+            
+            resultsContainer.append(item);
+        });
+    }
+    
+    function performSearch(isLoadMore = false) {
+        if (!isLoadMore) {
+            currentPage = 1;
+            resultsContainer.empty();
+        }
+        
+        var query = searchInput.val();
+        currentQuery = query;
+        statusIcon.removeClass('glyphicon-search glyphicon-ok').addClass('glyphicon-hourglass');
+        
+        $.ajax({
+            url: BASE_URL + '/rest/concept/search_paginated',
+            data: { 
+                search: query,
+                page: currentPage,
+                per_page: 10
+            },
+            success: function(data) {
+                // Display results
+                displayResults(data.results || []);
+                
+                // Check if there are more results
+                hasMoreResults = data.has_more || false;
+                
+                // Remove existing load more button if it exists
+                $('#load-more-button').remove();
+                
+                // Add load more button if there are more results
+                if (hasMoreResults) {
+                    var loadMoreButton = $('<button class="btn btn-default btn-block" id="load-more-button">Load More</button>');
+                    loadMoreButton.on('click', function() {
+                        currentPage++;
+                        performSearch(true);
+                    });
+                    resultsContainer.append(loadMoreButton);
+                }
+                
+                statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-search');
+            },
+            error: function(xhr, status, error) {
+                statusIcon.removeClass('glyphicon-hourglass').addClass('glyphicon-search');
+                if (!isLoadMore) {
+                    resultsContainer.empty().append($('<div class="list-group-item alert alert-danger">Error searching concepts: ' + error + '</div>'));
+                }
+            }
+        });
+    }
 
+    // Add click handler for search button
+    searchButton.on('click', function() {
+        performSearch(false);
+    });
+
+    // Add enter key handler for search input
+    searchInput.on('keypress', function(e) {
+        if (e.which === 13) { // Enter key
+            e.preventDefault();
+            performSearch(false);
+        }
+    });
+});
+</script>
 {% endblock %}

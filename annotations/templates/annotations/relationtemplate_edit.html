@@ -155,8 +155,8 @@
                         {{ templateform.terminal_nodes }}
                     </p>
                     
-                    <!-- Include the structured_mapping hidden field -->
-                    {{ templateform.structured_mapping }}
+                    <!-- Include the default_mapping hidden field -->
+                    {{ templateform.default_mapping }}
                     <table id="form_table" class="table table-condensed table-striped table-bordered table-responsive">
                         <thead>
                             <tr class="text-center info">
@@ -415,7 +415,11 @@
                         </tr>
                     </table>
                     <button class="btn btn-primary pull-right" type="submit" value="Submit">Save Changes</button>
-                    <a href="{% url 'list_relationtemplate' %}" class="btn btn-warning pull-right" style="margin: 0px 4px;">Back</a>
+                    <!-- This button tries to use browser history first (to go back to the previous page, which could be
+                         either the template list or template details page). If history.back() fails (which can happen 
+                         if there's no history or if browser security blocks it), it falls back to redirecting to the 
+                         template list page explicitly as a safety measure. -->
+                    <a href="#" class="btn btn-warning pull-right" style="margin: 0px 4px;" onclick="try { history.back(); } catch(e) { window.location.href='{% url 'list_relationtemplate' %}'; } return false;">Back</a>
                 </form>
             </div>
         </div>
