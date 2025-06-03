@@ -16,12 +16,12 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
     })
     .then(response => response.json())
     .then(data => {
-        let htmlContent = '';
+        let fileListHtml = '';
 
         if (data.files && data.files.length > 0) {
-            htmlContent += '<ul style="list-style-type: none; padding: 0;">';
+            fileListHtml += '<ul style="list-style-type: none; padding: 0;">';
             data.files.forEach(file => {
-                htmlContent += `
+                fileListHtml += `
                 <li style="display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 5px; border: 1px solid #ddd; border-radius: 4px;">
                     <span style="font-size: 14px;">${file.filename}</span>
                     <button class="btn btn-primary btn-sm" onclick="importFile('${itemKey}', '${file.id}', ${repositoryId}, ${groupId}, '${csrfToken}')">
@@ -31,20 +31,20 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
                     </button>
                 </li>`;
             });
-            htmlContent += '</ul>';
+            fileListHtml += '</ul>';
         }
 
         if (data.is_file_processing) {
             if (data.files && data.files.length > 0) {
-                htmlContent += '<div class="alert alert-info" style="margin-top: 10px;">Some files are still being processed in Giles. Please check back later for additional files.</div>';
+                fileListHtml += '<div class="alert alert-info" style="margin-top: 10px;">Some files are still being processed in Giles. Please check back later for additional files.</div>';
             } else {
-                htmlContent = '<div class="alert alert-info">Files are still being processed in Gilessss. Please check back later.</div>';
+                fileListHtml = '<div class="alert alert-info">Files are still being processed in Giles. Please check back later.</div>';
             }
         } else if (!data.files || data.files.length === 0) {
-            htmlContent = '<div class="alert alert-warning">No files are available for import.</div>';
+            fileListHtml = '<div class="alert alert-warning">No files are available for import.</div>';
         }
 
-        fileListDiv.innerHTML = htmlContent;
+        fileListDiv.innerHTML = fileListHtml;
     })
     .catch(error => {
         console.error('Error fetching files:', error);
