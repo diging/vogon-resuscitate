@@ -33,12 +33,16 @@
 }
 .comment-actions .btn-link {
     color: #6c757d;
-    padding: 0;
+    padding: 0 5px;
     font-size: 0.9em;
+    text-decoration: none;
 }
 .comment-actions .btn-link:hover {
     color: #0056b3;
     text-decoration: none;
+}
+.comment-actions .btn-link .glyphicon {
+    margin-right: 3px;
 }
 .comment-replies {
     margin-left: 40px;
@@ -83,4 +87,34 @@
 }
 .concept-comments-link i {
     margin-right: 3px;
+}
+
+.comment-text {
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+.comment-edit-form {
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.comment-edit-form textarea {
+    width: 100%;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 8px;
+    resize: vertical;
+    min-height: 80px;
+}
+
+.comment-edit-form .form-group {
+    margin-bottom: 10px;
+}
+
+.comment-edit-form .btn {
+    margin-right: 5px;
 } 

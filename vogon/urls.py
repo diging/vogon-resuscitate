@@ -28,7 +28,7 @@ from external_accounts import views as externalAccountViews
 
 router = routers.DefaultRouter(trailing_slash=False)
 router.register(r'appellation', views.rest_views.AppellationViewSet)
-router.register(r'predicate', views.rest_views.PredicateViewSet)
+router.register(r'predicate', views.rest_views.PredicateViewSet, basename='predicate')
 router.register(r'relation', views.rest_views.RelationViewSet)
 router.register(r'relationset', views.rest_views.RelationSetViewSet)
 router.register(r'text', views.rest_views.TextViewSet)
@@ -123,6 +123,8 @@ urlpatterns = [
     re_path(r'^concept/(?P<source_concept_id>[0-9]+)/merge/$', conceptViews.merge_concepts, name='merge_concepts'),
     re_path(r'^concept/(?P<source_concept_id>[0-9]+)/flag/$', conceptViews.flag_concept, name='flag_concept'),
     re_path(r'^comment/(?P<comment_id>[0-9]+)/reply/$', conceptViews.add_comment_reply, name='add_comment_reply'),
+    re_path(r'^comment/(?P<comment_id>[0-9]+)/edit/', conceptViews.edit_comment, name='edit_comment'),
+    re_path(r'^comment/(?P<comment_id>[0-9]+)/delete/', conceptViews.delete_comment, name='delete_comment'),
     re_path(r'^concept/(?P<concept_id>[0-9]+)/comment/add/$', conceptViews.add_concept_comment, name='add_concept_comment'),
 
     # url(r'^concept_autocomplete/', views.search_views.concept_autocomplete, name='concept_autocomplete'),

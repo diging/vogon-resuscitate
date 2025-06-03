@@ -98,7 +98,7 @@ def update_instance(sender, instance, concept_data, authority):
 
 
 def resolve(sender, instance):
-    """
+    r"""
     Resolve :class:`.Concept`\s and :class:`.Type`\s using the registered
     :class:`.AuthorityManager`\s.
 
