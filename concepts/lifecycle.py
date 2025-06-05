@@ -163,6 +163,9 @@ class ConceptLifecycle(object):
         processed_authority = strip_if_str_else_none(authority_val)
         if not processed_authority: # If authority was empty string, None, or not a string
             processed_authority = 'Conceptpower'
+        
+        # Convert to string representation of dictionary for the model
+        authority_dict_str = str({'name': processed_authority})
 
         concept = ConceptLifecycle.create(
             uri=processed_uri,
@@ -170,7 +173,7 @@ class ConceptLifecycle(object):
             description=processed_description,
             pos=processed_pos,
             typed=_typed,
-            authority=processed_authority,
+            authority=authority_dict_str,
         )
         return concept
 
@@ -258,7 +261,7 @@ class ConceptLifecycle(object):
         else:
             # Update the concept with the new URI and authority from Conceptpower
             self.instance.uri = data['uri']
-            self.instance.authority = {'name': 'Conceptpower'}
+            self.instance.authority = str({'name': 'Conceptpower'})
             self.instance.concept_state = Concept.RESOLVED
         self.instance.save()
 

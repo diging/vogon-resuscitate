@@ -158,6 +158,7 @@ class TestConceptLifeCycle(TestCase):
             },
             "conceptList": "Publications",
             "uri": "http://www.digitalhps.org/concepts/CON76832db2-7abb-4c77-b08e-239017b6a585",
+            "concept_uri": "http://www.digitalhps.org/concepts/CON76832db2-7abb-4c77-b08e-239017b6a585",
             "description": "Bradshaw, Anthony David. 1965. \"The evolutionary significance of phenotypic plasticity in plants.\" Advances in Genetics 13: 115-155."
         }]
         # The API response should be a dictionary containing this list under 'conceptEntries'
@@ -324,11 +325,11 @@ class TestConceptLifeCycle(TestCase):
     @patch('requests.post')
     def test_add_wrapper(self, mock_post):
         r"""
-        For non-created :class:`.Concept`\s, the only difference is that the
-        original :class:`.Concept` is updated directly.
+        For created :class:`.Concept`\s (when is_created is mocked to True), the
+        original :class:`.Concept` is updated directly with the new URI from Conceptpower.
         """
         mock_post.return_value = MockResponse(json.dumps({
-            "uri": "http://example.com/new_concept",
+            "uri": "http://www.digitalhps.org/concepts/NEW123",  # New Conceptpower URI
             "label": "New Concept",
             "description": "A new concept",
             "pos": "noun",
@@ -351,14 +352,16 @@ class TestConceptLifeCycle(TestCase):
             mock_is_created.return_value = True
             manager.add()  # This should update the existing concept
 
-        # Retrieve the potentially updated concept
-        updated_concept = Concept.objects.get(uri="http://viaf.org/viaf/12345")
+        # Retrieve the potentially updated concept by its primary key
+        concept.refresh_from_db()
 
-        self.assertEqual(updated_concept.concept_state, Concept.RESOLVED)
-        # Since it's an update in place for non-created, merged_with should not be set.
-        self.assertIsNone(updated_concept.merged_with)
-        # The URI should remain the original external URI
-        self.assertEqual(updated_concept.uri, "http://viaf.org/viaf/12345")
+        self.assertEqual(concept.concept_state, Concept.RESOLVED)
+        # Since it's an update in place for created concepts, merged_with should not be set
+        self.assertIsNone(concept.merged_with)
+        # The URI should be updated to the new Conceptpower URI
+        self.assertEqual(concept.uri, "http://www.digitalhps.org/concepts/NEW123")
+        # Authority should be updated to Conceptpower
+        self.assertEqual(concept.authority_name, 'Conceptpower')
 
     def tearDown(self):
         Concept.objects.all().delete()
