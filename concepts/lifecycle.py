@@ -244,7 +244,9 @@ class ConceptLifecycle(object):
                                             self.DEFAULT_LIST,
                                             self.instance.description,
                                             concept_type,
-                                            equal_to=equal_uri)
+                                            equal_to=equal_uri
+                                            )
+            
         except Exception as E:
             raise ConceptUpstreamException("There was an error adding the"
                                            " concept to Conceptpower:"
@@ -254,6 +256,9 @@ class ConceptLifecycle(object):
             self.instance.merged_with = target
             self.instance.concept_state = Concept.MERGED
         else:
+            # Update the concept with the new URI and authority from Conceptpower
+            self.instance.uri = data['uri']
+            self.instance.authority = {'name': 'Conceptpower'}
             self.instance.concept_state = Concept.RESOLVED
         self.instance.save()
 
@@ -274,18 +279,36 @@ class ConceptLifecycle(object):
         q = re.sub("[0-9]", "", unidecode(self.instance.label).translate(string.punctuation).lower())
         if not q:
             return []
+            
+        # Create search terms: full name first, then individual parts
+        search_terms = [q]
+        search_terms.extend([word for word in q.split() if len(word) > 3])
+        
+        all_concepts = []
         try:
-            parameters = {
-                'word': q,
-                'pos': None,
-            }
-            headers = {
+            for term in search_terms:
+                parameters = {
+                    'word': term,
+                    'pos': None,
+                }
+                headers = {
                     'Accept': 'application/json',
-            }
-            concepts = self.conceptpower.search(params=parameters, headers=headers)
+                }
+                concepts = self.conceptpower.search(params=parameters, headers=headers)
+                all_concepts.extend(concepts)
+                
         except Exception as E:
             raise ConceptUpstreamException("Whoops: %s" % str(E))
-        return concepts if not equals else equals
+            
+        seen_uris = set()
+        unique_concepts = []
+        for concept in all_concepts:
+            uri = concept.get('uri')
+            if uri and uri not in seen_uris:
+                seen_uris.add(uri)
+                unique_concepts.append(concept)
+                
+        return unique_concepts if not equals else equals
 
     def get_equal(self):
         r"""

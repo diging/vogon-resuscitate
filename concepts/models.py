@@ -41,9 +41,13 @@ class Comment(models.Model):
     A comment on a concept. This allows for multiple comments per concept.
     """
     concept = models.ForeignKey('Concept', related_name='comments', on_delete=models.CASCADE)
+    parent = models.ForeignKey('self', related_name='replies', null=True, blank=True, on_delete=models.CASCADE)
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey('annotations.VogonUser', on_delete=models.CASCADE, null=True, blank=True)
+    
+    class Meta:
+        ordering = ['created_at']
     
     def __str__(self):
         return f"Comment on {self.concept} by {self.created_by}"
