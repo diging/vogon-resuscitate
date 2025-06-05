@@ -19,6 +19,443 @@ import re
 TEI_NAMESPACE = "http://www.tei-c.org/ns/1.0"
 DEFAULT_NAMESPACE_MAP = {'tei': TEI_NAMESPACE}
 
+# ===== Main Functions =====
+
+def detect_content_type(text_content: str) -> dict:
+    """
+    Detect if content is XML and/or TEI.
+    
+    Args:
+        text_content: The text to analyze
+        
+    Returns:
+        dict: Contains 'is_xml', 'is_tei', and 'content_type' keys
+    """
+    stripped = text_content.lstrip()
+    is_xml = stripped.startswith('<?xml') or stripped.startswith('<')
+    is_tei = False
+    
+    if is_xml:
+        # Check for TEI markers
+        tei_markers = [
+            '<TEI', '<tei', 'xmlns="http://www.tei-c.org',
+            'xmlns:tei', 'tei-c.org/ns/1.0'
+        ]
+        is_tei = any(marker in text_content for marker in tei_markers)
+    
+    return {
+        'is_xml': is_xml,
+        'is_tei': is_tei,
+        'content_type': 'text/xml+tei' if is_tei else 'text/xml' if is_xml else 'text/plain'
+    }
+
+
+def parse_tei_document(xml_content: str) -> dict:
+    """
+    Parse TEI-XML document with proper namespace handling.
+    
+    Args:
+        xml_content: TEI-XML content as string
+        
+    Returns:
+        dict: Parsed document with keys:
+            - original_xml: The input XML
+            - clean_xml: Currently same as original (for compatibility)
+            - display_html: HTML representation for display
+            - element_map: Mapping of elements to positions
+            - tei_metadata: Extracted metadata
+            - css: Empty string (placeholder)
+            - facsimile_data: List of facsimile information
+            - namespaces: Detected namespace mappings
+            
+    Raises:
+        ValueError: If XML parsing fails
+    """
+    parser = _create_xml_parser()
+    
+    try:
+        root = etree.fromstring(xml_content.encode('utf-8'), parser)
+    except etree.XMLSyntaxError as e:
+        raise ValueError(f"XML syntax error at line {e.lineno}: {e.msg}")
+    
+    # Extract namespace map from root element
+    namespace_map = root.nsmap.copy() if root.nsmap else {}
+    
+    # Find the TEI namespace
+    tei_namespace_uri = None
+    for prefix, uri in namespace_map.items():
+        if 'tei-c.org' in uri:
+            tei_namespace_uri = uri
+            break
+    
+    # If root is TEI but no namespace declared, assume default
+    if not tei_namespace_uri and etree.QName(root).localname in ['TEI', 'tei']:
+        tei_namespace_uri = TEI_NAMESPACE
+        namespace_map[None] = TEI_NAMESPACE
+    
+    # Create processor with detected namespaces
+    processor = TEIProcessor(namespace_map)
+    
+    # Find main content element (body or text)
+    content_element = _find_content_element(root, namespace_map)
+    
+    # Process the content tree
+    result = processor.process_element(content_element)
+    
+    # Build final HTML with footnotes if present
+    html_content = _build_final_html(result)
+    
+    # Extract metadata and facsimile data
+    metadata = extract_tei_metadata(root, namespace_map)
+    facsimile_data = extract_facsimile_data(root, namespace_map)
+    
+    return {
+        'original_xml': xml_content,
+        'clean_xml': xml_content,  # Kept for backward compatibility
+        'display_html': mark_safe(html_content),
+        'element_map': result['element_map'],
+        'tei_metadata': metadata,
+        'css': '',  # Placeholder for custom CSS
+        'facsimile_data': facsimile_data,
+        'namespaces': namespace_map
+    }
+
+
+def _find_content_element(root, namespace_map):
+    """
+    Find the main content element (body or text) in the TEI document.
+    
+    Args:
+        root: Root element of the document
+        namespace_map: Namespace mappings
+        
+    Returns:
+        lxml Element: The content element, or root if not found
+    """
+    # Prepare namespace prefixes for searching
+    possible_prefixes = [None, 'tei', '']
+    
+    for prefix in possible_prefixes:
+        if prefix is None and None in namespace_map:
+            ns = namespace_map[None]
+        elif prefix in namespace_map:
+            ns = namespace_map[prefix]
+        else:
+            ns = TEI_NAMESPACE
+        
+        # Try to find body or text elements
+        for element_name in ['body', 'text']:
+            # Try with namespace
+            path = f'.//{{{ns}}}{element_name}'
+            element = root.find(path)
+            if element is not None:
+                return element
+            
+            # Try without namespace
+            element = root.find(f'.//{element_name}')
+            if element is not None:
+                return element
+    
+    # Fallback to root if no body/text found
+    return root
+
+
+def _build_final_html(processing_result):
+    """
+    Build final HTML including footnotes section if needed.
+    
+    Args:
+        processing_result: Result from TEIProcessor
+        
+    Returns:
+        str: Complete HTML content
+    """
+    html_content = ''.join(processing_result['html_parts'])
+    
+    # Extract and append footnotes if any
+    footnotes = [m for m in processing_result['element_map'] if m.get('type') == 'footnote']
+    
+    if footnotes:
+        html_content += '<hr class="tei-fn-rule"/>\n<ol class="tei-footnotes">'
+        
+        for footnote in sorted(footnotes, key=lambda x: x.get('num', 0)):
+            footnote_id = footnote['id']
+            footnote_num = footnote.get('num', '*')
+            footnote_text = _escape_html(footnote['text'])
+            
+            html_content += (
+                f'\n<li id="{footnote_id}" class="tei-footnote" value="{footnote_num}">'
+                f'<a href="#ref-{footnote_id}">{footnote_num}</a>. '
+                f'{footnote_text}</li>'
+            )
+        
+        html_content += '\n</ol>'
+    
+    return html_content
+
+
+def extract_tei_metadata(root, namespace_map=None):
+    """
+    Extract metadata from TEI header using namespace-aware XPath.
+    
+    Args:
+        root: Root element of TEI document
+        namespace_map: Namespace mappings
+        
+    Returns:
+        dict: Extracted metadata fields
+    """
+    metadata = {
+        'title': None,
+        'author': None,
+        'publisher': None,
+        'date': None,
+        'source': None,
+        'language': None,
+        'msDesc': []
+    }
+    
+    # Prepare namespace context for XPath
+    xpath_namespaces = _prepare_xpath_namespaces(namespace_map)
+    
+    # Helper to find elements with multiple path variations
+    def find_element(paths):
+        for path in paths:
+            try:
+                elements = root.xpath(path, namespaces=xpath_namespaces)
+                if elements:
+                    return elements[0]
+            except:
+                # Try without namespace prefix
+                try:
+                    elements = root.xpath(path.replace('tei:', ''))
+                    if elements:
+                        return elements[0]
+                except:
+                    pass
+        return None
+    
+    # Extract each metadata field
+    title_element = find_element([
+        './/tei:titleStmt/tei:title',
+        './/titleStmt/title'
+    ])
+    if title_element is not None and title_element.text:
+        metadata['title'] = title_element.text.strip()
+    
+    author_element = find_element([
+        './/tei:titleStmt/tei:author',
+        './/titleStmt/author'
+    ])
+    if author_element is not None and author_element.text:
+        metadata['author'] = author_element.text.strip()
+    
+    publisher_element = find_element([
+        './/tei:publicationStmt/tei:publisher',
+        './/publicationStmt/publisher'
+    ])
+    if publisher_element is not None and publisher_element.text:
+        metadata['publisher'] = publisher_element.text.strip()
+    
+    date_element = find_element([
+        './/tei:publicationStmt/tei:date',
+        './/publicationStmt/date',
+        './/tei:sourceDesc//tei:date',
+        './/sourceDesc//date'
+    ])
+    if date_element is not None:
+        metadata['date'] = date_element.text.strip() if date_element.text else date_element.get('when', '')
+    
+    source_element = find_element([
+        './/tei:sourceDesc',
+        './/sourceDesc'
+    ])
+    if source_element is not None:
+        metadata['source'] = _extract_text_content(source_element)
+    
+    return metadata
+
+
+def extract_facsimile_data(root, namespace_map=None):
+    """
+    Extract facsimile/graphic information from TEI document.
+    
+    Args:
+        root: Root element of TEI document
+        namespace_map: Namespace mappings
+        
+    Returns:
+        list: List of dicts containing facsimile data
+    """
+    facsimile_data = []
+    
+    # Prepare namespace context
+    xpath_namespaces = _prepare_xpath_namespaces(namespace_map)
+    
+    try:
+        # Try namespace-aware search first
+        graphics = root.xpath('.//tei:facsimile//tei:graphic', namespaces=xpath_namespaces)
+        if not graphics:
+            # Fallback to no namespace
+            graphics = root.xpath('.//facsimile//graphic')
+        
+        for graphic in graphics:
+            graphic_data = {}
+            for attr_name, attr_value in graphic.attrib.items():
+                # Remove namespace from attribute name if present
+                clean_attr_name = attr_name.split('}')[-1] if '}' in attr_name else attr_name
+                graphic_data[clean_attr_name] = attr_value
+            
+            if graphic_data:
+                facsimile_data.append(graphic_data)
+    except:
+        # Silently ignore XPath errors
+        pass
+    
+    return facsimile_data
+
+
+def _prepare_xpath_namespaces(namespace_map):
+    """
+    Prepare namespace context for XPath queries.
+    
+    Args:
+        namespace_map: Original namespace mappings
+        
+    Returns:
+        dict: Namespace mappings suitable for XPath
+    """
+    xpath_ns = {}
+    
+    if namespace_map:
+        # Handle default namespace
+        if None in namespace_map:
+            xpath_ns['tei'] = namespace_map[None]
+        elif 'tei' in namespace_map:
+            xpath_ns['tei'] = namespace_map['tei']
+        else:
+            # Find TEI namespace with different prefix
+            for prefix, uri in namespace_map.items():
+                if 'tei-c.org' in uri:
+                    xpath_ns['tei'] = uri
+                    break
+    
+    # Ensure we have TEI namespace
+    if 'tei' not in xpath_ns:
+        xpath_ns['tei'] = TEI_NAMESPACE
+    
+    return xpath_ns
+
+
+def tokenize_tei_content(display_html):
+    """
+    Tokenize displayed HTML content for word-level annotation.
+    
+    Wraps each word in a <word> element with unique ID.
+    
+    Args:
+        display_html: HTML string to tokenize
+        
+    Returns:
+        str: Tokenized HTML with word elements
+    """
+    if not isinstance(display_html, str):
+        display_html = str(display_html)
+    
+    if not display_html.strip():
+        return display_html
+    
+    try:
+        # Parse HTML into element tree
+        parser = etree.HTMLParser()
+        doc = etree.HTML(f'<div>{display_html}</div>', parser)
+        if doc is None:
+            return display_html
+        
+        # Find root div
+        root = doc.find('.//div')
+        if root is None:
+            root = doc
+        
+        # Process all text-containing elements
+        word_counter = 0
+        
+        for element in root.xpath('.//*[text()]'):
+            # Skip if already tokenized or in excluded elements
+            if element.tag in ['script', 'style', 'word'] or element.xpath('ancestor::word'):
+                continue
+            
+            # Process element's text content
+            if element.text and element.text.strip():
+                tokenized_content = _tokenize_text(element.text, word_counter)
+                word_counter = tokenized_content['next_id']
+                
+                # Replace element's text with tokenized version
+                element.text = None
+                for i, item in enumerate(tokenized_content['tokens']):
+                    if isinstance(item, str):
+                        if i == 0:
+                            element.text = item
+                        else:
+                            # Add as tail of previous word element
+                            if i > 0 and isinstance(tokenized_content['tokens'][i-1], etree._Element):
+                                tokenized_content['tokens'][i-1].tail = item
+                    else:
+                        element.insert(i, item)
+        
+        # Convert back to HTML string
+        html_string = etree.tostring(root, encoding='unicode', method='html')
+        
+        # Remove wrapper div tags
+        html_string = html_string.replace('<div>', '', 1)
+        html_string = html_string.rsplit('</div>', 1)[0]
+        
+        return html_string
+        
+    except Exception as e:
+        print(f"Tokenization error: {e}")
+        return display_html
+
+
+def _tokenize_text(text, start_id):
+    """
+    Tokenize a text string into words and whitespace.
+    
+    Args:
+        text: Text to tokenize
+        start_id: Starting ID for word elements
+        
+    Returns:
+        dict: Contains 'tokens' list and 'next_id' counter
+    """
+    tokens = []
+    current_id = start_id
+    
+    # Find all words using regex
+    last_end = 0
+    for match in re.finditer(r'\S+', text):
+        # Add whitespace before word if any
+        if match.start() > last_end:
+            tokens.append(text[last_end:match.start()])
+        
+        # Create word element
+        word_element = etree.Element('word')
+        word_element.set('id', f'tei_{current_id}')
+        word_element.text = match.group()
+        tokens.append(word_element)
+        current_id += 1
+        
+        last_end = match.end()
+    
+    # Add trailing whitespace if any
+    if last_end < len(text):
+        tokens.append(text[last_end:])
+    
+    return {
+        'tokens': tokens,
+        'next_id': current_id
+    }
+
 
 def _create_xml_parser():
     """
@@ -699,440 +1136,3 @@ class TEIProcessor:
         
         return {'html_parts': self.html_parts, 'element_map': self.element_map}
 
-
-# ===== Main Functions =====
-
-def detect_content_type(text_content: str) -> dict:
-    """
-    Detect if content is XML and/or TEI.
-    
-    Args:
-        text_content: The text to analyze
-        
-    Returns:
-        dict: Contains 'is_xml', 'is_tei', and 'content_type' keys
-    """
-    stripped = text_content.lstrip()
-    is_xml = stripped.startswith('<?xml') or stripped.startswith('<')
-    is_tei = False
-    
-    if is_xml:
-        # Check for TEI markers
-        tei_markers = [
-            '<TEI', '<tei', 'xmlns="http://www.tei-c.org',
-            'xmlns:tei', 'tei-c.org/ns/1.0'
-        ]
-        is_tei = any(marker in text_content for marker in tei_markers)
-    
-    return {
-        'is_xml': is_xml,
-        'is_tei': is_tei,
-        'content_type': 'text/xml+tei' if is_tei else 'text/xml' if is_xml else 'text/plain'
-    }
-
-
-def parse_tei_document(xml_content: str) -> dict:
-    """
-    Parse TEI-XML document with proper namespace handling.
-    
-    Args:
-        xml_content: TEI-XML content as string
-        
-    Returns:
-        dict: Parsed document with keys:
-            - original_xml: The input XML
-            - clean_xml: Currently same as original (for compatibility)
-            - display_html: HTML representation for display
-            - element_map: Mapping of elements to positions
-            - tei_metadata: Extracted metadata
-            - css: Empty string (placeholder)
-            - facsimile_data: List of facsimile information
-            - namespaces: Detected namespace mappings
-            
-    Raises:
-        ValueError: If XML parsing fails
-    """
-    parser = _create_xml_parser()
-    
-    try:
-        root = etree.fromstring(xml_content.encode('utf-8'), parser)
-    except etree.XMLSyntaxError as e:
-        raise ValueError(f"XML syntax error at line {e.lineno}: {e.msg}")
-    
-    # Extract namespace map from root element
-    namespace_map = root.nsmap.copy() if root.nsmap else {}
-    
-    # Find the TEI namespace
-    tei_namespace_uri = None
-    for prefix, uri in namespace_map.items():
-        if 'tei-c.org' in uri:
-            tei_namespace_uri = uri
-            break
-    
-    # If root is TEI but no namespace declared, assume default
-    if not tei_namespace_uri and etree.QName(root).localname in ['TEI', 'tei']:
-        tei_namespace_uri = TEI_NAMESPACE
-        namespace_map[None] = TEI_NAMESPACE
-    
-    # Create processor with detected namespaces
-    processor = TEIProcessor(namespace_map)
-    
-    # Find main content element (body or text)
-    content_element = _find_content_element(root, namespace_map)
-    
-    # Process the content tree
-    result = processor.process_element(content_element)
-    
-    # Build final HTML with footnotes if present
-    html_content = _build_final_html(result)
-    
-    # Extract metadata and facsimile data
-    metadata = extract_tei_metadata(root, namespace_map)
-    facsimile_data = extract_facsimile_data(root, namespace_map)
-    
-    return {
-        'original_xml': xml_content,
-        'clean_xml': xml_content,  # Kept for backward compatibility
-        'display_html': mark_safe(html_content),
-        'element_map': result['element_map'],
-        'tei_metadata': metadata,
-        'css': '',  # Placeholder for custom CSS
-        'facsimile_data': facsimile_data,
-        'namespaces': namespace_map
-    }
-
-
-def _find_content_element(root, namespace_map):
-    """
-    Find the main content element (body or text) in the TEI document.
-    
-    Args:
-        root: Root element of the document
-        namespace_map: Namespace mappings
-        
-    Returns:
-        lxml Element: The content element, or root if not found
-    """
-    # Prepare namespace prefixes for searching
-    possible_prefixes = [None, 'tei', '']
-    
-    for prefix in possible_prefixes:
-        if prefix is None and None in namespace_map:
-            ns = namespace_map[None]
-        elif prefix in namespace_map:
-            ns = namespace_map[prefix]
-        else:
-            ns = TEI_NAMESPACE
-        
-        # Try to find body or text elements
-        for element_name in ['body', 'text']:
-            # Try with namespace
-            path = f'.//{{{ns}}}{element_name}'
-            element = root.find(path)
-            if element is not None:
-                return element
-            
-            # Try without namespace
-            element = root.find(f'.//{element_name}')
-            if element is not None:
-                return element
-    
-    # Fallback to root if no body/text found
-    return root
-
-
-def _build_final_html(processing_result):
-    """
-    Build final HTML including footnotes section if needed.
-    
-    Args:
-        processing_result: Result from TEIProcessor
-        
-    Returns:
-        str: Complete HTML content
-    """
-    html_content = ''.join(processing_result['html_parts'])
-    
-    # Extract and append footnotes if any
-    footnotes = [m for m in processing_result['element_map'] if m.get('type') == 'footnote']
-    
-    if footnotes:
-        html_content += '<hr class="tei-fn-rule"/>\n<ol class="tei-footnotes">'
-        
-        for footnote in sorted(footnotes, key=lambda x: x.get('num', 0)):
-            footnote_id = footnote['id']
-            footnote_num = footnote.get('num', '*')
-            footnote_text = _escape_html(footnote['text'])
-            
-            html_content += (
-                f'\n<li id="{footnote_id}" class="tei-footnote" value="{footnote_num}">'
-                f'<a href="#ref-{footnote_id}">{footnote_num}</a>. '
-                f'{footnote_text}</li>'
-            )
-        
-        html_content += '\n</ol>'
-    
-    return html_content
-
-
-def extract_tei_metadata(root, namespace_map=None):
-    """
-    Extract metadata from TEI header using namespace-aware XPath.
-    
-    Args:
-        root: Root element of TEI document
-        namespace_map: Namespace mappings
-        
-    Returns:
-        dict: Extracted metadata fields
-    """
-    metadata = {
-        'title': None,
-        'author': None,
-        'publisher': None,
-        'date': None,
-        'source': None,
-        'language': None,
-        'msDesc': []
-    }
-    
-    # Prepare namespace context for XPath
-    xpath_namespaces = _prepare_xpath_namespaces(namespace_map)
-    
-    # Helper to find elements with multiple path variations
-    def find_element(paths):
-        for path in paths:
-            try:
-                elements = root.xpath(path, namespaces=xpath_namespaces)
-                if elements:
-                    return elements[0]
-            except:
-                # Try without namespace prefix
-                try:
-                    elements = root.xpath(path.replace('tei:', ''))
-                    if elements:
-                        return elements[0]
-                except:
-                    pass
-        return None
-    
-    # Extract each metadata field
-    title_element = find_element([
-        './/tei:titleStmt/tei:title',
-        './/titleStmt/title'
-    ])
-    if title_element is not None and title_element.text:
-        metadata['title'] = title_element.text.strip()
-    
-    author_element = find_element([
-        './/tei:titleStmt/tei:author',
-        './/titleStmt/author'
-    ])
-    if author_element is not None and author_element.text:
-        metadata['author'] = author_element.text.strip()
-    
-    publisher_element = find_element([
-        './/tei:publicationStmt/tei:publisher',
-        './/publicationStmt/publisher'
-    ])
-    if publisher_element is not None and publisher_element.text:
-        metadata['publisher'] = publisher_element.text.strip()
-    
-    date_element = find_element([
-        './/tei:publicationStmt/tei:date',
-        './/publicationStmt/date',
-        './/tei:sourceDesc//tei:date',
-        './/sourceDesc//date'
-    ])
-    if date_element is not None:
-        metadata['date'] = date_element.text.strip() if date_element.text else date_element.get('when', '')
-    
-    source_element = find_element([
-        './/tei:sourceDesc',
-        './/sourceDesc'
-    ])
-    if source_element is not None:
-        metadata['source'] = _extract_text_content(source_element)
-    
-    return metadata
-
-
-def extract_facsimile_data(root, namespace_map=None):
-    """
-    Extract facsimile/graphic information from TEI document.
-    
-    Args:
-        root: Root element of TEI document
-        namespace_map: Namespace mappings
-        
-    Returns:
-        list: List of dicts containing facsimile data
-    """
-    facsimile_data = []
-    
-    # Prepare namespace context
-    xpath_namespaces = _prepare_xpath_namespaces(namespace_map)
-    
-    try:
-        # Try namespace-aware search first
-        graphics = root.xpath('.//tei:facsimile//tei:graphic', namespaces=xpath_namespaces)
-        if not graphics:
-            # Fallback to no namespace
-            graphics = root.xpath('.//facsimile//graphic')
-        
-        for graphic in graphics:
-            graphic_data = {}
-            for attr_name, attr_value in graphic.attrib.items():
-                # Remove namespace from attribute name if present
-                clean_attr_name = attr_name.split('}')[-1] if '}' in attr_name else attr_name
-                graphic_data[clean_attr_name] = attr_value
-            
-            if graphic_data:
-                facsimile_data.append(graphic_data)
-    except:
-        # Silently ignore XPath errors
-        pass
-    
-    return facsimile_data
-
-
-def _prepare_xpath_namespaces(namespace_map):
-    """
-    Prepare namespace context for XPath queries.
-    
-    Args:
-        namespace_map: Original namespace mappings
-        
-    Returns:
-        dict: Namespace mappings suitable for XPath
-    """
-    xpath_ns = {}
-    
-    if namespace_map:
-        # Handle default namespace
-        if None in namespace_map:
-            xpath_ns['tei'] = namespace_map[None]
-        elif 'tei' in namespace_map:
-            xpath_ns['tei'] = namespace_map['tei']
-        else:
-            # Find TEI namespace with different prefix
-            for prefix, uri in namespace_map.items():
-                if 'tei-c.org' in uri:
-                    xpath_ns['tei'] = uri
-                    break
-    
-    # Ensure we have TEI namespace
-    if 'tei' not in xpath_ns:
-        xpath_ns['tei'] = TEI_NAMESPACE
-    
-    return xpath_ns
-
-
-def tokenize_tei_content(display_html):
-    """
-    Tokenize displayed HTML content for word-level annotation.
-    
-    Wraps each word in a <word> element with unique ID.
-    
-    Args:
-        display_html: HTML string to tokenize
-        
-    Returns:
-        str: Tokenized HTML with word elements
-    """
-    if not isinstance(display_html, str):
-        display_html = str(display_html)
-    
-    if not display_html.strip():
-        return display_html
-    
-    try:
-        # Parse HTML into element tree
-        parser = etree.HTMLParser()
-        doc = etree.HTML(f'<div>{display_html}</div>', parser)
-        if doc is None:
-            return display_html
-        
-        # Find root div
-        root = doc.find('.//div')
-        if root is None:
-            root = doc
-        
-        # Process all text-containing elements
-        word_counter = 0
-        
-        for element in root.xpath('.//*[text()]'):
-            # Skip if already tokenized or in excluded elements
-            if element.tag in ['script', 'style', 'word'] or element.xpath('ancestor::word'):
-                continue
-            
-            # Process element's text content
-            if element.text and element.text.strip():
-                tokenized_content = _tokenize_text(element.text, word_counter)
-                word_counter = tokenized_content['next_id']
-                
-                # Replace element's text with tokenized version
-                element.text = None
-                for i, item in enumerate(tokenized_content['tokens']):
-                    if isinstance(item, str):
-                        if i == 0:
-                            element.text = item
-                        else:
-                            # Add as tail of previous word element
-                            if i > 0 and isinstance(tokenized_content['tokens'][i-1], etree._Element):
-                                tokenized_content['tokens'][i-1].tail = item
-                    else:
-                        element.insert(i, item)
-        
-        # Convert back to HTML string
-        html_string = etree.tostring(root, encoding='unicode', method='html')
-        
-        # Remove wrapper div tags
-        html_string = html_string.replace('<div>', '', 1)
-        html_string = html_string.rsplit('</div>', 1)[0]
-        
-        return html_string
-        
-    except Exception as e:
-        print(f"Tokenization error: {e}")
-        return display_html
-
-
-def _tokenize_text(text, start_id):
-    """
-    Tokenize a text string into words and whitespace.
-    
-    Args:
-        text: Text to tokenize
-        start_id: Starting ID for word elements
-        
-    Returns:
-        dict: Contains 'tokens' list and 'next_id' counter
-    """
-    tokens = []
-    current_id = start_id
-    
-    # Find all words using regex
-    last_end = 0
-    for match in re.finditer(r'\S+', text):
-        # Add whitespace before word if any
-        if match.start() > last_end:
-            tokens.append(text[last_end:match.start()])
-        
-        # Create word element
-        word_element = etree.Element('word')
-        word_element.set('id', f'tei_{current_id}')
-        word_element.text = match.group()
-        tokens.append(word_element)
-        current_id += 1
-        
-        last_end = match.end()
-    
-    # Add trailing whitespace if any
-    if last_end < len(text):
-        tokens.append(text[last_end:])
-    
-    return {
-        'tokens': tokens,
-        'next_id': current_id
-    }
