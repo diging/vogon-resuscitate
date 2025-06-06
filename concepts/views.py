@@ -92,9 +92,6 @@ def concepts(request):
         qs = Concept.objects.filter(appellation__isnull=False).distinct('id').order_by('-id')
     else:
         qs = Concept.objects.filter(appellation__isnull=False, createdBy=request.user).distinct('id').order_by('-id')
-    
-    qs = qs.prefetch_related('comments')
-    
     filtered = ConceptFilter(request.GET, queryset=qs)
     qs = filtered.qs
 
@@ -119,6 +116,12 @@ def concepts(request):
         # If page is out of range (e.g. 9999), deliver last page of results.
         concepts = paginator.page(paginator.num_pages)
 
+    for concept in concepts:
+        if request.user.is_admin:
+            concept.relations = RelationSet.objects.filter(terminal_nodes=concept).order_by('-created')[:3]
+        else:
+            concept.relations = RelationSet.objects.filter(terminal_nodes=concept, createdBy=request.user).order_by('-created')[:3]
+        
     context = {
         'paginator': paginator,
         'concepts': concepts,
