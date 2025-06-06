@@ -184,56 +184,6 @@ class RelationTemplateViewsTestCase(TestCase):
         response = self.client.get(reverse('add_relationtemplate'))
         self.assertEqual(response.status_code, 403)  # Regular users shouldn't have access
 
-    @patch('annotations.relations.create_template')
-    def test_add_relationtemplate_post(self, mock_create_template):
-        """
-        Test creating a new relation template.
-        
-        We mock the create_template function to avoid form validation errors
-        in the actual implementation. This test focuses on verifying that the
-        view forwards the form data to the create_template function.
-        """
-        # Mock the create_template function to return our test template
-        mock_create_template.return_value = self.relation_template
-        
-        self.client.login(username='admin_user', password='adminpassword')
-        
-        # Test POST request with valid data - fixing the form fields
-        post_data = {
-            'name': 'New Template',
-            'description': 'A new template description',
-            'expression': 'New expression with {0s} and {0o}',
-            'terminal_nodes': '0s,0o',
-            'parts-TOTAL_FORMS': '1',
-            'parts-INITIAL_FORMS': '0',
-            'parts-MIN_NUM_FORMS': '0',
-            'parts-MAX_NUM_FORMS': '1000',
-            'parts-0-internal_id': '0',
-            'parts-0-source_node_type': 'TP',
-            'parts-0-source_label': 'Test Source',
-            'parts-0-source_concept': '',
-            'parts-0-source_concept_text': '', 
-            'parts-0-source_relationtemplate_internal_id': '-1',
-            'parts-0-predicate_node_type': 'IS',
-            'parts-0-predicate_label': 'is/was',
-            'parts-0-predicate_concept': '',
-            'parts-0-predicate_concept_text': '',
-            'parts-0-object_node_type': 'TP',
-            'parts-0-object_label': 'Test Object',
-            'parts-0-object_concept': '',
-            'parts-0-object_concept_text': '',
-            'parts-0-object_relationtemplate_internal_id': '-1',
-            'parts-0-source_prompt_text': 'on',
-            'parts-0-predicate_prompt_text': 'on',
-            'parts-0-object_prompt_text': 'on',
-        }
-        
-        response = self.client.post(reverse('add_relationtemplate'), post_data, follow=True)
-        self.assertEqual(response.status_code, 200)
-        
-        # Verify mock was called
-        mock_create_template.assert_called_once()
-
     def test_list_relationtemplate(self):
         """
         Test the relation template listing view.
@@ -347,6 +297,12 @@ class RelationTemplateViewsTestCase(TestCase):
             'description': 'Updated description',
             'expression': 'Updated expression with {0s} and {0o}',
             'terminal_nodes': '0s,0o',
+            'first_node_type': 'Node',
+            'first_node_value': '0s',
+            'second_node_type': 'Node', 
+            'second_node_value': '0p',
+            'third_node_type': 'Node',
+            'third_node_value': '0o',
             'parts-TOTAL_FORMS': '1',
             'parts-INITIAL_FORMS': '1',
             'parts-MIN_NUM_FORMS': '0',
@@ -425,5 +381,69 @@ class RelationTemplateViewsTestCase(TestCase):
         # Should return success with mocked function
         self.assertEqual(response.status_code, 200)
         mock_create_relationset.assert_called_once()
+
+    def test_add_relationtemplate_post(self):
+        """
+        Test creating a new relation template.
+        
+        The view creates templates directly using Django ORM rather than
+        calling relations.create_template function.
+        """
+        self.client.login(username='admin_user', password='adminpassword')
+        
+        # Count templates before creation
+        template_count_before = RelationTemplate.objects.count()
+        
+        # Test POST request with valid data
+        post_data = {
+            'name': 'New Template',
+            'description': 'A new template description',
+            'expression': 'New expression with {0s} and {0o}',
+            'terminal_nodes': '0s,0o',
+            'first_node_type': 'Node',
+            'first_node_value': '0s',
+            'second_node_type': 'Node', 
+            'second_node_value': '0p',
+            'third_node_type': 'Node',
+            'third_node_value': '0o',
+            'parts-TOTAL_FORMS': '1',
+            'parts-INITIAL_FORMS': '0',
+            'parts-MIN_NUM_FORMS': '0',
+            'parts-MAX_NUM_FORMS': '1000',
+            'parts-0-internal_id': '0',
+            'parts-0-source_node_type': 'TP',
+            'parts-0-source_label': 'Test Source',
+            'parts-0-source_concept': '',
+            'parts-0-source_concept_text': '', 
+            'parts-0-source_relationtemplate_internal_id': '-1',
+            'parts-0-predicate_node_type': 'IS',
+            'parts-0-predicate_label': 'is/was',
+            'parts-0-predicate_concept': '',
+            'parts-0-predicate_concept_text': '',
+            'parts-0-object_node_type': 'TP',
+            'parts-0-object_label': 'Test Object',
+            'parts-0-object_concept': '',
+            'parts-0-object_concept_text': '',
+            'parts-0-object_relationtemplate_internal_id': '-1',
+            'parts-0-source_prompt_text': 'on',
+            'parts-0-predicate_prompt_text': 'on',
+            'parts-0-object_prompt_text': 'on',
+        }
+        
+        response = self.client.post(reverse('add_relationtemplate'), post_data, follow=True)
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify a new template was created
+        self.assertEqual(RelationTemplate.objects.count(), template_count_before + 1)
+        
+        # Verify the new template has the correct data
+        new_template = RelationTemplate.objects.filter(name='New Template').first()
+        self.assertIsNotNone(new_template)
+        self.assertEqual(new_template.description, 'A new template description')
+        self.assertEqual(new_template.expression, 'New expression with {0s} and {0o}')
+        
+        # Verify parts were created
+        parts = RelationTemplatePart.objects.filter(part_of=new_template)
+        self.assertEqual(parts.count(), 1)
 
    
