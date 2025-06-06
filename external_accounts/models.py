@@ -61,17 +61,15 @@ class ConceptpowerAccount(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conceptpower_account')
     username = models.CharField(max_length=255, unique=True)
     _password = models.CharField(max_length=255, db_column='password')
-    _encryption_key = models.CharField(max_length=255, null=True, blank=True)
     
     def __str__(self):
         return self.username
         
     def _get_fernet(self):
-        """Get or create a Fernet instance with a key"""
-        if not self._encryption_key:
-            self._encryption_key = Fernet.generate_key().decode()
-            self.save(update_fields=['_encryption_key'])
-        return Fernet(self._encryption_key.encode())
+        """Get a Fernet instance with the centralized encryption key"""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY setting is required but not configured")
+        return Fernet(settings.ENCRYPTION_KEY.encode())
         
     @property
     def password(self):
