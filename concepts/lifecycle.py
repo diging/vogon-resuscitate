@@ -118,26 +118,62 @@ class ConceptLifecycle(object):
 
     @staticmethod
     def create_from_raw(data):
+        # Helper for stripping or returning None if empty after strip
+        def strip_if_str_else_none(val):
+            if isinstance(val, str):
+                stripped = val.strip()
+                return stripped if stripped else None
+            return None
+
+        _type_data = data.get('type')
         _type_uri = None
 
-        _type = data.get('type')
+        if isinstance(_type_data, str):
+            _type_uri = strip_if_str_else_none(_type_data)
+        elif isinstance(_type_data, dict):
+            _type_uri = strip_if_str_else_none(_type_data.get('type_uri'))
+        
+        # Fallback to top-level 'type_uri' if not found in 'type' field or 'type' is not as expected
+        if not _type_uri:
+            _type_uri = strip_if_str_else_none(data.get('type_uri'))
 
-        if isinstance(_type, str):
-            _type_uri = _type
-        elif _type and hasattr(_type, 'type_uri'):
-            _type_uri = _type.type_uri
-
+        _typed = None
         if _type_uri:
-            _typed, _ = Type.objects.get_or_create(uri=_type_uri)
-        else:
-            _typed = None
+            try:
+                # Attempt to get or create the Type.
+                _typed, _ = Type.objects.get_or_create(uri=_type_uri)
+            except Exception: # Broad exception to catch issues like invalid URI format for Type model
+                _typed = None # Or log an error, depending on desired behavior
+
+        # URI processing
+        uri_from_data = strip_if_str_else_none(data.get('uri'))
+        concept_uri_from_data = strip_if_str_else_none(data.get('concept_uri'))
+        processed_uri = uri_from_data if uri_from_data else concept_uri_from_data
+
+        # Label processing
+        label_from_word = strip_if_str_else_none(data.get('word'))
+        label_from_lemma = strip_if_str_else_none(data.get('lemma'))
+        processed_label = label_from_word if label_from_word else label_from_lemma
+        
+        processed_description = strip_if_str_else_none(data.get('description'))
+        processed_pos = strip_if_str_else_none(data.get('pos'))
+
+        # Authority processing - default to 'Conceptpower'
+        authority_val = data.get('authority', 'Conceptpower')
+        processed_authority = strip_if_str_else_none(authority_val)
+        if not processed_authority: # If authority was empty string, None, or not a string
+            processed_authority = 'Conceptpower'
+        
+        # Convert to string representation of dictionary for the model
+        authority_dict_str = str({'name': processed_authority})
+
         concept = ConceptLifecycle.create(
-            uri = data.get('uri').strip() if data.get('uri') else data.get('concept_uri'),
-            label = data.get('word').strip() if data.get('word') else data.get('lemma'),
-            description = data.get('description').strip(),
-            pos = data.get('pos').strip(),
-            typed = _typed,
-            authority = 'Conceptpower',
+            uri=processed_uri,
+            label=processed_label,
+            description=processed_description,
+            pos=processed_pos,
+            typed=_typed,
+            authority=authority_dict_str,
         )
         return concept
 
@@ -225,7 +261,7 @@ class ConceptLifecycle(object):
         else:
             # Update the concept with the new URI and authority from Conceptpower
             self.instance.uri = data['uri']
-            self.instance.authority = {'name': 'Conceptpower'}
+            self.instance.authority = str({'name': 'Conceptpower'})
             self.instance.concept_state = Concept.RESOLVED
         self.instance.save()
 
@@ -307,13 +343,61 @@ class ConceptLifecycle(object):
         Returns
         -------
         list
-            A list of dicts with raw data from Conceptpower.
+            A list containing a single ConceptData object if a match is found,
+            otherwise an empty list.
         """
         try:
             data = self.get_concept(self.instance.uri)
         except Exception as E:
+            # It might be more user-friendly to return an empty list on error
+            # or let the specific exception propagate if that's desired.
+            # For now, re-raising as per original behavior for upstream errors.
             raise ConceptUpstreamException("Whoops: %s" % str(E))
-        return list(data)
+
+        if not data or not isinstance(data, dict):
+            return []
+
+        # Create ConceptData instance from the data dictionary
+        _type_obj = None
+        type_info = data.get('type')
+        type_uri_str = None
+
+        if isinstance(type_info, dict):
+            type_uri_str = type_info.get('type_uri')
+        elif isinstance(type_info, str):
+            type_uri_str = type_info
+        
+        if type_uri_str:
+            type_uri_str = type_uri_str.strip()
+            if type_uri_str: # Ensure not empty after strip
+                try:
+                    _type_obj, _ = Type.objects.get_or_create(uri=type_uri_str)
+                except Exception: # Catch any error during Type creation/retrieval
+                    _type_obj = None
+            else:
+                _type_obj = None # type_uri_str was all whitespace
+
+        # Helper for stripping or returning None if empty after strip
+        def strip_if_str_else_none(val):
+            if isinstance(val, str):
+                stripped = val.strip()
+                return stripped if stripped else None
+            return None
+
+        label = strip_if_str_else_none(data.get('lemma')) or strip_if_str_else_none(data.get('word'))
+        uri = strip_if_str_else_none(data.get('concept_uri')) or strip_if_str_else_none(data.get('uri'))
+        description = strip_if_str_else_none(data.get('description'))
+        pos = strip_if_str_else_none(data.get('pos')) or 'noun' # Default pos if missing
+
+        concept_data_instance = ConceptData(
+            label=label,
+            description=description,
+            typed=_type_obj,
+            uri=uri,
+            pos=pos,
+            # equal_to is not typically part of a single concept record from get_concept
+        )
+        return [concept_data_instance]
 
     def get_concept(self, uri):
         try:

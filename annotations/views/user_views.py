@@ -156,7 +156,9 @@ def user_settings(request):
 @login_required
 def user_annotated_texts(request):
     recent_texts = user_recent_texts(request.user)
+    added_texts = Text.objects.filter(addedBy_id=request.user.id, part_of__isnull=True).order_by('-added')
 
+    template = "annotations/user_texts.html"
     context = {
         'title': 'My Texts',
         'user': request.user,

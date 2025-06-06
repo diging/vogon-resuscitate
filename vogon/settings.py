@@ -108,8 +108,8 @@ DATABASES = {
         'NAME': os.environ.get('POSTGRES_NAME'),
         'USER': os.environ.get('POSTGRES_USER'),
         'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
-        'HOST': 'db',
-        'PORT': '5432',
+        'HOST': os.environ.get('POSTGRES_HOST', 'db'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
         'OPTIONS': {
             'options': '-c timezone=UTC',
         },
@@ -223,6 +223,8 @@ CONCEPT_TYPES = {
     'viaf:personal': PERSONAL_CONCEPT_TYPE,  # E21 Person
     'viaf:corporate': CORPORATE_CONCEPT_TYPE,  # E40 Legal Body
     'viaf:geographic': GEOGRAPHIC_CONCEPT_TYPE,  # E53 Place
+    'http://example.com/type': 'c7d0bec3-ea90-4cde-8698-3bb08c47d4f2', # E1 Entity
+    'c7d0bec3-ea90-4cde-8698-3bb08c47d4f2': 'c7d0bec3-ea90-4cde-8698-3bb08c47d4f2', # E1 Entity
 }
 
 # Giles Credentials
