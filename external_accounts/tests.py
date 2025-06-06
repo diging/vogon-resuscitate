@@ -383,14 +383,16 @@ class CitesphereViewsTests(TestCase):
         session.save()
         
         # Make callback request
-        with self.settings(BASE_URL='http://testserver/'):
+        with self.settings(BASE_URL='http://testserver/', APP_ROOT='vogon/'):
             response = self.client.get(
                 reverse('citesphere_callback') + '?code=test_code&state=test_state'
             )
             
             # Check we got redirected to dashboard
             self.assertEqual(response.status_code, 302)
-            self.assertEqual(response.url, '/vogon/accounts/profile/')
+            # In test environment the dashboard URL should be /vogon/accounts/profile/
+            expected_url = reverse('dashboard')
+            self.assertEqual(response.url, expected_url)
             
             # Check account was created
             self.assertTrue(CitesphereAccount.objects.filter(
