@@ -1,3 +1,21 @@
+$(document).ready(function() {
+    // Handle switching between input methods
+    $('#input-method-selector').change(function() {
+        var selectedMethod = $(this).val();
+        if (selectedMethod === 'expression') {
+            $('#expression-input').show();
+            $('#relation-nodes-input').hide();
+            // Clear relation nodes inputs
+            $('#relation-nodes-input input').val('');
+        } else {
+            $('#expression-input').hide();
+            $('#relation-nodes-input').show();
+            // Clear expression input
+            $('#expression-input textarea').val('');
+        }
+    });
+});
+
 var evaluateNodeType = function(elem) {
     var id = elem.attr('id'),
         part = elem.attr('part'),

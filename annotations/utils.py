@@ -39,6 +39,51 @@ def help_text(text):
     return re.sub(r'(\s+)', ' ', text)
 
 
+def search_viaf(query, nametype=None):
+    """
+    Search VIAF using viapy and return standardized results.
+    
+    Parameters
+    ----------
+    query : str
+        The search query to send to VIAF
+    nametype : str, optional
+        Filter results by name type (e.g., 'personal', 'corporate')
+        
+    Returns
+    -------
+    list
+        A list of dictionaries with VIAF search results
+    """
+    try:
+        from viapy.api import ViafAPI
+        
+        viaf = ViafAPI()
+        results = viaf.suggest(query)
+        
+        # Filter by name type if specified
+        if nametype and results:
+            results = [item for item in results if item['nametype'] == nametype]
+            
+        # Format results for the UI
+        formatted_results = []
+        for item in results:
+            formatted_results.append({
+                'id': viaf.uri_from_id(item['viafid']),
+                'id_number': item['viafid'],
+                'text': item['displayForm'],
+                'nametype': item['nametype']
+            })
+            
+        return formatted_results
+    except Exception as e:
+        # Log error and return empty results
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error searching VIAF: {str(e)}")
+        return []
+
+
 def basepath(request):
     """
     Generate the base path (domain + path) for the site.

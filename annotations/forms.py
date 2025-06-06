@@ -242,9 +242,10 @@ class RelationTemplateForm(forms.ModelForm):
             'rows': 2,
             'placeholder': 'Please describe this relation.',
         }))
-    expression = forms.CharField(widget=forms.Textarea(attrs={
+    expression = forms.CharField(required=False, widget=forms.Textarea(attrs={
             'class': 'form-control input-sm',
             'rows': 3,
+            'id': 'id_expression',
             'placeholder': "Enter an expression pattern for this relation."
                            " This should be a full-sentence structure that"
                            " expresses the content of the relation. Indicate"
@@ -300,6 +301,8 @@ class RelationTemplateForm(forms.ModelForm):
     def clean_expression(self):
         from string import Formatter
         value = self.cleaned_data.get('expression')
+        if not value:  # Allow empty expression if using alternative input
+            return value
         try:
             [k[1] for k in Formatter().parse(value)]
         except Exception as E:

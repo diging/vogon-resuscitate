@@ -47,4 +47,5 @@ sqlparse==0.4.4
 static3==0.7.0
 Unidecode==1.0.23
 urllib3==2.3.0
+viapy>=0.2
 xmltodict==0.12.0

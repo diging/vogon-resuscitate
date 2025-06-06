@@ -47,12 +47,13 @@ INSTALLED_APPS = (
     'concepts',
     'annotations',
     'external_accounts',
+    'dal',
+    'dal_select2',
+    'viapy',
     'rest_framework',
     'corsheaders',
     'repository',
     'oauth2_provider',
-    'dal',
-    'dal_select2',
 )
 
 MIDDLEWARE = (
@@ -143,7 +144,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_L10N = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.8/howto/static-files/
