@@ -26,6 +26,9 @@ from concepts.lifecycle import *
 from external_accounts.models import CitesphereAccount
 from annotations.quadriga import submit_to_quadriga, generate_graph_data
 
+# viapy API for VIAF integration
+from viapy.api import ViafAPI
+
 import uuid
 
 import requests
@@ -234,7 +237,6 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
             if isinstance(interpretation, str) and interpretation.startswith('http'):
                 try:
                     concept = Concept.objects.get(uri=interpretation)
-                    print(f"Concept found: {concept.id}", concept)
                 except Concept.DoesNotExist:
                     # Special handling for VIAF URIs
                     if 'viaf.org' in interpretation:
@@ -265,7 +267,6 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                         ).instance
 
                 data['interpretation'] = concept.id
-                print(f"Using concept id {concept.id} with pos: {concept.pos}")
 
             else:
                 # If interpretation is not a URI, fetch concept based on label and pos
@@ -273,7 +274,6 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                     # Check if it's a numeric concept ID
                     concept_id = int(interpretation)
                     data['interpretation'] = concept_id
-                    print(f"Using existing concept ID: {concept_id}")
                 except (ValueError, TypeError):
                     # Otherwise create a new concept
                     new_uri = f"http://vogonweb.net/{uuid.uuid4()}"
@@ -289,16 +289,11 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                     
                     # Set the interpretation to the concept ID
                     data['interpretation'] = concept.id
-                    print(f"Created new concept with ID: {concept.id}, pos: {concept.pos}")
 
         except ValueError as e:
-            print(f"Error in create: {str(e)}")
             return Response({'error': str(e)}, status=400)
         except Exception as e:
-            print(f"Unexpected error in create: {str(e)}")
             return Response({'error': str(e)}, status=500)
-
-        print(f"Final data object: {data}")
         
         serializer_class = self.get_serializer_class()
         serializer = serializer_class(data=data)
@@ -306,19 +301,16 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
         try:
             serializer = serializer_class(data=data)
         except Exception as E:
-            print((serializer.errors))
             raise E
 
         try:
             serializer.is_valid(raise_exception=True)
         except Exception as E:
-            print((serializer.errors))
             raise E
 
         try:
             instance = serializer.save()
         except Exception as E:
-            print((":::", E))
             raise E
 
         tokenIDs = serializer.data.get('tokenIds', None)
@@ -339,7 +331,6 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                 try:
                     position_serializer.is_valid(raise_exception=True)
                 except Exception as E:
-                    print(("DocumentPosition::", position_serializer.errors))
                     raise E
                 position = position_serializer.save()
 
@@ -358,8 +349,6 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
                 result_data['interpretation']['pos'] = concept.pos or 'NOUN'
             except Concept.DoesNotExist:
                 result_data['interpretation']['pos'] = 'NOUN'
-                
-        print(f"Final response data: {result_data}")
 
         headers = self.get_success_headers(serializer.data)
         return Response(result_data, status=status.HTTP_201_CREATED, headers=headers)
