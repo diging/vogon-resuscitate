@@ -10,6 +10,22 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: vogontest
+          POSTGRES_PASSWORD: vogontest
+          POSTGRES_DB: vogontest
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
     strategy:
       max-parallel: 4
       matrix:
@@ -26,5 +42,24 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     - name: Run Tests
+      env:
+        # Set required environment variables for database connection
+        POSTGRES_NAME: vogontest
+        POSTGRES_USER: vogontest
+        POSTGRES_PASSWORD: vogontest
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        SECRET_KEY: "test-secret-key-for-ci"
+        DEBUG: "False"
+        # Email backend for testing - use console backend
+        EMAIL_BACKEND: "django.core.mail.backends.console.EmailBackend"
+        # Conceptpower configuration
+        CONCEPTPOWER_ENDPOINT: "http://chps.asu.edu/conceptpower/rest/"
+        CONCEPTPOWER_NAMESPACE: "{http://www.digitalhps.org/}"
+        CONCEPTPOWER_USERID: "test_user"
+        CONCEPTPOWER_PASSWORD: "test_password"
+        # Base URL and APP_ROOT
+        BASE_URL: "http://localhost:8000/"
+        APP_ROOT: ""
       run: |
         python manage.py test
