@@ -7,7 +7,6 @@
 <a href="{% url "home" %}" class="btn btn-xs">Home</a>&raquo;<a href="{% url "concepts" %}" class="btn btn-xs">Concepts</a>&raquo;<a href="{% url "concept" concept.instance.id %}" class="btn btn-xs">{{ concept.instance.label }}</a>&raquo;<a href="" class="btn btn-xs">Add</a>
 {% endblock %}
 
-
 {% block main %}
 <div class="container-fluid">
     <div class="col-md-12">
@@ -27,8 +26,32 @@
                         <dd>{{ concept.instance.typed }}</dd>
                         <dt>Description</dt>
                         <dd>{{ concept.instance.description }}</dd>
+                        {% if concept.instance.concept_state == concept.instance.FLAGGED %}
+                        <dt class="text-warning">Status</dt>
+                        <dd>
+                            <span class="label label-warning">
+                                <span class="glyphicon glyphicon-flag"></span> 
+                                Flagged
+                            </span>
+                        </dd>
+                        {% endif %}
                     </dl>
                 </p>
+                
+
+                {% if concept.instance.concept_state == concept.instance.FLAGGED and concept.instance.comments.all %}
+                <div style="margin-bottom: 20px;">
+                    <div class="text-warning">
+                        <span class="glyphicon glyphicon-flag"></span> <strong>Flag comments:</strong>
+                    </div>
+                    {% for comment in concept.instance.comments.all %}
+                    <div style="margin: 5px 0 5px 15px; padding: 5px; border-left: 2px solid #f0ad4e;">
+                        <span class="text-muted">{{ comment.created_by.username }}:</span> {{ comment.text }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
 
                 {% if matches %}
                 <div class="alert alert-danger">
@@ -152,6 +175,10 @@
                             </div>
                         </div>
                     </div>
+                    {% else %}
+                    <button type="button" class="btn btn-md btn-default" disabled>
+                        <span class="glyphicon glyphicon-flag"></span> Already flagged
+                    </button>
                     {% endif %}
                 </div>
             </div>

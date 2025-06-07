@@ -78,18 +78,22 @@ def parse_tei_document(xml_content: str) -> dict:
     except etree.XMLSyntaxError as e:
         raise ValueError(f"XML syntax error at line {e.lineno}: {e.msg}")
     
-    # Extract namespace map from root element
+    # Extract namespace map from root element - preserve ALL namespaces
     namespace_map = root.nsmap.copy() if root.nsmap else {}
     
-    # Find the TEI namespace
+    # Find the TEI namespace URI if present
     tei_namespace_uri = None
     for prefix, uri in namespace_map.items():
-        if 'tei-c.org' in uri:
+        if uri and 'tei-c.org' in uri:
             tei_namespace_uri = uri
             break
     
-    # If root is TEI but no namespace declared, assume default
-    if not tei_namespace_uri and etree.QName(root).localname in ['TEI', 'tei']:
+    # Only set a default TEI namespace if the document actually appears to be TEI
+    # and no TEI namespace is already declared
+    if (not tei_namespace_uri and 
+        etree.QName(root).localname in ['TEI', 'tei'] and
+        not namespace_map):
+        # Document has TEI root but no namespace declarations at all
         tei_namespace_uri = TEI_NAMESPACE
         namespace_map[None] = TEI_NAMESPACE
     
@@ -319,6 +323,9 @@ def _prepare_xpath_namespaces(namespace_map):
     """
     Prepare namespace context for XPath queries.
     
+    This function preserves all namespaces from the original document
+    and ensures there's a 'tei' prefix available for TEI-specific queries.
+    
     Args:
         namespace_map: Original namespace mappings
         
@@ -328,21 +335,32 @@ def _prepare_xpath_namespaces(namespace_map):
     xpath_ns = {}
     
     if namespace_map:
-        # Handle default namespace
-        if None in namespace_map:
-            xpath_ns['tei'] = namespace_map[None]
-        elif 'tei' in namespace_map:
-            xpath_ns['tei'] = namespace_map['tei']
-        else:
-            # Find TEI namespace with different prefix
+        # Copy all non-default namespaces
+        for prefix, uri in namespace_map.items():
+            if prefix is not None: 
+                xpath_ns[prefix] = uri
+        
+        # Handle TEI namespace mapping for XPath queries
+        # First check if there's already a 'tei' prefix
+        if 'tei' not in xpath_ns:
+            # Look for TEI namespace URI and map it to 'tei' prefix
+            tei_uri_found = False
             for prefix, uri in namespace_map.items():
-                if 'tei-c.org' in uri:
+                if uri and 'tei-c.org' in uri:
                     xpath_ns['tei'] = uri
+                    tei_uri_found = True
                     break
-    
-    # Ensure we have TEI namespace
-    if 'tei' not in xpath_ns:
-        xpath_ns['tei'] = TEI_NAMESPACE
+            
+            # If default namespace is TEI, map it to 'tei' prefix
+            if not tei_uri_found and None in namespace_map:
+                default_uri = namespace_map[None]
+                if default_uri and 'tei-c.org' in default_uri:
+                    xpath_ns['tei'] = default_uri
+                    tei_uri_found = True
+            
+            # Only add default TEI namespace if no TEI namespace was found
+            if not tei_uri_found and namespace_map:
+                xpath_ns['tei'] = TEI_NAMESPACE
     
     return xpath_ns
 
@@ -527,12 +545,8 @@ class TEIProcessor:
         self.element_map = []
         self.namespace_map = namespace_map or DEFAULT_NAMESPACE_MAP
         
-        # Prepare namespace context for XPath queries
-        self.namespaces = {'tei': self.namespace_map.get('tei', TEI_NAMESPACE)}
-        
-        # Handle default namespace (None key in namespace map)
-        if None in self.namespace_map:
-            self.namespaces['tei'] = self.namespace_map[None]
+        # Prepare comprehensive namespace context for element processing
+        self.namespaces = _prepare_xpath_namespaces(self.namespace_map)
     
     def process_element(self, element, parent_xpath=''):
         """

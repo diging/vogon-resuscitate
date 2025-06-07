@@ -16,6 +16,15 @@
     border: 1px solid gray;
 }
 
+.is-invalid {
+    border-color: #dc3545 !important;
+    padding-right: calc(1.5em + .75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23dc3545' viewBox='0 0 12 12'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(.375em + .1875rem) center;
+    background-size: calc(.75em + .375rem) calc(.75em + .375rem);
+}
+
 .autocomplete-holder {
     max-width: 200px;
 }
@@ -74,13 +83,88 @@
                         {{ templateform.description }}
                     </p>
                     <p>
-                        {% if templateform.expression.errors %}
-                            {% for error in templateform.expression.errors %}
-                            <div class="alert alert-warning">{{ error }}</div>
-                            {% endfor %}
-                        {% endif %}
-                        {{ templateform.expression }}
+                        <div class="form-check">
+                            {{ templateform.use_relation_nodes }} 
+                            <label class="form-check-label" for="use_relation_nodes">
+                                Expression
+                            </label>
+                        </div>
                     </p>
+                    <div id="expression_container">
+                        <p>
+                            {% if templateform.expression.errors %}
+                                {% for error in templateform.expression.errors %}
+                                <div class="alert alert-warning">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                            <div id="expression_field_container">
+                                {{ templateform.expression }}
+                            </div>
+                        </p>
+                    </div>
+                    <div id="relation_nodes_container" style="display:none;">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <label class="form-check-label" for="use_relation_nodes">
+                                    Map Relation Nodes
+                                </label>
+                            </div>
+                            <div class="col-md-12">
+                                {% if templateform.first_node_value.errors or templateform.second_node_value.errors or templateform.third_node_value.errors %}
+                                    <div class="alert alert-warning">
+                                        {% if templateform.first_node_value.errors %}
+                                            <strong>First Element:</strong> {{ templateform.first_node_value.errors.0 }}<br>
+                                        {% endif %}
+                                        {% if templateform.second_node_value.errors %}
+                                            <strong>Second Element:</strong> {{ templateform.second_node_value.errors.0 }}<br>
+                                        {% endif %}
+                                        {% if templateform.third_node_value.errors %}
+                                            <strong>Third Element:</strong> {{ templateform.third_node_value.errors.0 }}<br>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="first_node_type">First Element</label>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            {{ templateform.first_node_type }}
+                                        </div>
+                                        <div class="col-md-8">
+                                            {{ templateform.first_node_value }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="second_node_type">Second Element</label>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            {{ templateform.second_node_type }}
+                                        </div>
+                                        <div class="col-md-8">
+                                            {{ templateform.second_node_value }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="third_node_type">Third Element</label>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            {{ templateform.third_node_type }}
+                                        </div>
+                                        <div class="col-md-8">
+                                            {{ templateform.third_node_value }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <p>
                         {% if templateform.terminal_nodes.errors %}
                             {% for error in templateform.terminal_nodes.errors %}
@@ -89,6 +173,10 @@
                         {% endif %}
                         {{ templateform.terminal_nodes }}
                     </p>
+                    
+                    <!-- Replace default_mapping with default_mapping -->
+                    {{ templateform.default_mapping }}
+                    
                     <table id="form_table" class="table table-condensed table-striped table-bordered table-responsive">
                         <thead>
                             <tr class="text-center info">
@@ -382,8 +470,56 @@
                     Use this node type to indicate that the node in this
                     relation part should be another relation. Enter the relation
                     ID of the target relation.
+                    <br><br>
+                    <strong>About Relation Nodes:</strong> Relation nodes allow you to create more complex, nested relationships. When a node is of type "Relation", it creates a hierarchical structure where one relation becomes part of another. This is powerful for expressing complex ideas, such as "Person A believes that Person B influenced Person C" - where "Person B influenced Person C" is itself a relation that becomes the object of the "believes" relation.
+                    <br><br>
+                    <strong>Usage:</strong> When you select "Relation" as a node type, you'll need to specify which relation template part it refers to using the internal ID. This creates a connection between relation parts, allowing complex nested structures.
                 </dd>
             </dl>
+        </p>
+        
+        <p>
+            <div class="h4">Relation Nodes</div>
+            <p>
+                The relation nodes provides a way to create relations using a structured format:
+            </p>
+            <dl>
+                <dt>Node</dt>
+                <dd>
+                    A node represents a concept in the relation template. Node values must also be included in the terminal nodes field.
+                    When you use Node type, you'll enter a reference to a specific node in the value field (like "0s", "1p", or "2o"),
+                    which corresponds to a node part and position in your template.
+                </dd>
+            </dl>
+            <dl>
+                <dt>URI</dt>
+                <dd>
+                    A URI (Uniform Resource Identifier) represents a web resource. This typically points to an external concept or definition.
+                    When you use URI type, you can enter a full URI like "http://example.org/concept/person" that references an external resource directly.
+                </dd>
+            </dl>
+            <p>
+                You can use any combination of Nodes and URIs in your relation template when using relation nodes mode.
+                The arrangement of these elements is flexible - you can have them in any order that makes sense for your relation.
+            </p>
+            <p>
+                <strong>How Relation Nodes Work:</strong>
+                <ul>
+                    <li>The <strong>First Element</strong> represents the subject of the relation (who/what is doing the action)</li>
+                    <li>The <strong>Second Element</strong> represents the predicate/relationship (the action or connection)</li>
+                    <li>The <strong>Third Element</strong> represents the object (who/what is receiving the action)</li>
+                </ul>
+                For example, a relation representing "Person works at Organization" might use Node type for First and Third Elements 
+                (pointing to concept nodes like "0s" and "1o") and a URI type for the Second Element pointing to a "works_at" predicate URI.
+            </p>
+            <p>
+                <strong>Terminal Nodes and Expression:</strong>
+                <ul>
+                    <li>Terminal nodes (e.g., "0s,1o,2p") identify specific nodes in your template that are referenced in the expression or relation nodes.</li>
+                    <li>Expression (e.g., "{0s} is related to {1o} as {0s}") creates a human-readable sentence using references to those nodes.</li>
+                    <li>These fields can now be defined independently - you have flexibility in how you structure your relations.</li>
+                </ul>
+            </p>
         </p>
 
     </div>
@@ -392,5 +528,23 @@
 
 
 <script src="{% static "annotations/js/relations/create.js" %}"></script>
+<script>
+    // Force toggle script to ensure relation_nodes_container appears
+    $(document).ready(function() {
+        // Check periodically if the checkbox is checked but relation_nodes_container is hidden
+        setInterval(function() {
+            if ($('#use_relation_nodes').is(':checked') && $('#relation_nodes_container').css('display') === 'none') {
+                console.log('Force fixing relation nodes visibility');
+                $('#relation_nodes_container').show();
+                $('#expression_container').hide();
+                
+                // Enable the node fields
+                $('#first_node_type, #first_node_value, #second_node_type, #second_node_value, #third_node_type, #third_node_value').prop('disabled', false);
+                // Disable the original expression field
+                $('#expression_field_container textarea').prop('disabled', true);
+            }
+        }, 500);
+    });
+</script>
 
 {% endblock %}
