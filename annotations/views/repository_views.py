@@ -33,6 +33,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 import traceback
+import json
+
+from annotations import tei_utils
 
 def _get_params(request):
     # The request may include parameters that should be passed along to the
@@ -418,7 +421,26 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id, 
     if not giles_text:
         return render(request, 'annotations/repository_ioerror.html', {'error': 'There was an error retrieving the content from Giles.'}, status=400)
 
-    tokenized_content = tokenize(giles_text)
+    content_info = tei_utils.detect_content_type(giles_text)
+    
+    content_type = content_info['content_type']
+    tokenized_content = None
+    
+    # Process according to content type
+    if content_info['is_tei']:
+        # Process as TEI-XML using tei_utils
+        try:
+            tei_document = tei_utils.parse_tei_document(giles_text)
+            # Store the display HTML as tokenized content for rendering
+            tokenized_content = tei_utils.tokenize_tei_content(tei_document['display_html'])
+        except Exception as e:
+            logger.error(f"Error processing TEI document: {str(e)}")
+            # Fall back to plain text processing if TEI parsing fails
+            tokenized_content = tokenize(giles_text)
+            content_type = 'text/plain'
+    else:
+        # Process as plain text or generic XML
+        tokenized_content = tokenize(giles_text)
 
     # - urn:repository: prefix to identify this as a repository resource
     # - repository_id: to scope within a specific repository
@@ -428,7 +450,7 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id, 
 
     defaults = {
         'title': item_details.get('title', 'Unknown Title'),
-        'content_type': 'text/plain',  # Explicitly set to 'text/plain'
+        'content_type': content_type,
         'tokenizedContent': tokenized_content,
         'repository': repository,
         'repository_source_id': repository_id,
@@ -446,6 +468,7 @@ def repository_text_import(request, repository_id, group_id, text_key, file_id, 
     if not created:
         # If the text already exists, update its tokenized content
         master_text.tokenizedContent = tokenized_content
+        master_text.content_type = content_type
         master_text.save()
 
     # Add text to project only if it's not already present

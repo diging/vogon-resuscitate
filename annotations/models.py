@@ -1191,15 +1191,17 @@ class DocumentPosition(models.Model):
     XPATH = 'XP'
     CHARACTER_OFFSET = 'CO'
     WHOLE_DOCUMENT = 'WD'
-    TYPES = [TOKEN_ID, BOUNDING_BOX, XPATH, CHARACTER_OFFSET, WHOLE_DOCUMENT]
+    TEI_XPATH = 'TXP'
+    TYPES = [TOKEN_ID, BOUNDING_BOX, XPATH, CHARACTER_OFFSET, WHOLE_DOCUMENT, TEI_XPATH]
     TYPE_CHOICES = (
         (TOKEN_ID, 'Token IDs'),
         (BOUNDING_BOX, 'Bounding box'),
         (XPATH, 'XPath'),
         (CHARACTER_OFFSET, 'Character offsets'),
-        (WHOLE_DOCUMENT, 'Whole document')
+        (WHOLE_DOCUMENT, 'Whole document'),
+        (TEI_XPATH, 'TEI XPointer')
     )
-    position_type = models.CharField(max_length=2, choices=TYPE_CHOICES)
+    position_type = models.CharField(max_length=3, choices=TYPE_CHOICES)
     """
     Used to control snippet rendering, and included in Quadriga accessions.
 
@@ -1210,6 +1212,7 @@ class DocumentPosition(models.Model):
     * ``XP`` - XPath
     * ``CO`` - Character offset.
     * ``WD`` - Whole document.
+    * ``TXP`` - TEI XPointer: XPath to element and character offsets within it.
     """
 
     position_value = models.TextField()
