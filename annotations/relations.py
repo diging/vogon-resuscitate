@@ -338,7 +338,7 @@ def create_template(template_data, part_data):
                 object_type=str(third_node_type),
                 object_value=third_node_value
             )
-            template.structured_mapping = mapping
+            template.default_mapping = mapping
             template.save()
             
         for datum in creation_data:
@@ -636,9 +636,9 @@ def update_template(template, template_data, part_data_list):
         template.save()
 
         # Update or create the DefaultMapping
-        if template.structured_mapping:
+        if template.default_mapping:
             # Update existing mapping
-            mapping = template.structured_mapping
+            mapping = template.default_mapping
             
             # Only update if values are provided
             if first_node_type and first_node_value:
@@ -663,7 +663,7 @@ def update_template(template, template_data, part_data_list):
                 object_type=str(third_node_type),
                 object_value=third_node_value
             )
-            template.structured_mapping = mapping
+            template.default_mapping = mapping
             template.save()
             
 
