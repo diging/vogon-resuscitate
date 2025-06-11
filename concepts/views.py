@@ -6,7 +6,7 @@ from concepts.models import Concept, Type, Comment
 from concepts.filters import *
 from concepts.lifecycle import *
 from annotations.models import RelationSet, Appellation, TextCollection, VogonUserDefaultProject
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from concepts.authorities import ConceptpowerAuthority, update_instance
 from django.contrib.auth.decorators import login_required
 import re, urllib.request, urllib.parse, urllib.error, string
@@ -14,6 +14,7 @@ from unidecode import unidecode
 from urllib.parse import urlencode
 from annotations.decorators import vogon_admin_or_staff_required
 from django.contrib import messages
+from concepts.decorators import concept_access_required
 
 
 
@@ -91,9 +92,6 @@ def concepts(request):
         qs = Concept.objects.filter(appellation__isnull=False).distinct('id').order_by('-id')
     else:
         qs = Concept.objects.filter(appellation__isnull=False, createdBy=request.user).distinct('id').order_by('-id')
-    
-    qs = qs.prefetch_related('comments')
-    
     filtered = ConceptFilter(request.GET, queryset=qs)
     qs = filtered.qs
 
@@ -118,6 +116,12 @@ def concepts(request):
         # If page is out of range (e.g. 9999), deliver last page of results.
         concepts = paginator.page(paginator.num_pages)
 
+    for concept in concepts:
+        if request.user.is_admin:
+            concept.relations = RelationSet.objects.filter(terminal_nodes=concept).order_by('-created')[:3]
+        else:
+            concept.relations = RelationSet.objects.filter(terminal_nodes=concept, createdBy=request.user).order_by('-created')[:3]
+        
     context = {
         'paginator': paginator,
         'concepts': concepts,
@@ -151,7 +155,7 @@ def add_concept(request, concept_id):
     next_page = request.GET.get('next', reverse('concepts'))
     back_to_page = request.GET.get('next')
     context = {
-        'concept': source,
+        'concept': concept,
         'next_page': urllib.parse.quote_plus(next_page),
         'back_to_page': back_to_page
     }
@@ -210,3 +214,76 @@ def sandbox(request, text_id):
     from annotations.models import RelationTemplate
 
     return render(request, "annotations/relationtemplate_creator.html", {})
+
+@login_required
+@concept_access_required
+def add_comment_reply(request, comment_id):
+    parent_comment = get_object_or_404(Comment, pk=comment_id)
+    if request.method == "POST":
+        reply_text = request.POST.get("reply_text", "").strip()
+        if reply_text:
+            Comment.objects.create(
+                concept=parent_comment.concept,
+                parent=parent_comment,
+                text=reply_text,
+                created_by=request.user
+            )
+        next_page = request.GET.get('next', reverse('concept', args=(parent_comment.concept.id,)))
+        return HttpResponseRedirect(next_page)
+    
+    return HttpResponseRedirect(reverse('concepts'))
+
+@login_required
+@concept_access_required
+def add_concept_comment(request, concept_id):
+    if request.method == 'POST':
+        concept = get_object_or_404(Concept, pk=concept_id)
+        comment_text = request.POST.get('comment_text')
+        
+        if comment_text:
+            comment = Comment.objects.create(
+                concept=concept,
+                created_by=request.user,
+                text=comment_text
+            )
+            messages.success(request, 'Comment added successfully.')
+        else:
+            messages.error(request, 'Comment text cannot be empty.')
+            
+    return redirect('concept', concept_id=concept_id)
+
+@login_required
+def edit_comment(request, comment_id):
+    comment = get_object_or_404(Comment, pk=comment_id)
+    
+    if request.user != comment.created_by:
+        messages.error(request, 'You do not have permission to edit this comment.')
+        return redirect('concept', concept_id=comment.concept.id)
+
+    if request.method == 'POST':
+        comment_text = request.POST.get('comment_text')
+        if comment_text:
+            comment.text = comment_text
+            comment.save()
+            messages.success(request, 'Comment edited successfully.')
+            return redirect('concept', concept_id=comment.concept.id)
+        else:
+            messages.error(request, 'Comment text cannot be empty.')
+    
+    return redirect('concept', concept_id=comment.concept.id)
+
+@login_required
+def delete_comment(request, comment_id):
+    comment = get_object_or_404(Comment, pk=comment_id)
+    
+    if request.user != comment.created_by:
+        messages.error(request, 'You do not have permission to delete this comment.')
+        return redirect('concept', concept_id=comment.concept.id)
+
+    if request.method == 'POST':
+        concept_id = comment.concept.id
+        comment.delete()
+        messages.success(request, 'Comment deleted successfully.')
+        return redirect('concept', concept_id=concept_id)
+    
+    return redirect('concept', concept_id=comment.concept.id)

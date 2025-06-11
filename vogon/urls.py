@@ -122,14 +122,13 @@ urlpatterns = [
     re_path(r'^concept/(?P<concept_id>[0-9]+)/edit/$', conceptViews.edit_concept, name='edit_concept'),
     re_path(r'^concept/(?P<source_concept_id>[0-9]+)/merge/$', conceptViews.merge_concepts, name='merge_concepts'),
     re_path(r'^concept/(?P<source_concept_id>[0-9]+)/flag/$', conceptViews.flag_concept, name='flag_concept'),
+    re_path(r'^comment/(?P<comment_id>[0-9]+)/reply/$', conceptViews.add_comment_reply, name='add_comment_reply'),
+    re_path(r'^comment/(?P<comment_id>[0-9]+)/edit/', conceptViews.edit_comment, name='edit_comment'),
+    re_path(r'^comment/(?P<comment_id>[0-9]+)/delete/', conceptViews.delete_comment, name='delete_comment'),
+    re_path(r'^concept/(?P<concept_id>[0-9]+)/comment/add/$', conceptViews.add_concept_comment, name='add_concept_comment'),
 
     # url(r'^concept_autocomplete/', views.search_views.concept_autocomplete, name='concept_autocomplete'),
-
-    re_path(r'^quadruples/appellation/(?P<appellation_id>[0-9]+).xml$', views.quadruple_views.appellation_xml, name='appellation_xml'),
-    re_path(r'^quadruples/relation/(?P<relation_id>[0-9]+).xml$', views.quadruple_views.relation_xml, name='relation_xml'),
-    re_path(r'^quadruples/relationset/(?P<relationset_id>[0-9]+).xml$', views.quadruple_views.relationset_xml, name='relationset_xml'),
-    re_path(r'^quadruples/text/(?P<text_id>[0-9]+)/(?P<user_id>[0-9]+).xml$', views.quadruple_views.text_xml, name='text_xml'),
-
+    
     re_path(r'^repository/(?P<repository_id>[0-9]+)/collections/$', views.repository_views.repository_collections, name='repository_collections'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/browse/$', views.repository_views.repository_browse, name='repository_browse'),
     re_path(r'^repository/(?P<repository_id>[0-9]+)/search/$', views.repository_views.repository_search, name='repository_search'),

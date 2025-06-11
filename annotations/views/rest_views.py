@@ -24,10 +24,14 @@ from annotations.models import *
 from concepts.models import Concept, Type
 from concepts.lifecycle import *
 
+from external_accounts.models import CitesphereAccount
+from annotations.quadriga import submit_to_quadriga, generate_graph_data
+
 import uuid
 
 import requests
 from django.conf import settings
+from django.utils import timezone 
 
 import json
 
@@ -454,7 +458,6 @@ class PredicateViewSet(AnnotationFilterMixin, viewsets.ModelViewSet):
     serializer_class = AppellationSerializer
     permission_classes = (ProjectOwnerOrCollaboratorAccessOrReadOnly, )
 
-
 class RelationSetViewSet(viewsets.ModelViewSet):
     queryset = RelationSet.objects.all()
     serializer_class = RelationSetSerializer
@@ -462,6 +465,10 @@ class RelationSetViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self, *args, **kwargs):
         queryset = super(RelationSetViewSet, self).get_queryset(*args, **kwargs)
+
+        # Perform readiness checks only for fetched RelationSets
+        for relationset in queryset:
+            relationset.update_status()
 
         textid = self.request.query_params.getlist('text')
         userid = self.request.query_params.getlist('user')
@@ -481,6 +488,49 @@ class RelationSetViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(project_id=project_id)
 
         return queryset.order_by('-created')
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_name='submit')
+    def submit(self, request):
+
+        user = request.user
+        quadruple_id = request.data.get('pk')
+        
+        project_id = request.data.get('project_id')
+        project = TextCollection.objects.get(pk=project_id)
+        
+        try:
+            relationset = RelationSet.objects.get(pk=quadruple_id)
+
+        except RelationSet.DoesNotExist:
+            return Response({'error': 'RelationSet not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if relationset.createdBy != user:
+            return Response({'error': 'You are not authorized to submit this RelationSet.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        if relationset.status != RelationSet.STATUS_READY_TO_SUBMIT:
+            return Response({'error': 'Quadruple(s) is not ready to submit.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if relationset.submitted:
+            return Response({'error': 'Quadruple(s) has already been submitted.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if not project.quadriga_id:
+            return Response({'error': 'Project does not have a Quadriga ID configured. Please configure a Quadriga ID in the project settings.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            submit_to_quadriga(relationset, user, project)
+            return Response({'success': 'Quadruples submitted successfully.'}, status=status.HTTP_200_OK)
+
+        except CitesphereAccount.DoesNotExist:
+            return Response({'error': 'No Citesphere account found.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        except requests.RequestException as e:
+            logger.error("ERROR %s", e)
+            return Response({'error': 'Internal Server Error Occured. Please try again later!'},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class RelationViewSet(viewsets.ModelViewSet):
@@ -526,6 +576,7 @@ class RelationViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(createdBy_id=self.request.user.id)
 
         return queryset
+
 
 
 # TODO: do we need this anymore?
@@ -672,6 +723,85 @@ class ConceptViewSet(viewsets.ModelViewSet):
             logger.error(f'Error searching concepts: {str(e)}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=False)
+    def search_paginated(self, request, **kwargs):
+        """
+        A paginated version of the concept search endpoint.
+        First tries the full query, then individual parts if less than 10 results.
+        """
+        q = request.GET.get('search', None)
+        if not q:
+            return Response({'results': []})
+            
+        page = int(request.GET.get('page', 1))
+        per_page = int(request.GET.get('per_page', 10))
+        pos = request.GET.get('pos', None)
+        
+        filtered_words = [word for word in q.split() if len(word) > 3]
+        all_concepts = []
+        seen_uris = set()
+        
+        url = f"{settings.CONCEPTPOWER_ENDPOINT}ConceptSearch"
+        parameters = {
+            'word': q,
+            'pos': pos if pos else None,
+        }
+        headers = {
+            'Accept': 'application/json',
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, params=parameters)
+            
+            if response.status_code == 200:
+                data = response.json()
+                for concept_entry in data.get('conceptEntries', []):
+                    concept = parse_concept(concept_entry)
+                    concept = _relabel(concept)
+                    if concept['uri'] not in seen_uris:
+                        seen_uris.add(concept['uri'])
+                        all_concepts.append(concept)
+            else:
+                error_msg = 'ConceptPower service is currently unavailable. Please try again later.'
+                return Response({'error': error_msg}, status=response.status_code)
+        except Exception as e:
+            logger.error(f'Error searching concepts: {str(e)}')
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        if len(all_concepts) < per_page:
+            for word in filtered_words:
+                try:
+                    parameters['word'] = word
+                    response = requests.get(url, headers=headers, params=parameters)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        for concept_entry in data.get('conceptEntries', []):
+                            concept = parse_concept(concept_entry)
+                            concept = _relabel(concept)
+                            if concept['uri'] not in seen_uris:
+                                seen_uris.add(concept['uri'])
+                                all_concepts.append(concept)
+                    else:
+                        error_msg = 'ConceptPower service is currently unavailable. Please try again later.'
+                        return Response({'error': error_msg}, status=response.status_code)
+                except Exception as e:
+                    logger.error(f'Error searching concepts for word "{word}": {str(e)}')
+                    return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        total_concepts = len(all_concepts)
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        
+        paginated_concepts = all_concepts[start_idx:end_idx]
+        
+        return Response({
+            'results': paginated_concepts,
+            'has_more': end_idx < total_concepts,
+            'total': total_concepts,
+            'page': page,
+            'per_page': per_page
+        })
 
     def get_queryset(self, *args, **kwargs):
         """
