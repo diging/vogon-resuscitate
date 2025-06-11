@@ -168,13 +168,14 @@ def get_by_namespace(namespace):
                 if manager.namespace == namespace ]
 
 
-def add(instance):
+def add(instance, user):
     """
     Add the pending concept to Conceptpower
 
     Parameters
     -----------
     instance : :class:'.Concept'
+    user : :class:`.User`
 
     Returns
     -------
@@ -185,7 +186,7 @@ def add(instance):
 
     .. code-block:: python
 
-       >>> add(concept)
+       >>> add(concept, user)
        {
            u'word': u'Askania-Nova',
            u'description': u'A biosphere reserve located in Kherson Oblast, Ukraine',
@@ -213,8 +214,7 @@ def add(instance):
         kwargs.update({
             'equal_uris': instance.uri
         })
-    response = conceptpower.create(settings.CONCEPTPOWER_USERID,
-                                   settings.CONCEPTPOWER_PASSWORD,
+    response = conceptpower.create(user,
                                    instance.label, pos.lower(),
                                    concept_list, instance.description,
                                    instance.typed.uri)
