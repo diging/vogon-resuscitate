@@ -5,6 +5,7 @@ from django.urls import reverse
 from concepts.models import Concept, Type, Comment
 from concepts.filters import *
 from concepts.lifecycle import *
+from concepts.conceptpower import ConceptpowerCredentialsMissingException
 from annotations.models import RelationSet, Appellation, TextCollection, VogonUserDefaultProject
 from django.shortcuts import render, get_object_or_404, redirect
 from concepts.authorities import ConceptpowerAuthority, update_instance
@@ -14,6 +15,7 @@ from unidecode import unidecode
 from urllib.parse import urlencode
 from annotations.decorators import vogon_admin_or_staff_required
 from django.contrib import messages
+from external_accounts.models import ConceptpowerAccount
 from concepts.decorators import concept_access_required
 
 
@@ -151,7 +153,7 @@ def concept(request, concept_id):
 def add_concept(request, concept_id):
 
     source = get_object_or_404(Concept, pk=concept_id)
-    concept = ConceptLifecycle(source)
+    concept = ConceptLifecycle(source, request.user)
     next_page = request.GET.get('next', reverse('concepts'))
     back_to_page = request.GET.get('next')
     context = {
@@ -160,19 +162,24 @@ def add_concept(request, concept_id):
         'back_to_page': back_to_page
     }
 
+    try:
+        ConceptpowerAccount.objects.get(user=request.user)
+    except ConceptpowerAccount.DoesNotExist:
+        messages.warning(request, "You need to connect your Conceptpower account before adding concepts.")
+        return redirect(f"{reverse('conceptpower_login')}?next={request.path}")
+
     # Process only if the concept is still in a resolvable state (e.g., PENDING or FLAGGED)
     if source.concept_state in [Concept.PENDING, Concept.FLAGGED]:
         if request.method == 'POST':
             try:
                 concept.add()
-            except ConceptUpstreamException as E:
-                messages.error(
-                    request,
-                    'ERROR: There was an error while communicating with Conceptpower.'
-                )
+            except ConceptpowerCredentialsMissingException as e:
+                messages.error(request, str(e))
+                return redirect(f"{reverse('conceptpower_login')}?next={request.path}")
+            except Exception as e:
+                messages.error(request, str(e))
                 return HttpResponseRedirect(reverse('concepts'))
             return HttpResponseRedirect(next_page)
-
 
         candidates = concept.get_similar()
         matches = concept.get_matching()

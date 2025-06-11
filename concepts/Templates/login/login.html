@@ -1,0 +1,45 @@
+{% extends "annotations/base.html" %}
+{% load static %}
+
+{% comment %} <link rel="stylesheet" href="/css/login.css"> {% endcomment %}
+{% comment %} <link rel="stylesheet" type="text/css" href="{% static "login/css/form.css" %}" /> {% endcomment %}
+{% block main %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="{% static "login/css/form.css" %}" />
+
+<div class="container-fluid">
+    <div class="center-wrapper">
+    <div class="row justify-content-center">
+        <div class="h3 text-center mb-4 conceptpower-header">Sign In to Conceptpower</div>
+            <div class="card conceptpower-card">
+                <div class="card-body">
+                    <form class="login" method="POST" action="{% url 'conceptpower_login' %}">
+                        {% csrf_token %}
+
+                        <div class="form-group mb-3">
+                            <label for="username">Username</label>
+                            <input type="text" name="username" class="form-control" id="username" required placeholder="Enter username...">
+                        </div>
+
+                        <div class="form-group mb-3 position-relative">
+                            <label for="password">Password</label>
+                            <input type="password" name="password" class="form-control" id="password" required placeholder="Enter password...">
+                        </div>
+                        
+
+                        {% if request.GET.next %}
+                        <input type="hidden" name="next" value="{{ request.GET.next }}">
+                        {% endif %}
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button class="btn btn-cp" type="submit">
+                                Sign In <i class="fas fa-sign-in-alt"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 
+{% endblock %}

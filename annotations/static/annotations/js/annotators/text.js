@@ -101,8 +101,8 @@ var ConceptSearch = {
         },
         getErrorMessage: function() {
             if (this.error) {
-                // Check if the error message contains specific ConceptPower service errors
-                if (this.errorMessage.includes('ConceptPower service is currently unavailable')) {
+                // Check if the error message contains specific Conceptpower service errors
+                if (this.errorMessage.includes('Conceptpower service is currently unavailable')) {
                     return 'The concept search service is temporarily unavailable. Please try again later.';
                 } else if (this.errorMessage.includes('500')) {
                     return 'An internal server error occurred. Please try again later.';

@@ -267,3 +267,5 @@ PROJECT_TEXT_PAGINATION_PAGE_SIZE = 20
 
 # Django 3.2+ requires to explicitly define the type of default auto-created primary keys.
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
+ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')

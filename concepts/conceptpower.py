@@ -1,7 +1,10 @@
 import requests,json
 from requests.auth import HTTPBasicAuth
+from external_accounts.models import ConceptpowerAccount
 
-
+class ConceptpowerCredentialsMissingException(Exception):
+    """Raised when Conceptpower credentials for a user are missing."""
+        
 class Conceptpower:
 
     def __init__(self, endpoint, namespace):
@@ -49,10 +52,18 @@ class Conceptpower:
             raise ValueError(f"Error fetching concept data: {response.status_code}")
         return concept_entries[0] if concept_entries else {}
 
-    def create(self, user, password, label, pos, conceptlist, description,
+    def create(self, user, label, pos, conceptlist, description,
                concepttype, synonym_ids=[], equal_to=[], similar_uris=[]):
 
-        auth = HTTPBasicAuth(user,password)
+        try:
+            conceptpower_account = ConceptpowerAccount.objects.get(user=user)
+        except ConceptpowerAccount.DoesNotExist:
+            raise ConceptpowerCredentialsMissingException(
+                f"User {user.username} has not added Conceptpower credentials."
+            )
+        username = conceptpower_account.username
+        password = conceptpower_account.password
+        auth = HTTPBasicAuth(username,password)
         rest_url = "{0}concept/add".format(self.endpoint)
 
         concept_data = {
@@ -68,8 +79,12 @@ class Conceptpower:
 
         r = requests.post(url=rest_url, data=json.dumps(concept_data), auth=auth)
 
-        if r.status_code != requests.codes.ok:
-            raise RuntimeError(r.status_code, r.text)
+        if r.status_code == requests.codes.unauthorized:
+            raise ConceptpowerCredentialsMissingException(
+                f"Invalid Conceptpower credentials for user {user.username}. Please check your username and password."
+            )
+        elif r.status_code != requests.codes.ok:
+            raise RuntimeError(f"Conceptpower API error (HTTP {r.status_code}): {r.text}")
 
         # Returned data after successful response
         return r.json()
@@ -79,7 +94,7 @@ class Conceptpower:
         Parse a concept and return a dictionary with the required fields.
 
         Args:
-            concept_entry (dict): A dictionary representing a concept entry from the ConceptPower API. 
+            concept_entry (dict): A dictionary representing a concept entry from the Conceptpower API. 
             Example:
             {
                 "id": "CONcQyweoHkr156",

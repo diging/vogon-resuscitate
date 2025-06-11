@@ -7,13 +7,15 @@ from django.conf import settings
 from django.utils.timezone import now
 from datetime import timedelta
 
-from .models import CitesphereAccount
+from .models import CitesphereAccount, ConceptpowerAccount
 from repository.models import Repository
 
 from django.contrib import messages
 
 import requests
 import secrets
+
+from django.contrib import messages
 
 @login_required
 def citesphere_login(request):
@@ -157,4 +159,51 @@ def citesphere_disconnect(request, repository_id):
             'message': 'Error disconnecting Citesphere account. Please try again or contact support if the issue persists.'
         })
 
+    return redirect(reverse('dashboard'))
+
+@login_required
+def conceptpower_login(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        next_url = request.POST.get('next', reverse('dashboard'))
+
+        if not username or not password:
+            messages.error(request, "Both username and password are required.")
+            return render(request, 'login/login.html')
+
+        account, created = ConceptpowerAccount.objects.get_or_create(user=request.user)
+        account.username = username
+        account.password = password
+        account.save()
+        messages.success(request, "Successfully connected to Conceptpower!")
+        return redirect(next_url)
+    return render(request, 'login/login.html')
+    
+@login_required
+def conceptpower_update_password(request):
+    if request.method == 'POST':
+        new_password = request.POST.get("new_password")
+
+        try:
+            account = ConceptpowerAccount.objects.get(user=request.user)
+            account.password = new_password
+            account.save()
+            messages.success(request, "Password updated successfully!")
+        except ConceptpowerAccount.DoesNotExist:
+            messages.error(request, "No Conceptpower account found.")
+        except Exception as e:
+            messages.error(request, "Something went wrong! Please try again.")
+            print(f"Error updating Conceptpower password: {e}")
+
+    return redirect(reverse('dashboard'))
+
+@login_required
+def conceptpower_disconnect(request):
+    try:
+        ConceptpowerAccount.objects.filter(user=request.user).delete()
+        messages.success(request, "Your Conceptpower account has been successfully disconnected.")
+    except Exception as e:
+        messages.error(request, f"Error disconnecting Conceptpower account: {str(e)}")
+        
     return redirect(reverse('dashboard'))

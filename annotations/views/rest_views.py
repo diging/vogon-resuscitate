@@ -613,7 +613,7 @@ class ConceptViewSet(viewsets.ModelViewSet):
                     concepts.append(concept)
                 return Response({'results': concepts})
             else:
-                error_msg = 'ConceptPower service is currently unavailable. Please try again later.'
+                error_msg = 'Conceptpower service is currently unavailable. Please try again later.'
                 return Response({'error': error_msg}, status=response.status_code)
         except Exception as e:
             logger.error(f'Error searching concepts: {str(e)}')
@@ -742,7 +742,7 @@ class ConceptViewSet(viewsets.ModelViewSet):
 
 def fetch_concept_data(concept_uri, pos=None):
     """
-    Fetch concept data from ConceptPower based on the given URI (unique identifier) and part of speech (pos).
+    Fetch concept data from Conceptpower based on the given URI (unique identifier) and part of speech (pos).
     Returns the concept data in a suitable format for the create function.
     """
 
@@ -758,7 +758,7 @@ def fetch_concept_data(concept_uri, pos=None):
             concept_entry = data.get('conceptEntries', [None])[0]
             return parse_concept(concept_entry) if concept_entry else {}
         except Exception as e:
-            raise ValueError(f"Error parsing ConceptPower response: {str(e)}")
+            raise ValueError(f"Error parsing Conceptpower response: {str(e)}")
     else:
         raise ValueError(f"Error fetching concept data: {response.status_code}")
 
