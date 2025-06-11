@@ -399,6 +399,13 @@ class RelationTemplateForm(forms.ModelForm):
             self.initial['third_node_type'] = mapping.object_type
             self.initial['third_node_value'] = mapping.object_value
 
+        # set terminal_nodes initial value for editing
+        if self.instance and self.instance.pk:
+            # use the raw field value to ensure we get the actual data
+            terminal_nodes_value = getattr(self.instance, '_terminal_nodes', None)
+            if terminal_nodes_value:
+                self.initial['terminal_nodes'] = terminal_nodes_value
+
     def save(self, commit=True):
         # Call parent's save method but don't commit to database yet
         instance = super(RelationTemplateForm, self).save(commit=False)
