@@ -123,10 +123,7 @@ AppellationDisplayItem = {
             }
 
             var calc = calculateOverlayPositions(this.appellation.position);
-            this.position     = calc.position;
-            this.mid_lines    = calc.mid_lines;
-            this.end_position = calc.end_position;
-            this.line_height  = calc.line_height;
+            applyOverlayPositions(this, calc);
         }
     }
 }

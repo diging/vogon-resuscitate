@@ -209,3 +209,12 @@ var calculateOverlayPositions = function(selection) {
 
     return result;
 };
+
+// Utility function to apply calculated overlay positions to a component
+// Eliminates code duplication between TextSelectionDisplay and AppellationDisplayItem
+var applyOverlayPositions = function(component, calc) {
+    component.position = calc.position;
+    component.mid_lines = calc.mid_lines;
+    component.end_position = calc.end_position;
+    component.line_height = calc.line_height;
+};
