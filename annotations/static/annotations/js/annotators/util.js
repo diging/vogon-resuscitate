@@ -150,3 +150,71 @@ getCreatorName = function(creator) {
         return creator.username;
     }
 }
+
+// Shared utility: Convert character offsets to overlay rectangles for highlighting selections/Appellations.
+// Returns { position, mid_lines, end_position, line_height }
+//  updatePosition calculations produced so that existing templates keep working unchanged.
+var calculateOverlayPositions = function(selection) {
+    // Guard against empty selections
+    if (!selection || selection.startOffset == null || selection.endOffset == null) {
+        return { position: {}, mid_lines: [], end_position: {}, line_height: 0 };
+    }
+
+    var result = { position: {}, mid_lines: [], end_position: {}, line_height: 0 };
+
+    // Primary rectangle for the beginning of the selection
+    result.position = getTextPosition(selection);
+
+    // Obtain basic line-height from the styled element
+    var lineHeight = parseInt(getStyle('text-content', 'line-height'));
+    // Same subtraction the legacy code used so adjacent rectangles do not visibly overlap
+    result.line_height = lineHeight - 1;
+
+    // Compute number of text lines spanned
+    var endPoint = getPointPosition(selection.endOffset);
+    var nLines = 1 + (endPoint.bottom - result.position.bottom) / lineHeight;
+
+    // Multi-line handling
+    if (nLines > 1) {
+        // Padding logic copied from legacy code (Chrome/Firefox differences)
+        var _padding = parseInt(getStyle('text-content', 'padding'));
+        if (!_padding) { // Firefox fallback
+            _padding = parseInt(getStyle('text-content', 'paddingLeft'));
+        }
+        var _left  = parseInt(document.getElementById('text-content').clientLeft);
+        var _width = parseInt(document.getElementById('text-content').clientWidth);
+        var left   = _left + _padding;
+        var width  = _width - (2 * _padding);
+
+        // End-line rectangle (runs from far left to selection end)
+        result.end_position = {
+            top:   endPoint.top,
+            left:  left,
+            width: endPoint.right - left
+        };
+
+        // Mid-line rectangles (full width between first and last line)
+        for (var i = 0; i < Math.max(0, nLines - 2); i++) {
+            result.mid_lines.push({
+                top:    result.position.top + (i + 1) * lineHeight,
+                left:   left,
+                width:  width,
+                height: lineHeight - 1
+            });
+        }
+    } else {
+        // Single-line selection – nothing special
+        result.end_position = {};
+    }
+
+    return result;
+};
+
+// Utility function to apply calculated overlay positions to a component
+// Eliminates code duplication between TextSelectionDisplay and AppellationDisplayItem
+var applyOverlayPositions = function(component, calc) {
+    component.position = calc.position;
+    component.mid_lines = calc.mid_lines;
+    component.end_position = calc.end_position;
+    component.line_height = calc.line_height;
+};

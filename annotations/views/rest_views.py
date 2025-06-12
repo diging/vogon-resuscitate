@@ -7,6 +7,7 @@ from django.conf import settings
 
 from rest_framework import status
 from rest_framework.settings import api_settings
+from rest_framework.exceptions import ValidationError
 
 from rest_framework import viewsets, exceptions, status
 from rest_framework.authentication import SessionAuthentication
@@ -47,17 +48,15 @@ class ProjectOwnerOrCollaboratorAccessOrReadOnly(IsAuthenticatedOrReadOnly):
     def has_permission(self, request, view):
         if not super().has_permission(request, view):
             return False
-            
-        # Allow GET requests for authenticated users
-        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+        
+        # let has_object_permission handle the authorization for DELETE/PUT/PATCH
+        if request.method in ['GET', 'HEAD', 'OPTIONS', 'DELETE', 'PUT', 'PATCH']:
             return True
 
-        # check if user is owner or collaborator For POST/PUT/DELETE 
+        # check if user is owner or collaborator For POST
         text_id = None
         if request.method == 'POST':
             text_id = request.data.get('occursIn')
-        elif request.method in ['PUT', 'DELETE']:
-            text_id = request.query_params.get('text')
             
         if text_id:
             try:
@@ -73,10 +72,17 @@ class ProjectOwnerOrCollaboratorAccessOrReadOnly(IsAuthenticatedOrReadOnly):
         return False
 
     def has_object_permission(self, request, view, annotation):
-        # Allow GET requests for authenticated users
+        logger.debug(f"Checking object permission for {request.method} request by user {request.user}")
+        
         if request.method in ['GET', 'HEAD', 'OPTIONS']:
             return True
             
+        # Allow users to delete or edit their own annotations
+        if request.method in ['DELETE', 'PUT', 'PATCH']:
+            if annotation.createdBy == request.user:
+                logger.debug(f"User {request.user} is creator of annotation - allowing {request.method}")
+                return True
+
         # Check if user is owner or collaborator of the text's collection
         text = None
         if hasattr(annotation, 'occursIn'):
@@ -87,8 +93,10 @@ class ProjectOwnerOrCollaboratorAccessOrReadOnly(IsAuthenticatedOrReadOnly):
             for collection in collections:
                 if (request.user == collection.ownedBy or 
                     request.user in collection.collaborators.all()):
+                    logger.debug(f"User {request.user} has permission through collection {collection.id}")
                     return True
-                    
+        
+        logger.debug(f"User {request.user} does not have permission")
         return False
 
 # http://stackoverflow.com/questions/17769814/django-rest-framework-model-serializers-read-nested-write-flat
@@ -327,6 +335,102 @@ class AppellationViewSet(SwappableSerializerMixin, AnnotationFilterMixin, viewse
 
         headers = self.get_success_headers(serializer.data)
         return Response(reserializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        try:
+            logger.debug(f"Update request from user {request.user.id} for appellation {kwargs.get('pk')}")
+            instance = self.get_object()
+            logger.debug(f"Appellation creator: {instance.createdBy.id}")
+            
+            # Ensure interpretation is provided
+            interpretation_uri = request.data.get('interpretation')
+            if not interpretation_uri:
+                return Response(
+                    {"error": "An appellation must have a concept (interpretation) to be saved."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Get the position data
+            position_value = request.data.get('position', {}).get('position_value')
+            if position_value:
+                # Update position
+                if not instance.position:
+                    instance.position = DocumentPosition.objects.create(
+                        occursIn_id=request.data['position']['occursIn'],
+                        position_type=request.data['position']['position_type'],
+                        position_value=position_value
+                    )
+                else:
+                    instance.position.position_value = position_value
+                    instance.position.save()
+
+            # Update string representation
+            if 'stringRep' in request.data:
+                instance.stringRep = request.data['stringRep']
+            
+            # Update interpretation
+            try:
+                concept = Concept.objects.get(uri=interpretation_uri)
+                instance.interpretation = concept
+            except Concept.DoesNotExist:
+                logger.error(f"Client error: Concept does not exist")
+                return Response(
+                    {"error": "The provided concept (interpretation) does not exist."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            instance.save()
+            
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+            
+        except (KeyError, ValueError, ValidationError) as e:
+            # Client errors - bad data or missing required fields
+            logger.error(f"Client error in appellation update: {str(e)}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            # Server errors - unexpected exceptions
+            logger.error(f"Server error updating appellation: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "An unexpected error occurred while processing your request."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            logger.debug(f"Attempting to delete appellation {instance.id}")
+            
+            # Check if this Appellation is part of a Relation
+            in_relations = (
+                RelationSet.objects.filter(
+                    constituents__in=Relation.objects.filter(
+                        Q(source_content_type=ContentType.objects.get_for_model(Appellation), 
+                          source_object_id=instance.id) |
+                        Q(object_content_type=ContentType.objects.get_for_model(Appellation),
+                          object_object_id=instance.id) |
+                        Q(predicate=instance)
+                    )
+                ).exists()
+            )
+            if in_relations:
+                return Response(
+                    {"detail": "Cannot delete an Appellation used in a Relation."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            logger.error(f"Error deleting appellation: {str(e)}", exc_info=True)
+            return Response(
+                {"detail": f"Error deleting appellation: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def get_queryset(self, *args, **kwargs):
         queryset = AnnotationFilterMixin.get_queryset(self, *args, **kwargs)

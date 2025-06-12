@@ -1,129 +1,260 @@
 var AppellationListItem = {
     props: ['appellation', 'sidebar', 'index'],
     template: `<li v-bind:class="{
-						'list-group-item': true,
-						'appellation-list-item': true,
-						'appellation-selected': isSelected()
-					}">
-					
-				<span class="pull-right text-muted btn-group">
-					<a class="btn btn-xs" v-on:click="select" data-tooltip="Select appellation">
-						<span class="glyphicon glyphicon-hand-down"></span>
-					</a>
-					<a class="btn btn-xs" v-on:click="toggle" v-bind:data-tooltip="appellation.visible ? 'Hide appellation' : 'Show appellation'">
-						<span v-if="appellation.visible" class="glyphicon glyphicon glyphicon-eye-open"></span>
-						<span v-else class="glyphicon glyphicon glyphicon-eye-close"></span>
-					</a>
-				</span>
-				
-				{{ label() }}
-				<div class="text-warning">
-					<input v-if="sidebar == 'submitAllAppellations'" type="checkbox" v-model="checked" aria-label="...">
-					Created by <strong>{{ getCreatorName(appellation.createdBy) }}</strong> on {{ getFormattedDate(appellation.created) }}
-				</div>
-				</li>`,
+                        'list-group-item': true,
+                        'appellation-list-item': true,
+                        'appellation-selected': isSelected()
+                    }">
+                    
+                <span class="pull-right text-muted btn-group">
+                    <a class="btn btn-xs" v-on:click="select" :disabled="isEditMode" data-tooltip="Select appellation">
+                        <span class="glyphicon glyphicon-hand-down"></span>
+                    </a>
+                    <a class="btn btn-xs" v-on:click="toggle" :disabled="isEditMode" v-bind:data-tooltip="appellation.visible ? 'Hide appellation' : 'Show appellation'">
+                        <span v-if="appellation.visible" class="glyphicon glyphicon glyphicon-eye-open"></span>
+                        <span v-else class="glyphicon glyphicon glyphicon-eye-close"></span>
+                    </a>
+                    <a class="btn btn-xs" @click="editAppellation" :disabled="isEditMode" data-tooltip="Edit appellation">
+                        <span class="glyphicon glyphicon-pencil"></span>
+                    </a>
+                    <a class="btn btn-xs" v-on:click="deleteAppellation" :disabled="isEditMode" data-tooltip="Delete appellation">
+                        <span class="glyphicon glyphicon-trash" style="color: #d9534f;"></span>
+                    </a>
+                </span>
+                
+                <div v-if="deleteError" class="text-danger" style="margin-bottom: 5px;">
+                    {{ deleteError }}
+                </div>
+                
+                {{ label() }}
+                <div class="text-warning">
+                    <input v-if="sidebar == 'submitAllAppellations'" type="checkbox" v-model="checked" :disabled="isEditMode" aria-label="...">
+                    Created by <strong>{{ getCreatorName(appellation.createdBy) }}</strong> on {{ getFormattedDate(appellation.created) }}
+                </div>
+                </li>`,
     data: function () {
         return {
             checked: true,
-            canUncheckAll: false,
-            canCheckAll: false
-        }
+            deleteError: null,
+            isEditMode: false
+        };
     },
     mounted: function () {
-        this.watchUncheckStore();
-        this.watchCheckStore();
-        this.$root.$on('appellationClicked', data => {
+        if (typeof store !== 'undefined' && store.watch && typeof this.watchUncheckStore === 'function') {
+            this.watchUncheckStore(); 
+            this.watchCheckStore();
+        }
+        
+        // Handler for $root event, specific to this component instance
+        this.appellationClickedHandler = data => {
             if (data === this.appellation) {
                 this.checked = !this.checked;
             }
-        });
+        };
+        this.$root.$on('appellationClicked', this.appellationClickedHandler);
+        
+        // EventBus Listeners - defined as properties for correct removal in beforeDestroy
+        this.onStartEditHandler = () => {
+            this.isEditMode = true;
+        };
+        EventBus.$on('startEdit', this.onStartEditHandler);
+        
+        this.onCancelEditHandler = () => {
+            this.isEditMode = false;
+            // Note: cancelEdit itself does not clear localStorage.
+            // It's for resetting button states. A full cancellation of an edit
+            // ESC or explicit cancel action should trigger 'resetEditState'.
+        };
+        EventBus.$on('cancelEdit', this.onCancelEditHandler);
+
+        this.onResetEditStateHandler = () => {
+            this.isEditMode = false;
+            localStorage.removeItem('editingAppellation');
+        };
+        EventBus.$on('resetEditState', this.onResetEditStateHandler);
+    },
+    beforeDestroy() {
+        if (this.appellationClickedHandler) {
+            this.$root.$off('appellationClicked', this.appellationClickedHandler);
+        }
+        // Clean up EventBus listeners using the stored handlers
+        if (this.onStartEditHandler) EventBus.$off('startEdit', this.onStartEditHandler);
+        if (this.onCancelEditHandler) EventBus.$off('cancelEdit', this.onCancelEditHandler);
+        if (this.onResetEditStateHandler) EventBus.$off('resetEditState', this.onResetEditStateHandler);
+        
     },
     watch: {
-        // Instead of removing from the array when unchecked,
-        // we just set `.selected = false`.
         checked(newVal) {
           if (!newVal) {
-            // Unselect it without removing from the array
             this.appellation.selected = false;
           } else {
-            // Mark it selected
             this.appellation.selected = true;
           }
-        }
-      },
+        },
+    },
     methods: {
         watchUncheckStore: function () {
-            store.watch(
-                (state) => {
-                    return store.getters.getDeselect
-                },
-                (val) => {
-                    if (val) {
-                        this.uncheckAll()
-                        this.canCheckAll = true;
-                    }
-                },
-            );
+            if (typeof store !== 'undefined' && store.watch) {
+                store.watch(
+                    (state) => { return store.getters.getDeselect; },
+                    (val) => { if (val) { this.uncheckAll(); /* this.canCheckAll = true; */ } }
+                );
+            }
         },
         watchCheckStore: function () {
-            store.watch(
-                (state) => {
-                    return store.getters.getSelect
-                },
-                (val) => {
-                    if (val) {
-                        this.checkAll()
-                    }
-                },
-            );
-        },
-
-        uncheckAll: function () {
-            this.checked = false;
-        },
-        checkAll: function () {
-            this.checked = true;
-        },
-        hide: function () {
-            this.$emit("hideappellation", this.appellation);
-        },
-        show: function () {
-            this.$emit("showappellation", this.appellation);
-        },
-        toggle: function () {
-            if (this.appellation.visible) {
-                this.hide();
-            } else {
-                this.show();
+            if (typeof store !== 'undefined' && store.watch) {
+                store.watch(
+                    (state) => { return store.getters.getSelect; },
+                    (val) => { if (val) { this.checkAll(); } }
+                );
             }
         },
-        isSelected: function () {
-            return this.appellation.selected;
+        uncheckAll: function () { this.checked = false; },
+        checkAll: function () { this.checked = true; },
+        hide: function () { this.$emit("hideappellation", this.appellation); },
+        show: function () { this.$emit("showappellation", this.appellation); },
+        toggle: function () {
+            if (this.appellation.visible) { this.hide(); } else { this.show(); }
         },
-        select: function () {
-            this.$emit('selectappellation', this.appellation);
-        },
+        isSelected: function () { return this.appellation.selected; },
+        select: function () { this.$emit('selectappellation', this.appellation); },
         label: function () {
-            if (this.appellation.interpretation) {
+            if (this.appellation && this.appellation.interpretation) {
                 return this.appellation.interpretation.label;
-            } else if (this.appellation.dateRepresentation) {
+            } else if (this.appellation && this.appellation.dateRepresentation) {
                 return this.appellation.dateRepresentation;
             }
+            return ''; 
         },
         getCreatorName: function (creator) {
-            if (creator.id == USER_ID) {
+            if (creator && typeof USER_ID !== 'undefined' && creator.id == USER_ID) {
                 return 'you';
-            } else {
+            } else if (creator && creator.username) {
                 return creator.username;
             }
+            return 'Unknown';
         },
         getFormattedDate: function (isodate) {
-            return moment(isodate).format('dddd LL [at] LT');
+                return moment(isodate).format('dddd LL [at] LT');
+        },
+
+        deleteAppellation: function() {
+            this.deleteError = null;
+            const deletedAppId = this.appellation.id; 
+
+            if (typeof Appellation === 'undefined' || !Appellation.delete) {
+                this.deleteError = "The annotation could not be deleted due to an unexpected application error. Please refresh and try again.";
+                return;
+            }
+
+            Appellation.delete({id: deletedAppId}).then(response => {
+                this.$emit('removeappellation', this.appellation); 
+
+                const editingAppData = localStorage.getItem('editingAppellation');
+                let isDeletingTheCurrentlyEditedItem = false;
+                if (editingAppData) {
+                    try {
+                        const editingApp = JSON.parse(editingAppData);
+                        // Check if the parsed data has an id and it matches the deleted item's id
+                        if (editingApp && typeof editingApp.id !== 'undefined' && editingApp.id === deletedAppId) {
+                            isDeletingTheCurrentlyEditedItem = true;
+                        }
+                    } catch (e) {
+                        // If localStorage data is corrupted, we should reset.
+                        isDeletingTheCurrentlyEditedItem = true; 
+                    }
+                }
+
+                if (isDeletingTheCurrentlyEditedItem) {
+                    // The item being deleted was the one actively being edited (or localStorage was corrupt).
+                    // Global reset is needed. The 'resetEditState' listener clears localStorage.
+                    EventBus.$emit('resetEditState');
+                } else {
+                    // An unrelated item was deleted OR localStorage was empty.
+                    // If an edit was ongoing for a *different* item, its 'isEditMode' should already be true.
+                    // Emitting 'cancelEdit' here ensures that if for some reason isEditMode was stuck true on
+                    // other items due to a previous state, they now reset their buttons.
+                    // This does NOT clear localStorage if an unrelated edit is active.
+                    EventBus.$emit('cancelEdit'); 
+                }
+            }).catch(error => {
+                if (error.status === 400) {
+                    this.deleteError = "This annotation is used in a relation and cannot be deleted.";
+                } else {
+                    this.deleteError = "An error occurred while trying to delete the annotation. Please try again.";
+                }
+            });
+        },
+
+        editAppellation() {
+            const currentAppId = this.appellation.id;
+            
+            let currentEditingAppIdInStorage = null;
+            const editingAppData = localStorage.getItem('editingAppellation');
+
+            if (editingAppData) {
+                try {
+                    const parsedData = JSON.parse(editingAppData);
+                    if (parsedData && typeof parsedData.id !== 'undefined') {
+                        currentEditingAppIdInStorage = parsedData.id;
+                    } else { 
+                        localStorage.removeItem('editingAppellation'); // Clear malformed data
+                    }
+                } catch (e) { 
+                    localStorage.removeItem('editingAppellation'); // Clear corrupted data
+                }
+            }
+
+            // Check 1: If another distinct item is currently marked as being edited in localStorage,
+            // prevent this new edit from starting and inform the user.
+            if (currentEditingAppIdInStorage && currentEditingAppIdInStorage !== currentAppId) {
+                EventBus.$emit('showMessage', {
+                    text: 'Another annotation (ID: ' + currentEditingAppIdInStorage + ') is currently being edited. Please complete or cancel that edit (e.g., with ESC).',
+                    type: 'warning',
+                    duration: 5000
+                });
+                return;
+            }
+
+            // Check 2: If this item's isEditMode flag is already true.
+            // This means a 'startEdit' event was likely received for this item.
+            if (this.isEditMode) {
+                // If it's already this item that's in localStorage, it's a re-click on an active edit.
+                if (currentEditingAppIdInStorage === currentAppId) {
+                     // This item is already the active edit target. Re-show the instruction.
+                     EventBus.$emit('showMessage', {
+                        text: 'Please select the new text position. Press ESC to cancel.',
+                        type: 'info'
+                    });
+                } else if (!currentEditingAppIdInStorage) {
+                     // isEditMode is true, but nothing in localStorage. This indicates an inconsistent state.
+                     // For example, startEdit was received, but localStorage was cleared externally (e.g. by ESC).
+                     // Allow this item to attempt to become the editor by falling through.
+                     // it will proceed to set localStorage.
+                } else {
+                    // This state should have been caught by Check 1. If reached, it's an anomaly.
+                    EventBus.$emit('showMessage', { text: 'Inconsistent edit state. Please try refreshing.', type: 'danger', duration: 3000 });
+                    return;
+                }
+                if (currentEditingAppIdInStorage === currentAppId) return;
+            }
+
+            // Set this item as the one being edited in localStorage.
+            localStorage.setItem('editingAppellation', JSON.stringify(this.appellation));
+            
+            if (this.appellation && typeof this.appellation.selected !== 'undefined') {
+                this.appellation.selected = false;
+            }
+            
+            EventBus.$emit('startEdit'); 
+            
+            EventBus.$emit('showMessage', {
+                text: 'Please select the new text position. Press ESC to cancel.',
+                type: 'info'
+            });
         }
-
     }
-}
-
+};
 
 AppellationList = {
     props: ['appellations', 'sidebar'],
@@ -168,9 +299,10 @@ AppellationList = {
 									v-on:hideappellation="hideAppellation"
 									v-on:showappellation="showAppellation"
 									v-on:selectappellation="selectAppellation"
-									v-on:removeAppellation="removeAppellation($event)"
-									v-on:addAppellation="addAppellation($event)"
+                                    v-on:addAppellation="addAppellation($event)"
+									v-on:removeappellation="removeAppellation"
 									v-for="(appellation, index) in current_appellations"
+                                    :key="appellation.id"
 									v-bind:appellation=appellation
 									v-if="appellation != null"
 									v-bind:index="index">
@@ -304,5 +436,33 @@ AppellationList = {
         selectAppellation: function (appellation) {
             this.$emit('selectappellation', appellation);
         },
-    }
+        removeAppellation: function(appellation) {
+            // Remove from current_appellations array
+            const index = this.current_appellations.indexOf(appellation);
+            if (index > -1) {
+                this.current_appellations.splice(index, 1);
+            }
+            // Emit to parent to remove from text display
+            this.$emit('removeappellation', appellation);
+        },
+        /*
+         * Updates an appellation in the current_appellations array
+         * @param updatedAppellation - The new appellation data to update with
+         * 
+         * This function:
+         * 1. Finds the appellation to update by matching IDs
+         * 2. Creates a new array to maintain reactivity
+         * 3. Replaces the old appellation with the updated one
+         * 4. Assigns the new array back to current_appellations
+         */
+        updateAppellation: function(updatedAppellation) {
+            const index = this.current_appellations.findIndex(a => a.id === updatedAppellation.id);
+            if (index !== -1) {
+                // Create a new array with the updated appellation
+                const newAppellations = [...this.current_appellations];
+                newAppellations[index] = updatedAppellation;
+                this.current_appellations = newAppellations;
+            }
+        }
+    },
 }

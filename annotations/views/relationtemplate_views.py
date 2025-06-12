@@ -139,7 +139,7 @@ def add_relationtemplate(request):
     return render(request, 'annotations/relationtemplate.html', context)
 
 
-@vogon_admin_or_staff_required
+@login_required
 def list_relationtemplate(request):
     r"""
     Returns a list of all :class:`.RelationTemplate`\s.

@@ -1229,6 +1229,8 @@ RelationCreator = {
                 self.sidebar = 'relations';
                 store.commit('resetCreateAppelltionsToText');
                 self.$emit('createdrelation', response.body);
+                // Reset edit state after relation creation to prevent stuck edit buttons
+                EventBus.$emit('resetEditState');
             }).catch(function (error) {
                 console.log('RelationTemplateResource:: failed miserably', error);
                 self.error = true;
@@ -1493,6 +1495,8 @@ Appellator = new Vue({
                 self.sidebarShown = false;
                 self.sidebar = 'relations';
                 store.commit('resetCreateAppelltionsToText');
+                // Reset edit state after relation creation to prevent stuck edit buttons
+                EventBus.$emit('resetEditState');
             }).catch(function (error) {
                 console.log('RelationTemplateResource:: failed miserably', error);
                 self.error = true;
@@ -1779,6 +1783,9 @@ Appellator = new Vue({
             this.dateappellations.forEach(function (appellation) {
                 appellation.selected = (dateappellation_ids.indexOf(appellation.id) > -1);
             });
+            
+            // Reset edit state when selecting a relation to prevent edit buttons from being stuck
+            EventBus.$emit('resetEditState');
         },
         updateRelations: function (callback) {
             self = this;
