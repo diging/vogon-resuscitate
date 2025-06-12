@@ -195,6 +195,7 @@ class RepositoryManager:
 
             files = []
             is_file_processing = False
+            unprocessed_files = False
             
             # Extract Giles upload file details if available
             giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
@@ -212,13 +213,17 @@ class RepositoryManager:
                     
                     # Check for uploaded files (original files including PDFs, etc.)
                     uploaded_file = giles_upload.get('uploadedFile', {})
-                    if uploaded_file:
+                    print(uploaded_file) # DEBUG
+                    # Files which have a DocumentStatus of FAILED shoe up as none in uploaded_file hence the check for None and the flag to report to frontend
+                    if uploaded_file and uploaded_file != None:
                         files.append({
                             'id': uploaded_file.get('id'),
                             'filename': uploaded_file.get('filename'),
                             'url': uploaded_file.get('url'),
                             'content_type': uploaded_file.get('content-type', 'application/octet-stream')
                         })
+                    else:
+                        unprocessed_files = True
                     
                     # Check if file processing is still in progress
                     upload_id = giles_upload.get("progressId")
@@ -229,7 +234,8 @@ class RepositoryManager:
 
             return {
                 "files": files,
-                "is_file_processing": is_file_processing
+                "is_file_processing": is_file_processing,
+                "unprocessed_files": unprocessed_files
             }
         else:
             logger.error(f"Failed to fetch item files: {response.status_code}")
