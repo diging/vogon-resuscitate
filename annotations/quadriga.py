@@ -1,15 +1,25 @@
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
-
-from annotations.models import Relation, Appellation, DateAppellation, DocumentPosition
-
+from django.utils import timezone
+import logging
+import json
+import urllib.request
+import lxml.etree as ET
+import requests
 import xml.etree.ElementTree as ET
 import datetime
 import re
-import uuid
-import requests
-from requests.auth import HTTPBasicAuth
 
+from rest_framework.response import Response
+from rest_framework import status
+
+from annotations.models import (
+    Relation, Appellation, DateAppellation, DocumentPosition, 
+    RelationTemplate, RelationTemplatePart, DefaultMapping
+)
+from external_accounts.models import CitesphereAccount
+
+logger = logging.getLogger(__name__)
 
 def _created_element(element, annotation):
     ET.SubElement(element, 'id')
@@ -245,26 +255,6 @@ def to_quadruples(relationsets, text, user, network_label=None,
     return project, params
 
 
-def submit_relationsets(relationsets, text, user,
-                        userid=settings.QUADRIGA_USERID,
-                        password=settings.QUADRIGA_PASSWORD,
-                        endpoint=settings.QUADRIGA_ENDPOINT, **kwargs):
-    r"""
-    Submit the :class:`.RelationSet`\s in ``relationsets`` to Quadriga.
-    """
-    payload, params = to_quadruples(relationsets, text, user, toString=True, **kwargs)
-    auth = HTTPBasicAuth(userid, password)
-    headers = {'Accept': 'application/xml'}
-    r = requests.post(endpoint, data=payload, auth=auth, headers=headers)
-
-    if r.status_code == requests.codes.ok:
-        response_data = parse_response(r.text)
-        response_data.update(params)
-        return True, response_data
-
-    return False, r.text
-
-
 def parse_response(raw_response):
     QDNS = '{http://www.digitalhps.org/Quadriga}'
     root = ET.fromstring(raw_response)
@@ -275,3 +265,326 @@ def parse_response(raw_response):
         tag = child.tag.replace(QDNS, '')
         data[tag] = child.text
     return data
+
+def build_concept_node(appellation, user, creation_time, source_uri):
+    """
+    Build a node dictionary for an appellation event.
+    Each appellation gets its own node even if it points to the same concept.
+    The node's termParts come only from the given appellation.
+
+    """
+    term_parts = []
+    pos = appellation.startPos
+    appellation_expression = appellation.stringRep if appellation.stringRep is not None else ""
+    term_parts.append({
+        "position": pos,
+        "expression": appellation_expression,
+        "normalization": "",
+        "formattedPointer": "",
+        "format": ""
+    })
+    
+    # concept's label for the interpretation.
+    interpretation_label = appellation.interpretation.label
+    
+    # concept's source URI
+    concept_source_uri = appellation.interpretation.uri
+
+    return {
+        "label": interpretation_label,
+        "metadata": {
+            "type": "appellation_event",
+            "interpretation": concept_source_uri,
+            "termParts": term_parts
+        },
+        "context": {
+            "creator": user.username,
+            "creationTime": creation_time.strftime('%Y-%m-%d'),
+            "creationPlace": settings.QUADRIGA_CREATION_PLACE,
+            # Get the URI from the Text model that this appellation occurs in:
+            # 1. appellation.occursIn -> Text model instance
+            # 2. Text.uri contains the full URI like "urn:repository:1:item:W2BW4HMG:file:FILENf0m6N7QEY46"
+            # 3. Split on ':' and take last part to get just the file ID "FILENf0m6N7QEY46"
+            # 4. Prepend QUADRIGA_GILES_TEXT_ENDPOINT to get full Giles text URL
+            "sourceUri": settings.QUADRIGA_GILES_TEXT_ENDPOINT + appellation.occursIn.uri.split(':')[-1] + "/content"
+        }
+    }
+
+def create_default_mapping(relationset, node_mapping):
+    """
+    Create the default mapping structure for a RelationSet based on its template structure.
+    
+    Args:
+        relationset: The RelationSet instance to create a mapping for
+        node_mapping: Dictionary mapping appellation/relation IDs to their node IDs
+    
+    Returns:
+        default_mapping: A dictionary containing subject, predicate, and object mappings
+    """
+    top_relation = relationset.root
+    # Get the template part from the relationset's template
+    template_part = relationset.template.template_parts.first()
+    
+    # Get the subject, predicate, and object nodes
+    subject_node = top_relation.source_content_object
+    predicate_node = top_relation.predicate
+    object_node = top_relation.object_content_object
+    
+    # Create keys for looking up node IDs
+    subj_key = f"rel-{subject_node.id}-{subject_node.created.isoformat()}" if subject_node and hasattr(subject_node, 'source_content_type_id') else f"app-{subject_node.id}-{subject_node.created.isoformat()}" if subject_node else None
+    obj_key = f"rel-{object_node.id}-{object_node.created.isoformat()}" if object_node and hasattr(object_node, 'source_content_type_id') else f"app-{object_node.id}-{object_node.created.isoformat()}" if object_node else None
+    
+    # Get the structured mapping (guaranteed to be present now)
+    default_mapping_instance = relationset.template.default_mapping
+    
+    # Build the defaultMapping structure using the default_mapping_instance
+    default_mapping = {}
+    
+    # Map source to subject based on default_mapping_instance.subject_type
+    if default_mapping_instance.subject_type == DefaultMapping.NODE:
+        default_mapping['subject'] = {
+            'type': 'REF',
+            'reference': node_mapping.get(subj_key, "0")
+        }
+    else:  # URI
+        default_mapping['subject'] = {
+            'type': 'URI',
+            'uri': default_mapping_instance.subject_value
+        }
+    
+    # Map predicate based on default_mapping_instance.predicate_type
+    if default_mapping_instance.predicate_type == DefaultMapping.NODE:
+        default_mapping['predicate'] = {
+            'type': 'REF',
+            'reference': node_mapping.get(f"app-{predicate_node.id}-{predicate_node.created.isoformat()}", "0")
+        }
+    else:  # URI
+        default_mapping['predicate'] = {
+            'type': 'URI',
+            'uri': default_mapping_instance.predicate_value
+        }
+    
+    # Map object based on default_mapping_instance.object_type
+    if default_mapping_instance.object_type == DefaultMapping.NODE:
+        default_mapping['object'] = {
+            'type': 'REF',
+            'reference': node_mapping.get(obj_key, "0")
+        }
+    else:  # URI
+        default_mapping['object'] = {
+            'type': 'URI',
+            'uri': default_mapping_instance.object_value
+        }
+    
+    return default_mapping
+
+
+def process_relationset(relationset, user):
+    """
+    Process a RelationSet by traversing its relations and appellations to create nodes and edges.
+    
+    Args:
+        relationset: The RelationSet instance to process
+        user: The user instance for context information
+    
+    Returns:
+        tuple: (nodes, edges, node_mapping) - dictionaries of nodes and edges, and a mapping of IDs to node IDs
+    """
+    nodes = {}
+    edges = []
+    node_counter = 0
+    node_mapping = {}  # This mapping tracks appellation/relation IDs to their node IDs
+    
+    def get_node_id():
+        nonlocal node_counter
+        node_id = str(node_counter)
+        node_counter += 1
+        return node_id
+    
+    # Recursive function to process relations
+    def process_relation(relation):
+        from django.contrib.contenttypes.models import ContentType
+        from annotations.models import Relation, Appellation
+        
+        appellation_type = ContentType.objects.get_for_model(Appellation)
+        relation_type = ContentType.objects.get_for_model(Relation)
+        
+        # Process source (subject)
+        source_node_id = None
+        if relation.source_content_type_id == relation_type.id:
+            # Source is another relation
+            source_relation = Relation.objects.get(pk=relation.source_object_id)
+            source_node_id = process_relation(source_relation)
+        elif relation.source_content_type_id == appellation_type.id:
+            # Source is an appellation
+            source_appellation = Appellation.objects.get(pk=relation.source_object_id)
+            source_node_id = process_appellation(source_appellation)
+        
+        # Process predicate
+        predicate_node_id = process_appellation(relation.predicate)
+        
+        # Process object
+        object_node_id = None
+        if relation.object_content_type_id == relation_type.id:
+            # Object is another relation
+            object_relation = Relation.objects.get(pk=relation.object_object_id)
+            object_node_id = process_relation(object_relation)
+        elif relation.object_content_type_id == appellation_type.id:
+            # Object is an appellation
+            object_appellation = Appellation.objects.get(pk=relation.object_object_id)
+            object_node_id = process_appellation(object_appellation)
+        
+        # Create relation node
+        relation_id = f"rel-{relation.id}-{relation.created.isoformat()}"
+        if relation_id not in node_mapping:
+            node_id = get_node_id()
+            node_mapping[relation_id] = node_id
+            
+            source_uri = settings.QUADRIGA_GILES_TEXT_ENDPOINT + relation.part_of.occursIn.uri.split(':')[-1] + "/content"
+            nodes[node_id] = get_relation_node(user, relation.created, source_uri)
+            
+            # Add edges
+            if source_node_id:
+                edges.append({
+                    "source": node_id,
+                    "relation": "subject",
+                    "target": source_node_id
+                })
+            
+            if predicate_node_id:
+                edges.append({
+                    "source": node_id,
+                    "relation": "predicate",
+                    "target": predicate_node_id
+                })
+            
+            if object_node_id:
+                edges.append({
+                    "source": node_id,
+                    "relation": "object",
+                    "target": object_node_id
+                })
+                
+        return node_mapping[relation_id]
+    
+    def process_appellation(appellation):
+        appellation_id = f"app-{appellation.id}-{appellation.created.isoformat()}"
+        if appellation_id not in node_mapping:
+            node_id = get_node_id()
+            node_mapping[appellation_id] = node_id
+            
+            # Get the source URI from the document or default to empty
+            source_uri = appellation.occursIn.uri if hasattr(appellation.occursIn, 'uri') else ""
+            
+            # Build the node
+            concept_node = build_concept_node(appellation, user, appellation.created, source_uri)
+            nodes[node_id] = concept_node
+            
+        return node_mapping[appellation_id]
+    
+    # Process the top-level relation
+    top_relation = relationset.root
+    process_relation(top_relation)
+    
+    return nodes, edges, node_mapping
+
+
+def create_graph_context(relationset, user):
+    """
+    Create the context metadata for a graph.
+    
+    Args:
+        relationset: The RelationSet instance 
+        user: The user instance
+        
+    Returns:
+        dict: Context metadata dictionary
+    """
+    return {
+        "creator": user.username,
+        "creationTime": relationset.occursIn.created.strftime('%Y-%m-%d'),
+        "creationPlace": settings.QUADRIGA_CREATION_PLACE,
+        "sourceUri": relationset.occursIn.uri if hasattr(relationset.occursIn, 'uri') else ""
+    }
+
+
+def generate_graph_data(relationset, user):
+    """
+    JSON-serializable graph structure with unique nodes for each
+    appellation event and separate relation event nodes.
+    
+    Processes nested relations recursively so that each event gets a unique node.
+    This function calls the updated build_concept_node so that:
+      - metadata.interpretation is the concept label, and
+      - context.sourceUri is the URL of the concept source.
+    """
+    # Process the relationset to generate nodes and edges
+    nodes, edges, node_mapping = process_relationset(relationset, user)
+    
+    # Create the default mapping
+    default_mapping = create_default_mapping(relationset, node_mapping)
+    
+    # Create the context metadata
+    context = create_graph_context(relationset, user)
+    
+    # Build and return the complete graph data structure
+    return {
+        "graph": {
+            "metadata": {
+                "defaultMapping": default_mapping,
+                "context": context
+            },
+            "nodes": nodes,
+            "edges": edges
+        }
+    }
+
+def get_relation_node(user, creation_time, source_uri):
+    """
+    Helper function to build a relation node.
+    """
+    return {
+        "label": "",
+        "metadata": {
+            "type": "relation_event"
+        },
+        "context": {
+            "creator": user.username,
+            "creationTime": creation_time.strftime('%Y-%m-%d'),
+            "creationPlace": "",
+            "sourceUri": source_uri
+        }
+    }
+
+
+def submit_to_quadriga(relationset, user, project):
+    """
+    Helper function to handle all Quadriga-related submission logic for a RelationSet.
+    
+    Raises:
+        CitesphereAccount.DoesNotExist: If the user does not have a Citesphere account.
+        requests.RequestException: If there is an error when making the request to Quadriga.
+    
+    Returns:
+        requests.Response: The response object returned by the Quadriga submission request.
+    """
+    citesphere_account = CitesphereAccount.objects.get(user=user, repository=relationset.occursIn.repository)
+    access_token = citesphere_account.access_token
+
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json',
+    }
+
+    collection_id = project.quadriga_id
+    endpoint = f"{settings.QUADRIGA_ENDPOINT}/api/v1/collection/{collection_id}/network/add"
+
+    graph_data = generate_graph_data(relationset, user)
+    response = requests.post(endpoint, json=graph_data, headers=headers)
+    response.raise_for_status()
+
+    # Update the status of the RelationSet
+    relationset.status = 'submitted'
+    relationset.submitted = True
+    relationset.submittedOn = timezone.now()
+    relationset.save()

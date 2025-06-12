@@ -50,15 +50,14 @@ by :mod:`annotations.views.relationtemplate_views` should be used to generate
 
 """
 
-
-import requests
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import render
 from django.http import Http404
 from annotations.tasks import tokenize
 from annotations.utils import basepath
 from annotations.models import TextCollection, VogonUserDefaultProject, Text
 from urllib.parse import urlparse
 import chardet
+from annotations import tei_utils
 
 
 class Annotator(object):
@@ -196,6 +195,92 @@ class PlainTextAnnotator(Annotator):
         return context
 
 
+class XMLAnnotator(Annotator):
+    """
+    Annotator for XML content, specifically handling TEI-XML.
+    Uses tei_utils for TEI-specific parsing and rendering.
+    
+    This class is responsible for:
+    1. Detecting whether content is TEI-XML
+    2. Processing TEI-XML with specialized tools to extract structure
+    3. Converting XML/TEI content into tokenized HTML for annotation
+    4. Providing TEI metadata and structure to templates
+    
+    """
+    template = 'annotations/vue.html'
+    display_template = 'annotations/annotation_display.html'
+    content_types = ('text/xml', 'text/xml+tei')
+
+    def get_content(self, resource):
+        """
+        Process XML resource using tei_utils if it's TEI-XML or return content as is.
+        
+        The method performs the following steps:
+        1. Detect if the content is TEI-XML, regular XML, or plain text
+        2. Uses specialized TEI processing
+        4. Convert and tokenize for annotation
+        
+        Parameters
+        ----------
+        resource : str
+            The raw XML or TEI-XML content
+            
+        Returns
+        -------
+        str
+            Tokenized content ready for annotation
+        """
+        if not resource:
+            return None
+            
+        content_info = tei_utils.detect_content_type(resource)
+        
+        if content_info['is_tei']:
+            self.tei_data = tei_utils.parse_tei_document(resource)
+            tokenized_content = tei_utils.tokenize_tei_content(self.tei_data['display_html'])
+            
+            return tokenized_content
+        else:
+            # Fallback as plain text
+            return resource
+
+    def get_context(self):
+        """
+        Override to provide context for XML/TEI content.
+        
+        Enhances the base context with TEI-specific information:
+        1. Metadata from TEI header (title, author, date, etc.)
+        2. Element mapping for linking annotations to source TEI
+        3. Facsimile data for any associated images
+        4. Custom CSS for TEI rendering
+        
+        Returns
+        -------
+        dict
+            Context dictionary for the template with TEI enhancements
+        """
+        # Get the base context from the parent class
+        context = super(XMLAnnotator, self).get_context()
+        
+        # Add TEI-specific context variables if we processed TEI content
+        if hasattr(self, 'tei_data'):
+            context.update({
+                # Metadata from TEI header (title, author, date, etc.)
+                'tei_metadata': self.tei_data.get('tei_metadata', {}),
+                
+                # Information about any facsimile/images referenced in the TEI
+                'facsimile_data': self.tei_data.get('facsimile_data', []),
+                
+                # Mapping between display positions and TEI elements (for annotation references)
+                'element_map': self.tei_data.get('element_map', []),
+                
+                # Flag to indicate this is TEI content (for template decisions)
+                'is_tei': True
+            })
+        
+        return context
+
+
 class DigiLibImageAnnotator(Annotator):
     """
     Provides bounding-box annotations for images.
@@ -235,6 +320,7 @@ class WebAnnotator(Annotator):
 
 
 ANNOTATORS = (
+    XMLAnnotator,      # XML/TEI handler should be checked first
     PlainTextAnnotator,
     DigiLibImageAnnotator,
     WebAnnotator

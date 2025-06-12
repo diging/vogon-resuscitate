@@ -808,12 +808,19 @@ class RelationSet(models.Model):
     occursIn = models.ForeignKey('Text', related_name='relationsets', on_delete=models.CASCADE)
     """The text on which this RelationSet is based."""
 
-    pending = models.BooleanField(default=False)
-    """
-    A :class:`.RelationSet` is pending if it has been selected for submission,
-    but the submission process has not yet completed. The primary purpose of
-    this field is to prevent duplicate submissions.
-    """
+    STATUS_NOT_READY = 'not_ready'
+    STATUS_READY_TO_SUBMIT = 'ready_to_submit'
+    STATUS_SUBMITTED = 'submitted'
+
+    STATUS_CHOICES = [
+        (STATUS_NOT_READY, 'Not Ready'),
+        (STATUS_READY_TO_SUBMIT, 'Ready to Submit'),
+        (STATUS_SUBMITTED, 'Submitted'),
+    ]
+
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_NOT_READY
+    )
 
     submitted = models.BooleanField(default=False)
     """
@@ -895,7 +902,9 @@ class RelationSet(models.Model):
 
         # Topological sort is supposed to be faster than calculating in-degree
         #  and searching for the 0-valued node.
-        return Relation.objects.get(pk=nx.topological_sort(dg)[0])
+        # return Relation.objects.get(pk=nx.topological_sort(dg)[0])
+        sorted_nodes = list(nx.topological_sort(dg))
+        return Relation.objects.get(pk=sorted_nodes[0])
 
     @property
     def label(self):
@@ -928,6 +937,14 @@ class RelationSet(models.Model):
         values = self.concepts().values_list('concept_state', 'merged_with')
         return all(map(criteria, values))
     ready.boolean = True    # So that we can display a nifty icon in changelist.
+
+    def update_status(self):
+        """
+        Check if the RelationSet is ready and update the status accordingly.
+        """
+        if self.ready() and self.status != self.STATUS_SUBMITTED:  # Check readiness based on the concepts
+            self.status = self.STATUS_READY_TO_SUBMIT
+            self.save()
 
     def appellations(self):
         r"""
@@ -1000,6 +1017,33 @@ class Relation(Annotation):
     """
 
 
+class DefaultMapping(models.Model):
+    """
+    Represents a structured default mapping configuration for a RelationTemplate.
+    
+    Each DefaultMapping defines the types and values for subject, predicate, and object
+    in a relation. This provides a more structured approach than storing as JSON.
+    """
+    NODE = 'Node'
+    URI = 'URI'
+    TYPE_CHOICES = [
+        (NODE, 'Node'),
+        (URI, 'URI')
+    ]
+    
+    subject_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    subject_value = models.CharField(max_length=255)
+    
+    predicate_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    predicate_value = models.CharField(max_length=255)
+    
+    object_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    object_value = models.CharField(max_length=255)
+    
+    def __str__(self):
+        return f"Mapping: {self.subject_type}/{self.predicate_type}/{self.object_type}"
+
+
 class RelationTemplate(models.Model):
     """
     Provides a template for complex relations, allowing the user to simply
@@ -1019,6 +1063,11 @@ class RelationTemplate(models.Model):
 
     expression = models.TextField(null=True)
     """Pattern for representing the relation in normal language."""
+
+    
+    default_mapping = models.ForeignKey(DefaultMapping, blank=True, null=True, 
+                                          on_delete=models.SET_NULL, related_name='templates')
+    """Structured representation of default mapping relationship configuration."""
 
     _terminal_nodes = models.TextField(blank=True, null=True)
     use_in_mass_assignment = models.BooleanField(default=False)
@@ -1142,15 +1191,17 @@ class DocumentPosition(models.Model):
     XPATH = 'XP'
     CHARACTER_OFFSET = 'CO'
     WHOLE_DOCUMENT = 'WD'
-    TYPES = [TOKEN_ID, BOUNDING_BOX, XPATH, CHARACTER_OFFSET, WHOLE_DOCUMENT]
+    TEI_XPATH = 'TXP'
+    TYPES = [TOKEN_ID, BOUNDING_BOX, XPATH, CHARACTER_OFFSET, WHOLE_DOCUMENT, TEI_XPATH]
     TYPE_CHOICES = (
         (TOKEN_ID, 'Token IDs'),
         (BOUNDING_BOX, 'Bounding box'),
         (XPATH, 'XPath'),
         (CHARACTER_OFFSET, 'Character offsets'),
-        (WHOLE_DOCUMENT, 'Whole document')
+        (WHOLE_DOCUMENT, 'Whole document'),
+        (TEI_XPATH, 'TEI XPointer')
     )
-    position_type = models.CharField(max_length=2, choices=TYPE_CHOICES)
+    position_type = models.CharField(max_length=3, choices=TYPE_CHOICES)
     """
     Used to control snippet rendering, and included in Quadriga accessions.
 
@@ -1161,6 +1212,7 @@ class DocumentPosition(models.Model):
     * ``XP`` - XPath
     * ``CO`` - Character offset.
     * ``WD`` - Whole document.
+    * ``TXP`` - TEI XPointer: XPath to element and character offsets within it.
     """
 
     position_value = models.TextField()
@@ -1170,3 +1222,5 @@ class DocumentPosition(models.Model):
     If :attr:`.position_type` is :attr:`.WHOLE_DOCUMENT`\, then this can be
     blank.
     """
+
+

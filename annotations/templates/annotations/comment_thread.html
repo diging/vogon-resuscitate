@@ -1,0 +1,81 @@
+<div class="comment">
+    <div class="comment-header">
+        <strong>{{ comment.created_by.username }}</strong>
+        <small class="text-muted">{{ comment.created_at|date:"F j, Y, g:i a" }}</small>
+    </div>
+    <div class="comment-body">
+        <div class="comment-text" id="comment-text-{{ comment.id }}">{{ comment.text }}</div>
+        <div class="comment-edit-form" id="comment-edit-form-{{ comment.id }}" style="display: none;">
+            <form method="POST" action="{% url 'edit_comment' comment.id %}" class="edit-comment-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <textarea 
+                        class="form-control" 
+                        name="comment_text" 
+                        id="comment-textarea-{{ comment.id }}" 
+                        rows="3" 
+                        required
+                    >{{ comment.text }}</textarea>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                    <button type="button" class="btn btn-sm btn-default cancel-edit" data-comment-id="{{ comment.id }}">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="comment-actions">
+        <button class="btn btn-sm btn-link reply-button" data-comment-id="{{ comment.id }}">Reply</button>
+        {% if user == comment.created_by %}
+        <button class="btn btn-sm btn-link edit-button" data-comment-id="{{ comment.id }}">
+            <span class="glyphicon glyphicon-edit"></span> Edit
+        </button>
+        <button class="btn btn-sm btn-link delete-button" data-toggle="modal" data-target="#deleteModal{{ comment.id }}">
+            <span class="glyphicon glyphicon-trash"></span> Delete
+        </button>
+        {% endif %}
+    </div>
+    <div class="reply-form" id="reply-form-{{ comment.id }}" style="display: none;">
+        <form method="post" action="{% url 'add_comment_reply' comment.id %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <textarea name="reply_text" class="form-control" rows="2" placeholder="Write a reply..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">Reply</button>
+        </form>
+    </div>
+    {% if comment.replies.all %}
+    <div class="comment-replies">
+        {% for reply in comment.replies.all %}
+        <div class="comment-reply">
+            {% include "annotations/comment_thread.html" with comment=reply %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+{% if user == comment.created_by %}
+<div class="modal fade" id="deleteModal{{ comment.id }}" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel{{ comment.id }}" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel{{ comment.id }}">Delete Comment</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this comment?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <form method="POST" action="{% url 'delete_comment' comment.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %} 

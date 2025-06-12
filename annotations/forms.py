@@ -4,8 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from django import forms
 from django.forms import widgets, BaseFormSet
-from django.db.models import Count
-from django.db.utils import ProgrammingError
+
 from django.conf import settings
 
 from django.contrib.auth.admin import UserAdmin
@@ -16,8 +15,10 @@ from django.utils.html import format_html
 from django.forms.utils import flatatt
 from django.utils.encoding import force_str
 import networkx as nx
-import requests, json
 from concepts.conceptpower import Conceptpower
+from concepts.models import Concept, Type
+import re
+from string import Formatter
 
 class RegistrationForm(forms.Form):
     """
@@ -225,6 +226,13 @@ class ChoiceIntegerField(forms.IntegerField):
 
 # TODO: widget details (e.g. CSS classes) should be in the template.
 class RelationTemplateForm(forms.ModelForm):
+    # Field to handle the DefaultMapping for this RelationTemplate
+    default_mapping = forms.ModelChoiceField(
+        queryset=DefaultMapping.objects.none(),  # Empty queryset by default, will be set in __init__
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'id_default_mapping'})
+    )
+    
     name = forms.CharField(widget=forms.TextInput(attrs={
             'class': 'form-control input-sm',
             'placeholder': 'What is this relation called?'
@@ -246,12 +254,48 @@ class RelationTemplateForm(forms.ModelForm):
                            " of the second part, or {2p} for the predicate of"
                            " the third part."
         }))
-    terminal_nodes = forms.CharField(widget=forms.TextInput(attrs={
+    terminal_nodes = forms.CharField(required=True, widget=forms.TextInput(attrs={
             'class': 'form-control input-sm',
             'rows': 2,
             'placeholder': "Enter comma-separated node identifiers. E.g."
                            " ``0s,1o``."
         }))
+    
+    # This is not directly a part of the RelationTemplate, this is used to populate DefaultMapping model which is connect through default_mapping field using a ForeignKey
+    first_node_type = forms.ChoiceField(required=True, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
+            'class': 'form-control input-sm node-type-dropdown',
+            'id': 'first_node_type'
+        }))
+    first_node_value = forms.CharField(required=True, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm',
+            'id': 'first_node_value',
+            'placeholder': 'Enter value'
+        }))
+    second_node_type = forms.ChoiceField(required=True, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
+            'class': 'form-control input-sm node-type-dropdown',
+            'id': 'second_node_type'
+        }))
+    second_node_value = forms.CharField(required=True, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm',
+            'id': 'second_node_value',
+            'placeholder': 'Enter value'
+        }))
+    third_node_type = forms.ChoiceField(required=True, choices=[('Node', 'Node'), ('URI', 'URI')], widget=forms.Select(attrs={
+            'class': 'form-control input-sm node-type-dropdown',
+            'id': 'third_node_type'
+        }))
+    third_node_value = forms.CharField(required=True, widget=forms.TextInput(attrs={
+            'class': 'form-control input-sm',
+            'id': 'third_node_value',
+            'placeholder': 'Enter value'
+        }))
+    
+    class Meta:
+        model = RelationTemplate
+        fields = ['name', 'description', 'expression', 'terminal_nodes', 'default_mapping',
+                 'first_node_type', 'first_node_value', 
+                 'second_node_type', 'second_node_value', 
+                 'third_node_type', 'third_node_value']
     
     def clean_expression(self):
         from string import Formatter
@@ -264,22 +308,141 @@ class RelationTemplateForm(forms.ModelForm):
 
     def clean_terminal_nodes(self):
         value = self.cleaned_data.get('terminal_nodes')
+        if not value:
+            raise ValidationError('Terminal nodes are required')
+        
         try:
-            for u, v in map(tuple, value.split(',')):
-                pass
+            # Parse terminal nodes - validate the format
+            terminal_nodes = [node.strip() for node in value.split(',') if node.strip()]
+            
+            # Check each node has the right format (e.g., "0s", "1o")
+            for node in terminal_nodes:
+                if not re.match(r'^\d+[spo]$', node):
+                    raise ValidationError(f"Invalid node format: {node}. Should be a number followed by 's', 'p', or 'o'.")
+                
+        except ValidationError:
+            raise
         except Exception as E:
-            raise ValidationError('Invalid terminal nodes')
+            raise ValidationError('Invalid terminal nodes format')
+            
         return value
     
-    class Meta:
-        model = RelationTemplate
-        exclude = ['createdBy']
+    def validate_node_uri_field(self, node_type, node_value, field_name):
+        """Helper method to validate node/uri field pairs"""
+        if node_type == 'Node':
+            # If type is NODE, value must match pattern Number[spo]
+            if not re.match(r'^\d+[spo]$', node_value):
+                self.add_error(field_name, "Node reference must be in format: Number followed by 's', 'p', or 'o'")
+                return False
+        elif node_type == 'URI':
+            # If type is URI, value must start with http:// or https://
+            if not node_value.startswith(('http://', 'https://')):
+                self.add_error(field_name, "URI must start with 'http://' or 'https://'")
+                return False
+        return True
+    
+    def clean(self):
+        """
+        Validate the structure of the form data.
+        """
+        cleaned_data = super(RelationTemplateForm, self).clean()
+        
+        # validate the individual fields if they exist
+        expression = cleaned_data.get('expression')
+        if expression:
+            try:
+                # check that the expression has valid placeholder format
+                for _, field, _, _ in Formatter().parse(expression):
+                    if field and not re.match(r'^\d+[spo]$', field):
+                        self.add_error('expression', f"Invalid placeholder format: {{{field}}}. Should be a number followed by 's', 'p', or 'o'.")
+            except Exception as e:
+                self.add_error('expression', "Invalid expression format")
+        
+        # Validate Node/URI field pairs
+        first_node_type = cleaned_data.get('first_node_type')
+        first_node_value = cleaned_data.get('first_node_value')
+        if first_node_type and first_node_value:
+            self.validate_node_uri_field(first_node_type, first_node_value, 'first_node_value')
+            
+        second_node_type = cleaned_data.get('second_node_type')
+        second_node_value = cleaned_data.get('second_node_value')
+        if second_node_type and second_node_value:
+            self.validate_node_uri_field(second_node_type, second_node_value, 'second_node_value')
+            
+        third_node_type = cleaned_data.get('third_node_type')
+        third_node_value = cleaned_data.get('third_node_value')
+        if third_node_type and third_node_value:
+            self.validate_node_uri_field(third_node_type, third_node_value, 'third_node_value')
+        
+        return cleaned_data
 
     def __init__(self, *args, **kwargs):
         super(RelationTemplateForm, self).__init__(*args, **kwargs)
-        # Set the initial value of 'terminal_nodes' field from the instance's current value for editing form
-        if self.instance and hasattr(self.instance, 'terminal_nodes'):
-            self.fields['terminal_nodes'].initial = self.instance.terminal_nodes
+        
+        # If we're editing an existing instance with a default_mapping
+        if self.instance and self.instance.pk and self.instance.default_mapping:
+            # Set the queryset to include only the current default_mapping
+            # This avoids loading all mappings, but ensures the current one is available
+            self.fields['default_mapping'].queryset = DefaultMapping.objects.filter(
+                id=self.instance.default_mapping.id
+            )
+            
+            # Set the default_mapping field
+            self.initial['default_mapping'] = self.instance.default_mapping
+            
+            # Populate the relation node fields from the default mapping
+            mapping = self.instance.default_mapping
+            self.initial['first_node_type'] = mapping.subject_type
+            self.initial['first_node_value'] = mapping.subject_value
+            self.initial['second_node_type'] = mapping.predicate_type
+            self.initial['second_node_value'] = mapping.predicate_value
+            self.initial['third_node_type'] = mapping.object_type
+            self.initial['third_node_value'] = mapping.object_value
+
+    def save(self, commit=True):
+        # Call parent's save method but don't commit to database yet
+        instance = super(RelationTemplateForm, self).save(commit=False)
+        
+        # Make sure terminal_nodes is saved
+        if 'terminal_nodes' in self.cleaned_data:
+            instance.terminal_nodes = self.cleaned_data['terminal_nodes']
+        
+        # Extract node configuration values from the form data
+        first_node_type = self.cleaned_data.get('first_node_type')    # Subject type (Node or URI)
+        first_node_value = self.cleaned_data.get('first_node_value')  # Subject value
+        second_node_type = self.cleaned_data.get('second_node_type')  # Predicate type (Node or URI) 
+        second_node_value = self.cleaned_data.get('second_node_value')# Predicate value
+        third_node_type = self.cleaned_data.get('third_node_type')    # Object type (Node or URI)
+        third_node_value = self.cleaned_data.get('third_node_value')  # Object value
+        
+        # DefaultMapping stores the structured representation of the relation
+        if instance.default_mapping:
+            # Always update the existing mapping when editing a template
+            mapping = instance.default_mapping
+            mapping.subject_type = first_node_type
+            mapping.subject_value = first_node_value
+            mapping.predicate_type = second_node_type
+            mapping.predicate_value = second_node_value
+            mapping.object_type = third_node_type
+            mapping.object_value = third_node_value
+            mapping.save()
+        else:
+            # If no mapping exists, create a new DefaultMapping
+            mapping = DefaultMapping.objects.create(
+                subject_type=first_node_type,
+                subject_value=first_node_value,
+                predicate_type=second_node_type,
+                predicate_value=second_node_value,
+                object_type=third_node_type,
+                object_value=third_node_value
+            )
+            # Link the new mapping to the template
+            instance.default_mapping = mapping
+        
+        if commit:
+            instance.save()
+        
+        return instance
 
 
 class UberCheckboxInput(forms.CheckboxInput):
