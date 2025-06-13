@@ -21,6 +21,10 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
             fileListDiv.innerHTML = '<div class="alert alert-info">Files are still being processed in Giles. Please check back later.</div>';
             return;
         }
+        else if (data.unprocessed_files) {
+            fileListDiv.innerHTML = '<div class="alert alert-warning">Some files were not processed successfully. Please try again later.</div>';
+            return;
+        }
 
         if (data.files && data.files.length > 0) {
             let fileListHtml = '<ul style="list-style-type: none; padding: 0;">';
@@ -38,6 +42,7 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
             fileListHtml += '</ul>';
             fileListDiv.innerHTML = fileListHtml;
         }
+
     })
     .catch(error => {
         console.error('Error fetching files:', error);

@@ -195,26 +195,47 @@ class RepositoryManager:
 
             files = []
             is_file_processing = False
+            unprocessed_files = False
             
             # Extract Giles upload file details if available
             giles_uploads = item_data.get('item', {}).get('gilesUploads', [])
             if giles_uploads:
                 for giles_upload in giles_uploads:
+                    # Check for extracted text files
                     extracted_text = giles_upload.get('extractedText', {})
-                    if extracted_text and extracted_text.get('content-type') == 'text/plain':
+                    if extracted_text:
                         files.append({
                             'id': extracted_text.get('id'),
                             'filename': extracted_text.get('filename'),
-                            'url': extracted_text.get('url')
+                            'url': extracted_text.get('url'),
+                            'content_type': extracted_text.get('content-type', 'text/plain')
+                        })
+                    
+                    # Check for uploaded files that include all file types
+                    uploaded_file = giles_upload.get('uploadedFile', {})
+                    # Files which have a DocumentStatus of FAILED have a value of None for uploaded_file hence the check for None
+                    if uploaded_file and uploaded_file != None:
+                        files.append({
+                            'id': uploaded_file.get('id'),
+                            'filename': uploaded_file.get('filename'),
+                            'url': uploaded_file.get('url'),
+                            # Default content type for binary files when specific type not provided is application/octet-stream
+                            'content_type': uploaded_file.get('content-type', 'application/octet-stream')
                         })
                     else:
-                        upload_id = giles_upload.get("progressId")
-                        if upload_id:
-                            is_file_processing = True
+                        unprocessed_files = True
+                    
+                    # Check if file processing is still in progress
+                    upload_id = giles_upload.get("progressId")
+                    if upload_id:
+                        # Check if file processing is complete using GilesAPI
+                        giles_api = GilesAPI(self.user, self.repository)
+                        is_file_processing = giles_api.giles_is_file_processing(upload_id)
 
             return {
                 "files": files,
-                "is_file_processing": is_file_processing
+                "is_file_processing": is_file_processing,
+                "unprocessed_files": unprocessed_files
             }
         else:
             logger.error(f"Failed to fetch item files: {response.status_code}")
@@ -222,18 +243,20 @@ class RepositoryManager:
 
     def item(self, groupId, itemId, fileId, repository):
         """
-        Fetch individual item details from the repository and extract Giles document text.
+        Fetch individual item details from the repository and extract Giles document content.
 
         Args:
             group_id: The group ID from which the item is fetched.
             item_id: The item ID to fetch.
+            file_id: The file ID to retrieve content for.
+            repository: The repository instance.
 
         Returns:
-            A dictionary containing item details and Giles document text.
+            A dictionary containing item details and file content.
             
         Raises:
             GilesUploadError: When there's an issue with Giles uploads
-            GilesTextExtractionError: When text content cannot be extracted
+            GilesTextExtractionError: When content cannot be extracted
             CitesphereAPIError: When API request fails or returns invalid data
         """
         # Fetch item details using CitesphereAPIv1
@@ -254,27 +277,38 @@ class RepositoryManager:
             'url': item.get('url')
         }
 
-        # Extract Giles uploads and their text if available
+        # Extract file content from Giles
         try:
             giles = GilesAPI(self.user, repository)
-            text = giles.get_file_content(fileId)
-            if text is None:
+            content = giles.get_file_content(fileId)
+            
+            if content is None:
                 error_trace = traceback.format_exc()
-                logger.error(f"Failed to retrieve text content from Giles for file ID: {fileId}\n{error_trace}")
-                raise GilesTextExtractionError("Failed to retrieve text content from Giles, the file does not exist.")
+                logger.error(f"Failed to retrieve content from Giles for file ID: {fileId}\n{error_trace}")
+                raise GilesTextExtractionError("Failed to retrieve content from Giles, the file does not exist.")
+            
+            # Always treat content as text for annotation purposes
+            if isinstance(content, str):
+                # Text content
+                item_data['item']['text'] = content
+                item_data['item']['content_type'] = 'text/plain'
+            else:
+                text_content = content.decode('utf-8')
+                item_data['item']['text'] = text_content
+                item_data['item']['content_type'] = 'text/plain'
+                
         except requests.RequestException as e:
             error_trace = traceback.format_exc()
             logger.error(f"Error accessing Giles API: {str(e)}\n{error_trace}")
             raise GilesUploadError(f"Error accessing Giles API: {str(e)}")
         except ValueError as e:
             error_trace = traceback.format_exc()
-            logger.error(f"Authentication error with Giles: {str(e)}\n{error_trace}")
-            raise GilesUploadError(f"Authentication error with Giles: {str(e)}")
+            logger.error("The file format is not supported for text extraction. Please ensure the file contains readable text content.")
+            raise GilesTextExtractionError(f"Content decoding error: {str(e)}")
         except Exception as e:
             error_trace = traceback.format_exc()
             logger.error(f"Unexpected error retrieving Giles document: {str(e)}\n{error_trace}")
             raise GilesTextExtractionError(f"Unexpected error retrieving Giles document: {str(e)}")
 
-        item_data['item']['text'] = text
         item_data['item']['details'] = item_details
         return item_data
