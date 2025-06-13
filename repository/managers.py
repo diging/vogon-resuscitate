@@ -211,15 +211,15 @@ class RepositoryManager:
                             'content_type': extracted_text.get('content-type', 'text/plain')
                         })
                     
-                    # Check for uploaded files (original files including PDFs, etc.)
+                    # Check for uploaded files that include all file types
                     uploaded_file = giles_upload.get('uploadedFile', {})
-                    print(uploaded_file) # DEBUG
-                    # Files which have a DocumentStatus of FAILED shoe up as none in uploaded_file hence the check for None and the flag to report to frontend
+                    # Files which have a DocumentStatus of FAILED have a value of None for uploaded_file hence the check for None
                     if uploaded_file and uploaded_file != None:
                         files.append({
                             'id': uploaded_file.get('id'),
                             'filename': uploaded_file.get('filename'),
                             'url': uploaded_file.get('url'),
+                            # Default content type for binary files when specific type not provided is application/octet-stream
                             'content_type': uploaded_file.get('content-type', 'application/octet-stream')
                         })
                     else:
@@ -303,8 +303,8 @@ class RepositoryManager:
             raise GilesUploadError(f"Error accessing Giles API: {str(e)}")
         except ValueError as e:
             error_trace = traceback.format_exc()
-            logger.error(f"Authentication error with Giles: {str(e)}\n{error_trace}")
-            raise GilesUploadError(f"Authentication error with Giles: {str(e)}")
+            logger.error("The file format is not supported for text extraction. Please ensure the file contains readable text content.")
+            raise GilesTextExtractionError(f"Content decoding error: {str(e)}")
         except Exception as e:
             error_trace = traceback.format_exc()
             logger.error(f"Unexpected error retrieving Giles document: {str(e)}\n{error_trace}")
