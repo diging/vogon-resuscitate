@@ -201,13 +201,14 @@ class RepositoryManager:
             if giles_uploads:
                 for giles_upload in giles_uploads:
                     extracted_text = giles_upload.get('extractedText', {})
+                    uploaded_file = giles_upload.get('uploadedFile', {})
                     if extracted_text and extracted_text.get('content-type') == 'text/plain':
                         files.append({
                             'id': extracted_text.get('id'),
                             'filename': extracted_text.get('filename'),
                             'url': extracted_text.get('url')
                         })
-                    elif giles_upload.get('uploadedFile', {}).get('content-type') == 'application/xml':
+                    elif uploaded_file and uploaded_file.get('content-type') == 'application/xml':
                         uploaded_file = giles_upload.get('uploadedFile', {})
                         files.append({
                             'id': uploaded_file.get('id'),

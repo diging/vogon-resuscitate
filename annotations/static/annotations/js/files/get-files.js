@@ -16,14 +16,10 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
     })
     .then(response => response.json())
     .then(data => {
-
-        if (data.is_file_processing) {
-            fileListDiv.innerHTML = '<div class="alert alert-info">Files are still being processed in Giles. Please check back later.</div>';
-            return;
-        }
+        let fileListHtml = '';
 
         if (data.files && data.files.length > 0) {
-            let fileListHtml = '<ul style="list-style-type: none; padding: 0;">';
+            fileListHtml += '<ul style="list-style-type: none; padding: 0;">';
             data.files.forEach(file => {
                 fileListHtml += `
                 <li style="display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 5px; border: 1px solid #ddd; border-radius: 4px;">
@@ -36,8 +32,19 @@ function fetchFiles(itemKey, repositoryId, groupId, csrfToken) {
                 </li>`;
             });
             fileListHtml += '</ul>';
-            fileListDiv.innerHTML = fileListHtml;
         }
+
+        if (data.is_file_processing) {
+            if (data.files && data.files.length > 0) {
+                fileListHtml += '<div class="alert alert-info" style="margin-top: 10px;">Some files are still being processed in Giles. Please check back later for additional files.</div>';
+            } else {
+                fileListHtml = '<div class="alert alert-info">Files are still being processed in Giles. Please check back later.</div>';
+            }
+        } else if (!data.files || data.files.length === 0) {
+            fileListHtml = '<div class="alert alert-warning">No files are available for import.</div>';
+        }
+
+        fileListDiv.innerHTML = fileListHtml;
     })
     .catch(error => {
         console.error('Error fetching files:', error);
